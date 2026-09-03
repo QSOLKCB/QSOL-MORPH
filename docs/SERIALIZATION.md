@@ -9,7 +9,7 @@ The representation may change. The meaning must not.
 Possible forms include:
 
 ```text
-.qsl      human-oriented QSOL source
+.qsl      human-oriented QSOL source, deferred until grammar freeze
 .qdeck    canonical deck representation
 .jsonl    streaming record interchange
 .json     structured interchange
@@ -20,6 +20,8 @@ Possible forms include:
 A MIDI 2.0 representation, if added, belongs to an explicit extension profile rather than the core serialization model.
 
 File extensions are provisional until frozen by specification.
+
+The initial canonical-serialization implementation phase must **not** invent the `.qsl` grammar. Human-oriented QSOL source requires a separate normative grammar/profile plus a frozen source-to-Semantic-IR mapping before a parser or lossless text serializer is implemented. Until then, `.qsl` examples in this repository are illustrative architecture sketches only.
 
 ## Canonical semantic object
 
@@ -37,6 +39,7 @@ OPERANDS
 VALUES
 TYPES
 UNITS
+QUALIFIERS
 SEMANTIC_CLASS
 EFFECTS
 REQUIRED_CAPABILITIES
@@ -52,9 +55,11 @@ SOURCE_IDENTITY / LOCATIONS
 SCHEMA / SPECIFICATION VERSION
 ```
 
+`QUALIFIERS` includes canonical CARD modifiers that affect execution or lowering, such as explicit target-selection, adapter, tuning, or extension-control qualifiers. Lossless formats must retain them exactly according to the frozen canonical model.
+
 A serializer must not invent meaning that does not exist in the semantic model, and a lossless serializer must not discard enforcement fields that determine whether or how a program may execute.
 
-In particular, round-tripping a DECK must not silently lose permissions, determinism requirements, numeric tolerances, randomness requirements, extension identities, or sequencing constraints.
+In particular, round-tripping a DECK must not silently lose qualifiers, permissions, determinism requirements, numeric tolerances, randomness requirements, extension identities, target/control modifiers, or sequencing constraints.
 
 ## Human form
 
@@ -71,7 +76,9 @@ LOCK RESULT
 
 The human form should optimize readability and semantic regularity.
 
-Human-readable shorthand may omit fields only when the parser can reconstruct them unambiguously from the active frozen specification. Canonical serialization must retain the resolved semantic values.
+This syntax is **not** an implementation target for the initial canonical-serialization phase. A future normative QSOL text-profile specification must freeze lexical/grammar rules, shorthand/default reconstruction, source-to-Semantic-IR mapping, diagnostics, and canonical text rendering before `.qsl` parsing/serialization is implemented.
+
+Human-readable shorthand may omit fields only when the parser can reconstruct them unambiguously from that active frozen text-profile specification. Canonical serialization must retain the resolved semantic values.
 
 ## JSONL form
 
@@ -108,6 +115,7 @@ If used for hashing, canonical JSON requires strict rules for:
 - escaping;
 - omitted versus null fields;
 - map ordering;
+- canonical qualifier maps;
 - canonical contract identifiers;
 - deterministic representation of unordered capability/extension sets.
 
@@ -126,7 +134,7 @@ Illustrative card:
 </card>
 ```
 
-This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical enforcement field and scoped JOB/DECK contract.
+This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including qualifiers, enforcement fields, and scoped JOB/DECK contracts.
 
 XML is an interchange profile, not the preferred human authoring syntax.
 
@@ -134,7 +142,7 @@ XML is an interchange profile, not the preferred human authoring syntax.
 
 A binary representation may eventually improve startup time, storage efficiency, or direct runtime loading.
 
-A binary form should include enough schema, specification, extension, and contract identity to avoid interpreting bytes under the wrong semantic or authorization model.
+A binary form should include enough schema, specification, extension, qualifier, and contract identity to avoid interpreting bytes under the wrong semantic, target-control, or authorization model.
 
 ## Round-trip requirement
 
@@ -150,7 +158,7 @@ semantic object'
 semantic object == semantic object'
 ```
 
-Equality here includes execution-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any required capability, determinism, numeric, randomness, extension/version, dependency, effect-order, or failure-order contract.
+Equality here includes execution-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any qualifier, required capability, determinism, numeric, randomness, extension/version, dependency, effect-order, or failure-order contract.
 
 Formatting metadata need not round-trip unless explicitly included in the representation contract.
 
@@ -160,7 +168,7 @@ Hashes should be computed over a defined canonical representation or semantic ca
 
 Do not hash incidental whitespace and then call the digest a semantic identity unless source-text identity is specifically the object being bound.
 
-Contract and extension identities that affect execution must contribute to semantic identity according to the frozen canonicalization rules.
+Qualifiers, contract identities, and extension identities that affect execution must contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Versioning
 
@@ -181,12 +189,13 @@ A migration tool should ideally report changed cards/fields and distinguish:
 
 - pure representation updates;
 - semantic changes requiring human review;
+- qualifier/target-control changes;
 - permission/capability changes;
 - determinism/numeric/randomness contract changes;
 - extension-version changes.
 
-A migration must not silently manufacture a new execution authorization or weaker scientific contract merely to make an old deck parse.
+A migration must not silently manufacture a new execution authorization, target-control qualifier, or weaker scientific contract merely to make an old deck parse.
 
 ## Principle
 
-> One meaning, many transports. Round-trip the contract, canonicalize before you hash, and version before you freeze.
+> One meaning, many transports. Freeze source grammar before implementing it, round-trip every semantic field, canonicalize before you hash, and version before you freeze.
