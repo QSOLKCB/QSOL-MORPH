@@ -15,7 +15,8 @@ The Semantic IR should preserve information that ordinary compiler IRs often dis
 - capability requirements;
 - dependencies;
 - source provenance;
-- determinism requirements;
+- result-determinism requirements;
+- numeric-contract requirements;
 - randomness/reproducibility requirements;
 - extension-profile membership.
 
@@ -47,6 +48,7 @@ Card {
     effects[]
     capabilities[]
     result_determinism?
+    numeric_contract?
     randomness_contract?
     dependencies[]
     source_location
@@ -54,6 +56,8 @@ Card {
 ```
 
 These enforcement fields belong in the canonical semantic input. They must not be invented only after a backend has already chosen machinery.
+
+A `NUMERIC` result-determinism request is incomplete without the numeric contract that defines the permitted tolerance, error metric, domain, precision rules, or other legal variation. The canonical model therefore needs to bind that contract before executable phases begin.
 
 ## Stable identity
 
@@ -183,6 +187,19 @@ Source order and dependency order are not interchangeable for effects. The candi
 
 Independent pure cards may be scheduled according to dependencies. A future explicit parallel/commutative-effects construct may relax effect ordering only if the frozen specification defines its legality and observability rules.
 
+## Failure boundary
+
+Execution failure is part of semantics, not an implementation accident.
+
+The Semantic IR need not encode operating-system-specific error numbers in the core schema, but it must preserve enough information for lower layers to apply one frozen failure model. In particular:
+
+- failed evaluation must not manufacture an ordinary result value;
+- pure operations must not leave committed semantic state after failure;
+- effectful operations must preserve source effect order and expose whether an effect was not started, completed, partial, or of unknown completion state;
+- later backends must not choose incompatible trap/continue/rollback behavior for the same semantic program.
+
+Explicit recovery syntax, if introduced later, belongs in the semantic model rather than being an implicit backend policy.
+
 ## Canonical form
 
 The semantic model should support a deterministic canonical representation.
@@ -196,7 +213,8 @@ Canonicalization may include:
 - deterministic ordering for unordered metadata;
 - explicit schema/specification version;
 - deterministic escaping and encoding;
-- deterministic derivation of effect-order constraints.
+- deterministic derivation of effect-order constraints;
+- canonical identity for numeric/reproducibility contracts.
 
 This enables stable hashing and reproducible comparison.
 
@@ -274,7 +292,7 @@ Conceptual semantic structure:
   depends_on: [@013]
 ```
 
-A lower backend may manipulate raw numeric values, but the trace system should still be able to relate those values to the semantic cards that produced them.
+A lower backend may manipulate raw numeric values, but the trace system should still be able to relate those values to the semantic cards and contracts that produced them.
 
 ## What the IR must not become
 
