@@ -28,6 +28,8 @@ QSOL-CORE implementation must not precede its normative operational specificatio
 
 Semantic IR → QSOL-CORE lowering must not be invented inside a backend. Its normative lowering specification and reference implementation must exist before MORPH code-generation backends are treated as end-to-end conforming.
 
+The mandatory Vector/Dataflow IR stage must preserve the complete supported QSOL-CORE surface. It is not permission to bypass control, calls, effects, scalar operations, capabilities, or contracts merely because they are not vectorizable.
+
 ## Semantic rules for agents
 
 When proposing changes:
@@ -43,11 +45,14 @@ When proposing changes:
 9. do not silently weaken CARD, DECK, or JOB failure behavior;
 10. require successful capability authorization before every protected external effect begins;
 11. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
-12. preserve all canonical enforcement fields across any serialization claiming semantic losslessness;
-13. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
-14. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
-15. record material numeric mode, automatic-backend selection policy/tuning identity, and identified per-effect-attempt states when relevant to provenance;
-16. prefer small, inspectable transformations.
+12. do not dead-eliminate a potentially failing operation merely because its result is unused;
+13. preserve all canonical enforcement fields across any serialization claiming semantic losslessness;
+14. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
+15. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
+16. preserve the complete QSOL-CORE control/effect/contract surface through the mandatory Vector/Dataflow IR;
+17. record material numeric mode, automatic-backend selection policy/tuning identity, and identified per-effect-attempt states when relevant to provenance;
+18. define effect-attempt completion independently from the enclosing CARD outcome;
+19. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -99,6 +104,24 @@ A legal lowering must preserve or explicitly validate before erasure:
 
 Unsupported semantic constructs fail explicitly. Do not silently drop them, no-op them, or defer their meaning to a backend.
 
+## Vector/Dataflow IR work
+
+Read `docs/VECTOR-AND-DATAFLOW.md` before changing the mandatory lower computational IR.
+
+Because every backend path traverses this IR, it must represent or preserve the full supported QSOL-CORE surface, including:
+
+- scalar and vector data operations;
+- control flow;
+- calls/returns and call state;
+- explicit effects;
+- required capabilities;
+- failure/totality classification;
+- source/effect/failure ordering;
+- determinism, numeric, randomness, and extension contracts;
+- provenance and per-effect-attempt identity.
+
+A non-vectorizable QSOL-CORE operation is not permission to bypass the IR. Use a defined scalar/control/effect/pass-through construct or fail conformance until the IR has one.
+
 ## Optimization work
 
 Use the reference semantics first.
@@ -107,7 +130,26 @@ A valid optimization must preserve the active semantic/numeric/determinism/rando
 
 Only operations proven pure and total may be freely reordered solely from data dependencies. A pure operation that may fail can still change whether effects occur under fail-stop execution.
 
+Dead-result elimination is legal only for operations proven pure and total under the active contract, unless the original failure is explicitly preserved at the same observable point. An unused `DIV 1 0` is still observable because its failure can prevent later effects.
+
 For CI and optimization evidence rules, read `docs/OPTIMIZATION-AND-CI.md` before changing performance-sensitive or validation-sensitive code.
+
+## Effect-attempt work
+
+Completion state belongs to the effect attempt, not the enclosing CARD outcome.
+
+Use the candidate meanings consistently:
+
+```text
+NOT_STARTED = protected effect never began
+COMPLETED   = effect reached its defined external completion boundary
+PARTIAL     = effect began but did not reach that boundary and some portion became observable
+UNKNOWN     = completion/observability cannot be established
+```
+
+A completed process that exits with status `2` may have `completion_state = COMPLETED` while its enclosing CARD reports `PROCESS_FAILED`.
+
+Do not collapse multiple effect attempts into one aggregate partial-effect flag.
 
 ## Backend work
 
@@ -117,7 +159,7 @@ Generated target code should remain inspectable where practical.
 
 A backend implements frozen semantics. It does not define them.
 
-A backend must consume the established lower pipeline; it must not become a second Semantic IR → QSOL-CORE compiler with private semantics.
+A backend must consume the established lower pipeline; it must not become a second Semantic IR → QSOL-CORE compiler with private semantics or bypass the mandatory Vector/Dataflow IR for scalar/control/effect operations.
 
 Automatic backend selection must trace the selection policy and material tuning identity when those affect the choice.
 
@@ -143,8 +185,9 @@ Read in this order when context is limited:
 4. `docs/LANGUAGE-MODEL.md`
 5. `docs/SEMANTIC-IR.md`
 6. `docs/SEMANTIC-TO-CORE-LOWERING.md`
-7. the domain-specific document relevant to the task
-8. `ROADMAP.md`
+7. `docs/VECTOR-AND-DATAFLOW.md` when lower IR/backend/optimization work is involved
+8. the domain-specific document relevant to the task
+9. `ROADMAP.md`
 
 ## Change discipline
 
@@ -164,9 +207,12 @@ For every substantive change, ask:
 - Did an extension leak into core?
 - Did a serializer lose an enforcement field?
 - Did reordering change failure/effect observability?
+- Did dead-result elimination erase a possible failure?
 - Did a backend or implementation invent semantics not yet frozen?
 - Did Semantic IR → QSOL-CORE lowering lose a contract or provenance edge?
+- Did Vector/Dataflow IR drop or bypass control, calls, effects, capabilities, contracts, or scalar semantics?
 - Did a trace collapse several effect attempts into one ambiguous state?
+- Was effect completion inferred incorrectly from CARD success/failure?
 - Did an optimization alter a result contract?
 - Did documentation claim functionality that does not exist?
 
