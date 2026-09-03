@@ -21,6 +21,7 @@ Deliverables:
 - JOB → DECK → CARD → VERB/NOUN hierarchy;
 - candidate semantic IR;
 - candidate reduced core instruction families;
+- semantic-to-core lowering boundary;
 - vector and dataflow model;
 - deterministic execution model;
 - provenance and trace model;
@@ -130,7 +131,8 @@ The initial trace contract should bind, where applicable:
 - capabilities actually used;
 - inputs and output hashes;
 - active extension profiles plus resolved extension versions/content identities;
-- structured execution-failure records and partial-effect status where applicable;
+- identified effect attempts and their individual completion states;
+- structured execution-failure records where applicable;
 - fields for backend-selection policy/version and tuning-state identity when automatic target selection is later used.
 
 Before PR #7 may execute a program, this phase must also define the reference failure contract:
@@ -144,9 +146,9 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - capability authorization is completed successfully **before every protected external effect begins**;
 - other static/precondition checks should occur before an external effect where practical;
 - effects already externally observable before a later failure are not retroactively erased;
-- every effect attempt must be traceable as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents); `NOT_STARTED` is valid only when the protected effect never began, while an effect that began and then failed must be `PARTIAL` or `UNKNOWN` unless it completed before a later failure;
+- every identified effect attempt must be traceable independently as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents); `NOT_STARTED` is valid only when that protected effect never began, while an effect that began and then failed must be `PARTIAL` or `UNKNOWN` unless it completed before a later failure;
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
-- failure traces identify the CARD, DECK/JOB outcome, failure class/stage, prior committed effects, partial-effect state, and whether any output artifact became observable.
+- failure traces identify the CARD, DECK/JOB outcome, failure class/stage, prior committed effects, per-attempt effect states, and whether any output artifact became observable.
 
 This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind that result to the program, execution policy, numeric contract, reproducibility contract, extension set, authorization decisions, and execution/failure context that produced it.
 
@@ -179,12 +181,44 @@ The reference machine must:
 
 - implement the frozen instruction semantics rather than define them;
 - emit the required PR #5 trace;
-- obey frozen DECK/JOB failure propagation and partial-effect behavior;
+- obey frozen DECK/JOB failure propagation and per-effect-attempt behavior;
 - require successful capability authorization before each protected effect;
 - fail closed when capability, numeric, randomness, or determinism requirements cannot be satisfied;
 - pass the frozen QSOL-CORE conformance fixtures.
 
-## PR #8 — Vector/Dataflow IR
+## PR #8 — Normative Semantic-to-QSOL-CORE Lowering Specification
+
+Freeze the first lowering contract from canonical Semantic IR into QSOL-CORE before any backend implementation.
+
+Planned work:
+
+- define how each supported semantic CARD category maps to QSOL-CORE operations or preserved metadata;
+- define JOB / DECK / CARD identity preservation;
+- define preservation of epistemic classes and evidence boundaries;
+- define type/unit validation and the conditions under which higher-level metadata may be erased;
+- define lowering of explicit effects and required capabilities;
+- define preservation of result-determinism, numeric, randomness, extension, source-order, effect-order, and failure-order contracts;
+- define unsupported-construct failure behavior;
+- define extension-owned lowering hooks behind resolved versioned contracts;
+- publish Semantic IR → QSOL-CORE conformance fixtures and rejection fixtures.
+
+The lowering specification must make it impossible for a backend to invent the meaning of the first pipeline arrow.
+
+## PR #9 — Reference Semantic-to-QSOL-CORE Lowering
+
+Implement the PR #8 lowering specification as an independently testable reference stage.
+
+The reference lowering must:
+
+- consume canonical Semantic IR rather than hand-built QSOL-CORE only;
+- produce QSOL-CORE plus preserved metadata/provenance required by later stages;
+- fail closed for unsupported or contract-breaking semantic constructs;
+- bind semantic IR identity, lowering-spec identity, lowering implementation identity, resolved extension identities, and resulting QSOL-CORE identity;
+- pass all frozen lowering conformance and rejection fixtures.
+
+No MORPH backend should be considered end-to-end conforming until this first lowering stage is present.
+
+## PR #10 — Vector/Dataflow IR
 
 Define and implement the target-independent vector/dataflow layer used by MORPH backend lowering.
 
@@ -205,6 +239,10 @@ Planned concepts:
 This phase occurs before the first MORPH code-generation backend so the documented pipeline remains singular:
 
 ```text
+Canonical Semantic IR
+    ↓
+Reference Semantic-to-Core Lowering
+    ↓
 QSOL-CORE
     ↓
 Vector/Dataflow IR
@@ -214,12 +252,14 @@ MORPH
 backend
 ```
 
-## PR #9 — Reference MORPH to C
+## PR #11 — Reference MORPH to C
 
-Build the first deliberately boring backend after the Vector/Dataflow IR exists:
+Build the first deliberately boring backend after both lowering stages exist:
 
 ```text
-QSOL semantic representation
+Canonical Semantic IR
+        ↓
+Semantic-to-Core Lowering
         ↓
 QSOL-CORE
         ↓
@@ -237,11 +277,12 @@ Goals:
 - deterministic fixtures;
 - no optimizer cleverness required for correctness;
 - provenance-bound generated artifacts and results;
-- failure behavior equivalent to the QSOL-CORE reference contract.
+- failure behavior equivalent to the QSOL-CORE reference contract;
+- end-to-end comparison from canonical Semantic IR through the reference machine and C result path.
 
 The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity and generated target hashes where material.
 
-## PR #10 — Morph Optimization Passes
+## PR #12 — Morph Optimization Passes
 
 Introduce semantics-preserving transformations such as:
 
@@ -252,9 +293,9 @@ Introduce semantics-preserving transformations such as:
 - temporary-elision;
 - legal operation reordering under explicit totality, failure-order, and numeric contracts.
 
-Every optimization must be testable against the invariant set and QSOL-CORE reference semantics.
+Every optimization must be testable against the invariant set, lowering fixtures, and QSOL-CORE reference semantics.
 
-## PR #11 — POSIX Profile
+## PR #13 — POSIX Profile
 
 Implement POSIX-oriented execution and composition:
 
@@ -268,11 +309,11 @@ Implement POSIX-oriented execution and composition:
 
 External effects remain explicit and require their corresponding capabilities. POSIX is a composable execution profile, not a mutually exclusive compiler backend: a C-, LLVM-, or other generated program may use the QX-POSIX contract when explicitly enabled and authorized.
 
-## PR #12 — LLVM Backend
+## PR #14 — LLVM Backend
 
 Add LLVM lowering while retaining the C backend as an independently understandable reference path.
 
-## PR #13 — GPU Foundation
+## PR #15 — GPU Foundation
 
 Define the generic accelerator execution model before binding it to one vendor.
 
@@ -285,7 +326,7 @@ Planned concepts:
 - deterministic execution declarations;
 - kernel inspection.
 
-## PR #14 — CUDA Backend and QX-CUDA Control Profile
+## PR #16 — CUDA Backend and QX-CUDA Control Profile
 
 Implement CUDA lowering through the generic GPU model.
 
@@ -299,7 +340,7 @@ RUN GRAVITY ON CUDA
 
 without requiring ordinary CUDA plumbing in research source, while preserving an expert escape hatch through explicit QX-CUDA controls.
 
-## PR #15 — Additional Backends
+## PR #17 — Additional Backends
 
 Candidates include:
 
@@ -312,13 +353,14 @@ Candidates include:
 
 Backends are added according to research value, not checklist pressure.
 
-## PR #16 — Formalization
+## PR #18 — Formalization
 
 Formalize selected QSOL-CORE and QSOL-MORPH properties, potentially using Lean 4.
 
 Targets may include:
 
 - deterministic evaluation for a defined subset;
+- semantic preservation for selected Semantic IR → QSOL-CORE lowering rules;
 - semantic preservation for selected morph passes;
 - invariant consistency;
 - epistemic-class preservation;
@@ -347,4 +389,4 @@ An extension may add capability. It may not silently redefine frozen core meanin
 
 Early releases should favor frozen, auditable semantic milestones over feature volume.
 
-A release should state exactly which specification, invariants, schemas, extension versions, and backends it implements.
+A release should state exactly which specification, invariants, schemas, lowering contracts, extension versions, and backends it implements.
