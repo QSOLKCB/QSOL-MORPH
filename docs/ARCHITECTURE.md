@@ -24,12 +24,12 @@ The project exists to let a researcher and an AI reason about one stable semanti
 │ QSOL-CORE / REDUCED SEMANTIC MACHINE    │
 │ small orthogonal instruction families   │
 └────────────────────┬─────────────────────┘
-                     │ analyze
+                     │ core-to-vector/dataflow lowering
                      ▼
 ┌──────────────────────────────────────────┐
 │ VECTOR / DATAFLOW IR                     │
 │ vectors • masks • dependency graph      │
-│ reductions • fusion opportunities       │
+│ control • effects • contracts • fusion  │
 └────────────────────┬─────────────────────┘
                      │ morph
                      ▼
@@ -51,7 +51,7 @@ The project exists to let a researcher and an AI reason about one stable semanti
                                    CUDA etc.
 ```
 
-Each arrow is a contract boundary. In particular, canonical Semantic IR → QSOL-CORE is specified and tested independently rather than being invented inside a backend.
+Each arrow is a contract boundary. In particular, canonical Semantic IR → QSOL-CORE and QSOL-CORE → Vector/Dataflow IR are specified and tested independently rather than being invented inside a backend.
 
 ## 1. Semantic source layer
 
@@ -85,15 +85,24 @@ JOB
            ├── VERB
            ├── NOUN
            ├── OPERANDS
+           ├── RESULT BINDING
            ├── TYPE / UNIT
            ├── QUALIFIERS
-           ├── EFFECTS
-           ├── CAPABILITIES
+           ├── EFFECT REQUIREMENTS[]
+           │    ├── EFFECT ID
+           │    ├── EFFECT KIND
+           │    └── REQUIRED CAPABILITIES[]
            ├── DETERMINISM / RANDOMNESS CONTRACT
+           ├── NUMERIC CONTRACT
+           ├── FAILURE BEHAVIOR
            └── DEPENDENCIES / EFFECT ORDER
 ```
 
 A `CARD` is intended to be the smallest independently addressable semantic statement.
+
+The `RESULT BINDING` identifies the value produced by a CARD when one is named. It must survive canonicalization and serialization because dependent CARDs may reference it.
+
+`EFFECT REQUIREMENTS[]` is the canonical effect/authorization association. Each protected effect has its own stable effect identity and complete capability set. A CARD-level union of capabilities may be useful for preflight, but it does not replace the per-effect mapping and must not be used to guess which permissions govern which action.
 
 A `DECK` is a source-ordered collection of cards with explicit/derived dependency constraints representing one executable research workflow.
 
@@ -113,8 +122,11 @@ This mapping is itself part of the language contract because Semantic IR contain
 
 - epistemic classes and evidence boundaries;
 - units and types;
-- explicit effects and required capabilities;
+- result bindings;
+- qualifiers;
+- explicit effect requirements with stable effect IDs and complete per-effect capability sets;
 - determinism, numeric, and randomness contracts;
+- explicit failure behavior;
 - extension identities;
 - source/effect/failure ordering;
 - CARD / DECK / JOB provenance.
@@ -148,7 +160,7 @@ The exact instruction set is not frozen in the documentation phase.
 
 Scientific computation often contains bulk operations whose natural representation is not scalar source-code iteration.
 
-QSOL-MORPH therefore treats vectors, masks, reductions, and dependency graphs as first-class IR concepts.
+QSOL-MORPH therefore treats vectors, masks, reductions, dependency graphs, control, effects, and contracts as first-class lower-IR concepts.
 
 A sequence such as:
 
@@ -160,7 +172,7 @@ DERIVE Z = SQRT Y
 
 may become a dependency graph that permits a backend to fuse operations while preserving the source contract.
 
-The vector IR is abstract. A vector operation need not correspond one-to-one with a physical register.
+The Vector/Dataflow IR is abstract. A vector operation need not correspond one-to-one with a physical register, and non-vector operations still require semantics-preserving representation through this mandatory stage.
 
 ## 6. MORPH layer
 
@@ -178,7 +190,7 @@ Responsibilities may include:
 - generation of inspectable target code;
 - recording material execution decisions.
 
-MORPH is not allowed to silently redefine the source program's scientific meaning, bypass the Semantic IR → QSOL-CORE lowering contract, or bypass source effect-order constraints.
+MORPH is not allowed to silently redefine the source program's scientific meaning, bypass either mandatory lowering contract, or bypass source effect/failure ordering constraints.
 
 ## 7. Backend layer
 
@@ -210,7 +222,11 @@ A backend may expose additional target-specific control through an explicit exte
 
 ### Lowering is not backend invention
 
-Semantic IR → QSOL-CORE is a defined transformation boundary. A backend consumes the result of that boundary; it does not decide how observations, assumptions, effects, units, contracts, or other semantic CARDs acquire lower-level meaning.
+Semantic IR → QSOL-CORE and QSOL-CORE → Vector/Dataflow IR are defined transformation boundaries. A backend consumes the result of those boundaries; it does not decide how observations, assumptions, effects, units, contracts, or other semantic CARDs acquire lower-level meaning.
+
+### Authorization belongs to each effect
+
+An effect's permission requirements are part of the effect declaration itself. If one CARD declares a remote AI call requiring `AI_MODEL + NETWORK` and a separate file write requiring `FILESYSTEM_WRITE`, those capability sets remain associated with their respective effect IDs through lowering and trace provenance. Applying one ambiguous CARD-level capability union to every effect is not conforming behavior.
 
 ### Optimization is not epistemic promotion
 
@@ -243,7 +259,9 @@ semantic-to-core lowering
     ↓
 QSOL-CORE operations + preserved metadata
     ↓
-dataflow graph
+core-to-vector/dataflow lowering
+    ↓
+full Vector/Dataflow IR
     ↓
 backend-selected implementation
     ↓
