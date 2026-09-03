@@ -46,7 +46,7 @@ QSOL-MORPH separates those layers.
 ┌──────────────────────────────────────────┐
 │ CANONICAL SEMANTIC MODEL                 │
 │ JOB → DECK → CARD → VERB / NOUN         │
-│ effects • capabilities • contracts       │
+│ qualifiers • effects • contracts        │
 └────────────────────┬─────────────────────┘
                      │ semantic-to-core lowering
                      ▼
@@ -54,11 +54,11 @@ QSOL-MORPH separates those layers.
 │ QSOL-CORE                                │
 │ small orthogonal semantic machine        │
 └────────────────────┬─────────────────────┘
-                     │
+                     │ core-to-vector/dataflow lowering
                      ▼
 ┌──────────────────────────────────────────┐
-│ VECTOR / DATAFLOW IR                     │
-│ vectors • masks • dependencies • fusion │
+│ FULL VECTOR / DATAFLOW IR                │
+│ scalar + vector + control + effects      │
 └────────────────────┬─────────────────────┘
                      │
                      ▼
@@ -75,9 +75,9 @@ QSOL-MORPH separates those layers.
                              CPU / GPU / VM
 ```
 
-The Semantic IR → QSOL-CORE arrow is an explicit language contract, not backend plumbing. Its mapping is specified and tested independently before MORPH code-generation backends are introduced.
+Both lowering arrows are explicit contracts and independently provenance-bearing transformations. Backends consume the established lower pipeline rather than inventing private source semantics.
 
-POSIX is intentionally **not** modeled as a mutually exclusive compiler backend. POSIX process, stream, filesystem, environment, and signal behavior belongs in the composable `QX-POSIX` execution profile, which may be used by generated C, LLVM, Fortran, or other targets when explicitly enabled and authorized.
+POSIX is intentionally **not** modeled as a mutually exclusive compiler backend. POSIX process, stream, filesystem, environment, and signal behavior belongs in the composable `QX-POSIX` execution profile, whose normative contract is frozen before its reference implementation.
 
 ## Semantic model
 
@@ -91,14 +91,19 @@ JOB
            ├── NOUN
            ├── OPERANDS
            ├── TYPE / UNIT
+           ├── QUALIFIERS
            ├── SEMANTIC CLASS
-           ├── EFFECTS
-           ├── CAPABILITIES
+           ├── EFFECT REQUIREMENTS[]
+           │    ├── EFFECT ID / KIND
+           │    └── REQUIRED CAPABILITIES[]
+           ├── FAILURE BEHAVIOR
            ├── NUMERIC / REPRODUCIBILITY CONTRACTS
-           └── DEPENDENCIES
+           └── DEPENDENCIES / ORDERING
 ```
 
 A CARD is the smallest independently addressable semantic statement.
+
+Each protected effect binds its own complete capability set. A CARD-level capability union may be useful for static preflight, but it cannot replace the effect-to-capability association used for authorization and provenance.
 
 Illustrative examples:
 
@@ -111,7 +116,7 @@ TRACE RESULT
 LOCK RESULT
 ```
 
-Illustrative syntax is **not yet a frozen grammar**.
+Illustrative syntax is **not yet a frozen grammar**. Human `.qsl` parsing and lossless text serialization are deferred until a normative QSOL text profile freezes grammar and source-to-Semantic-IR mapping.
 
 ## Human–AI shared semantics
 
@@ -171,7 +176,7 @@ The final instruction set will be determined by the frozen specification, not by
 
 ## Semantic-to-core lowering
 
-Canonical Semantic IR carries richer research semantics than QSOL-CORE. The first lowering stage therefore has its own specification and conformance boundary.
+Canonical Semantic IR carries richer research semantics than QSOL-CORE. The first lowering stage therefore has its own normative specification, reference implementation, conformance fixtures, and provenance identity.
 
 Conceptually:
 
@@ -187,21 +192,35 @@ The lowering must preserve or explicitly validate before erasure:
 
 - epistemic class and evidence boundaries;
 - types and units;
-- effects and required capabilities;
+- execution-relevant qualifiers;
+- effect requirements and complete per-effect capability sets;
+- explicit failure behavior;
 - determinism, numeric, and randomness contracts;
 - extension identities;
 - source/effect/failure ordering;
 - CARD / DECK / JOB provenance.
 
-Unsupported semantic constructs fail explicitly instead of being dropped or delegated to a backend to reinterpret.
+Unsupported semantic constructs or qualifiers fail explicitly instead of being dropped or delegated to a backend to reinterpret.
 
 See [Semantic-to-QSOL-CORE Lowering](docs/SEMANTIC-TO-CORE-LOWERING.md).
 
-## Vector and dataflow model
+## Full Vector/Dataflow IR
 
-Vectors are semantic data, not promises about physical register width.
+The mandatory Vector/Dataflow IR is not merely a vector optimizer input. It preserves the complete supported QSOL-CORE surface while exposing dataflow and vectorization opportunities.
 
-For example:
+It therefore carries or represents:
+
+- scalar and vector operations;
+- control flow and calls;
+- explicit effects and complete capability sets;
+- qualifiers and failure behavior where still material;
+- dependency/effect/failure ordering;
+- determinism, numeric, randomness, and extension contracts;
+- provenance links to QSOL-CORE and originating semantic CARDs.
+
+The QSOL-CORE → Vector/Dataflow transformation has its own normative specification and reference lowering before the first MORPH code-generation backend.
+
+For vectorizable work:
 
 ```text
 DERIVE X = A * B
@@ -209,18 +228,9 @@ DERIVE Y = X + C
 DERIVE Z = SQRT Y
 ```
 
-may lower into a dependency graph that a legal backend can fuse into an equivalent target implementation.
+may become a dependency graph that a legal backend can fuse into an equivalent target implementation.
 
-QSOL-MORPH may later map the same vector/dataflow semantics onto:
-
-- scalar loops;
-- CPU SIMD;
-- AVX-family instructions;
-- LLVM vectors;
-- CUDA threads/warps;
-- other accelerators.
-
-Source code should not need to encode one machine's physical vector width unless it explicitly opts into a target-specific extension.
+QSOL-MORPH may later map the same semantics onto scalar loops, CPU SIMD, AVX-family instructions, LLVM vectors, CUDA threads/warps, or other accelerators.
 
 ## Determinism and numeric contracts
 
@@ -249,7 +259,7 @@ A seeded run must record enough information to reproduce its stream, including R
 
 Traces must distinguish requested from effective determinism and randomness whenever an explicitly authorized transition occurs.
 
-## Failure semantics
+## Failure and effect-attempt semantics
 
 Failure is observable behavior and therefore part of the language architecture.
 
@@ -262,16 +272,19 @@ FAILURE(record)
 
 An unhandled failure stops the DECK and propagates to the JOB by default. Pure failures commit no semantic state. Effects already observable before a later failure are not retroactively erased.
 
-Each external effect attempt receives its own completion state:
+Each protected external effect attempt receives its own completion state:
 
 ```text
 NOT_STARTED
 COMPLETED
+ABORTED_CLEAN
 PARTIAL
 UNKNOWN
 ```
 
-This prevents C, LLVM, CUDA, POSIX adapters, or future backends from inventing mutually incompatible error behavior or collapsing several external actions into one ambiguous flag.
+where `ABORTED_CLEAN` means the effect began, did not complete, and is proven to have produced no externally observable change.
+
+Completion belongs to the effect attempt, not the CARD outcome. A process may be `COMPLETED` yet cause its CARD to report `PROCESS_FAILED` because the completed process returned a non-success status.
 
 See [Failure and Partial-Effect Semantics](docs/FAILURE-AND-PARTIAL-EFFECTS.md).
 
@@ -302,7 +315,7 @@ QX-MIDI
 QX-NET
 ```
 
-Optional machinery should not silently expand or redefine QSOL-CORE.
+An extension may define optional syntax, adapters, effects, or capability **requirements**. Activating an extension never grants a runtime capability by itself.
 
 ## CUDA without ordinary plumbing
 
@@ -314,9 +327,7 @@ RUN GRAVITY ON CUDA
 
 while QSOL-MORPH handles ordinary target mechanics such as allocation, transfer, launch geometry, synchronization, and generated-kernel structure.
 
-Material choices remain inspectable and provenance-bound.
-
-Expert target-specific controls may exist behind explicit profiles such as `QX-CUDA`.
+The roadmap freezes a generic GPU execution contract before the CUDA backend. CUDA machinery and QX-CUDA controls remain separate: the CUDA backend implements generic accelerator semantics, while optional launch/memory/tuning controls require a separately frozen, versioned QX-CUDA contract before implementation.
 
 ## Trace and provenance
 
@@ -329,7 +340,8 @@ source hash
 semantic IR hash
 semantic-to-core spec + implementation identity
 QSOL-CORE IR hash
-specification version
+core-to-vector/dataflow spec + implementation identity
+Vector/Dataflow IR hash
 MORPH/compiler identity
 backend / target identity
 backend-selection policy + tuning identity when automatic
@@ -338,7 +350,7 @@ numeric contract + material numeric mode
 requested/effective randomness + RNG identity
 capability requirements + authorization policy
 resolved extension identities
-identified effect attempts + completion states
+identified effect attempts + complete capability sets + completion states
 inputs / output hashes
 optimization decisions
 failure records
@@ -358,6 +370,8 @@ QSOL-MORPH optimization is subordinate to:
 - provenance;
 - epistemic boundaries;
 - declared resource constraints.
+
+Dead-result elimination may remove an operation solely because its result is unused only when the operation is proven pure and total, unless its original failure is explicitly preserved at the same observable point.
 
 ## Documentation
 
@@ -383,24 +397,36 @@ Key documents:
 
 ## Development sequence
 
-The project is deliberately staged:
+The project is deliberately staged. The authoritative details are in `ROADMAP.md`; the key sequence is:
 
 ```text
 PR #1   Documentation Foundation
 PR #2   Lock in Core Invariants
 PR #3   Canonical Data Model
-PR #4   Canonical Serialization
+PR #4   Canonical Machine-Readable Serialization
 PR #5   Execution Contract, Trace, Failure, and Provenance Foundation
 PR #6   Normative QSOL-CORE Operational Specification
 PR #7   QSOL-CORE Reference Machine
 PR #8   Normative Semantic-to-QSOL-CORE Lowering Specification
 PR #9   Reference Semantic-to-QSOL-CORE Lowering
-PR #10  Vector/Dataflow IR
-PR #11  Reference MORPH to C
-...     optimization, POSIX profile, LLVM, GPU, CUDA
+PR #10  Normative Full Vector/Dataflow IR Specification
+PR #11  Reference QSOL-CORE-to-Vector/Dataflow Lowering
+PR #12  Reference MORPH to C
+PR #13  Morph Optimization Passes
+PR #14  Normative QX-POSIX Contract
+PR #15  QX-POSIX Reference Implementation
+PR #16  LLVM Backend
+PR #17  Normative Generic GPU Execution Contract
+PR #18  CUDA Backend
+PR #19  Normative QX-CUDA Control Contract
+PR #20  QX-CUDA Reference Control Implementation
+PR #21  Additional Backends
+PR #22  Formalization
 ```
 
-The roadmap is intentionally designed so executable research code does not precede the contracts needed to interpret and audit its behavior, QSOL-CORE implementation does not precede its normative operational specification, and backend work does not invent Semantic IR → QSOL-CORE lowering.
+The human `.qsl` text profile remains a deferred normative workstream until its grammar and source mapping are frozen.
+
+The roadmap deliberately repeats one rule across the architecture: **specify meaning before implementing machinery.**
 
 ## Design influences
 
