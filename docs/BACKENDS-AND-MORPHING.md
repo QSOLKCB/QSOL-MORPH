@@ -11,6 +11,8 @@ QSOL source
     ↓
 canonical semantic model
     ↓
+semantic-to-QSOL-CORE lowering
+    ↓
 QSOL-CORE
     ↓
 Vector/Dataflow IR
@@ -22,16 +24,18 @@ backend lowering
 target artifact + trace
 ```
 
-The roadmap places Vector/Dataflow IR before the first MORPH code-generation backend so this remains the single documented lowering architecture.
+The Semantic IR → QSOL-CORE boundary is specified and implemented independently before backend work. The roadmap then places Vector/Dataflow IR before the first MORPH code-generation backend so this remains the single documented lowering architecture.
+
+A backend must not accept rich Semantic IR and invent its own private interpretation of CARDs that bypasses the frozen semantic-to-core lowering contract.
 
 ## MORPH responsibilities
 
 QSOL-MORPH may:
 
 - select a backend when policy permits;
-- validate extension requirements;
+- validate extension requirements at the machinery boundary;
 - check determinism compatibility;
-- choose legal lowering strategies;
+- choose legal target-lowering strategies from the already-defined lower IR;
 - vectorize;
 - fuse;
 - schedule within effect/failure-order constraints;
@@ -40,13 +44,15 @@ QSOL-MORPH may:
 - emit inspectable code or binaries;
 - record material transformation and selection decisions.
 
-It may not silently redefine scientific meaning.
+It may not silently redefine scientific meaning or absorb the Semantic IR → QSOL-CORE language-lowering stage into backend-specific code generation.
 
 ## Reference C backend
 
 The first code-generation backend should be deliberately conservative. Portable C provides a useful baseline because it is broadly supported, easy to inspect, easy to diff, and suitable as an independent reference against more aggressive backends.
 
 The C path exists first for semantic clarity, not maximum performance.
+
+Its end-to-end input originates as canonical Semantic IR, but the C backend itself consumes the established lower pipeline after the reference Semantic-to-Core and Vector/Dataflow stages.
 
 ## LLVM
 
@@ -197,4 +203,4 @@ The exact CLI is not frozen.
 
 ## Principle
 
-> QSOL programs describe meaning. QSOL-MORPH chooses machinery, and must be able to explain the choice.
+> QSOL programs describe meaning. Semantic lowering defines lower meaning. QSOL-MORPH chooses machinery and must be able to explain the choice.
