@@ -18,6 +18,7 @@ The documentation-foundation phase is intentionally **non-normative**. PR #2 is 
 - [Backends and Morphing](BACKENDS-AND-MORPHING.md)
 - [Extensions and Capabilities](EXTENSIONS-AND-CAPABILITIES.md)
 - [Determinism and Reproducibility](DETERMINISM-AND-REPRODUCIBILITY.md)
+- [Failure and Partial Effects](FAILURE-AND-PARTIAL-EFFECTS.md)
 - [Trace and Provenance](TRACE-AND-PROVENANCE.md)
 - [Serialization](SERIALIZATION.md)
 - [Optimization and CI](OPTIMIZATION-AND-CI.md)
