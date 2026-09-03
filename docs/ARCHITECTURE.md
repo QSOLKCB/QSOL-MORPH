@@ -85,6 +85,7 @@ JOB [JOB ID]
            ├── VERB
            ├── NOUN
            ├── OPERANDS
+           ├── VALUE
            ├── RESULT BINDING
            ├── TYPE / UNIT
            ├── QUALIFIERS
@@ -103,6 +104,8 @@ JOB [JOB ID]
 `JOB ID`, `DECK ID`, and `CARD ID` are stable canonical identities, not serializer- or trace-generated labels. They must survive canonicalization, lossless transport, lowering provenance, and execution tracing.
 
 A `CARD` is intended to be the smallest independently addressable semantic statement.
+
+`VALUE` carries the canonical literal or immediate value when the CARD has one, independently from operands and from a named result binding. Literal-bearing CARDs such as `OBSERVE TEMPERATURE 294.3 K` must not lose the observed `294.3` while preserving only the name, type, and unit.
 
 The `RESULT BINDING` identifies the value produced by a CARD when one is named. It must survive canonicalization and serialization because dependent CARDs may reference it.
 
