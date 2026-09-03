@@ -98,7 +98,37 @@ PARTIAL
 UNKNOWN
 ```
 
-These names are provisional, but the distinctions are semantic.
+These names are provisional, but the distinctions are semantic and must be mutually exclusive.
+
+## Completion-state decision rule
+
+The state is determined in this order:
+
+```text
+1. NOT_STARTED
+   The protected effect never began.
+
+2. COMPLETED
+   The effect reached its defined external completion boundary.
+   This takes precedence whenever completion is known, even if the
+   broader external consequences of the completed operation cannot be
+   fully enumerated.
+
+3. The effect began and is known not to have completed:
+   a. ABORTED_CLEAN
+      No externally observable change occurred.
+   b. PARTIAL
+      Some externally observable portion occurred.
+   c. UNKNOWN
+      Whether the incomplete attempt was clean or partial cannot be
+      established.
+
+4. UNKNOWN
+   Whether the effect reached its completion boundary cannot be
+   established.
+```
+
+A conforming implementation must not choose between `COMPLETED` and `UNKNOWN` for the same known-completed attempt. Known completion wins. `UNKNOWN` is reserved for unknown completion, or for a known-incomplete attempt whose observability cannot be classified as clean or partial.
 
 ### NOT_STARTED
 
@@ -122,7 +152,9 @@ For example, a process may run to completion and return exit status `2`. The pro
 
 Likewise, a complete file write may be `COMPLETED` even if a later validation step in the same CARD causes the CARD to fail.
 
-A CARD failure must not relabel an already completed effect attempt as `PARTIAL` merely because the CARD outcome is failure.
+If the process is known to have exited but the implementation cannot fully enumerate everything that process changed elsewhere, the attempt is still `COMPLETED`: the effect's own completion boundary is known. Broader consequence uncertainty belongs in additional provenance, not in the completion-state enum.
+
+A CARD failure must not relabel an already completed effect attempt as `PARTIAL` or `UNKNOWN` merely because the CARD outcome is failure.
 
 ### ABORTED_CLEAN
 
@@ -150,9 +182,16 @@ Examples may include:
 
 ### UNKNOWN
 
-The implementation cannot establish whether the effect reached its completion boundary or how much became externally observable.
+`UNKNOWN` applies only when the attempt cannot be placed in one of the known states above.
 
-`UNKNOWN` is preferable to inventing either a clean rollback or a completed-effect claim without evidence.
+Two cases remain:
+
+- whether the effect reached its completion boundary cannot be established; or
+- the effect is known to have begun and not completed, but the implementation cannot establish whether the incomplete attempt was externally clean or partial.
+
+`UNKNOWN` must not override a known `COMPLETED` state merely because some downstream or broader side effects of the completed operation are difficult to enumerate.
+
+`UNKNOWN` is preferable to inventing a clean rollback, partial-effect claim, or completed-effect claim without evidence.
 
 ## Capability authorization and preconditions
 
@@ -235,7 +274,7 @@ A failed execution should be traceable with enough information to answer:
 - which stable failure class applies;
 - which backend/runtime detail was reported;
 - which prior DECKs had completed;
-- which effect attempts existed, which CARD produced each one, the complete capability set governing each attempt, and the completion state of each attempt;
+- which effect attempts existed, which canonical declared effect produced each one, the complete capability set governing each attempt, and the completion state of each attempt;
 - whether any output artifact became externally visible;
 - what determinism, numeric, randomness, capability, policy, and extension contracts were active.
 
@@ -258,6 +297,7 @@ Each `effect_attempts[]` entry should be independently identifiable and may carr
 
 ```text
 attempt_id
+declared_effect_id
 card_id
 effect_kind
 required_capabilities[]
@@ -266,6 +306,8 @@ completion_state
 backend_detail?
 observable_artifacts[]
 ```
+
+`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `attempt_id` identifies the particular runtime attempt. They are not interchangeable.
 
 The trace must not collapse multiple external actions into one aggregate `partial_effect_state`.
 
@@ -301,4 +343,4 @@ They must map back to the same QSOL CARD/DECK/JOB success/failure semantics and 
 
 ## Principle
 
-> Failure is observable behavior. Effect completion belongs to the effect attempt, not the CARD outcome. Authorization happens before the effect. Do not leave any of these to backend folklore.
+> Failure is observable behavior. Effect completion belongs to the effect attempt, not the CARD outcome. Known completion takes precedence over consequence uncertainty. Authorization happens before the effect. Do not leave any of these to backend folklore.
