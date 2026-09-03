@@ -218,6 +218,23 @@ backend_selection_tuning_hash
 
 For a frozen experiment, a later replay may choose to require the recorded backend rather than re-run target selection.
 
+## Lowering provenance
+
+Reproducibility must bind both mandatory lowering stages, not only the semantic source and final MORPH/backend.
+
+Material identities include:
+
+```text
+semantic_to_core_spec_version
+semantic_to_core_implementation_version
+core_ir_hash
+vector_dataflow_spec_version
+vector_dataflow_implementation_version
+vector_dataflow_ir_hash
+```
+
+If the QSOL-CORE → Vector/Dataflow lowering changes its control-flow graph, effect ordering, capability metadata, vector structure, or numeric representation while Semantic IR and MORPH remain unchanged, the manifest must still distinguish the run.
+
 ## Reproducibility manifest
 
 A future run manifest may include:
@@ -229,6 +246,9 @@ semantic_ir_hash
 semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
+vector_dataflow_spec_version
+vector_dataflow_implementation_version
+vector_dataflow_ir_hash
 morph_version
 backend
 backend_version
@@ -266,7 +286,7 @@ optimization_profile
 kernel_or_binary_hashes[]
 ```
 
-Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; seeded RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted.
+Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; seeded RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation.
 
 The manifest should represent independent reproducibility facets independently rather than collapsing them into one ambiguous label.
 
@@ -292,7 +312,7 @@ A downgrade is acceptable only when the source or execution policy explicitly pe
 
 The same rule applies independently to randomness and other reproducibility facets: an implementation may not substitute external entropy for a required seeded stream merely because it records that substitution afterward.
 
-General execution failure and partial-effect semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
+General execution failure and effect-attempt completion semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
 
 ## Design principle
 
