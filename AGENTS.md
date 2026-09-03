@@ -66,7 +66,7 @@ When proposing changes:
 24. record result-determinism provenance at the CARD/region/kernel or other frozen scope where the requirement is actually valid; do not invent one execution-wide pair unless a frozen normalization proves it represents every source requirement;
 25. record scoped numeric contract/mode provenance when different CARDs, regions, or kernels can use different legal numeric behavior;
 26. record scoped randomness provenance when different CARDs, regions, or kernels can use different randomness modes, RNG identities, seeds, streams, or partitioning;
-27. record automatic-backend selection policy/tuning identity and identified per-effect-attempt states when relevant to provenance;
+27. record backend selection at the CARD/region/kernel/generated-unit or other frozen scope it actually governs, including policy/tuning identity for automatic selection; do not collapse mixed target requests into one global backend field;
 28. record the complete required-capability set for each effect attempt;
 29. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
 30. define effect-attempt completion independently from the enclosing CARD outcome;
@@ -74,7 +74,8 @@ When proposing changes:
 32. distinguish a cleanly aborted begun effect from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
 33. do not satisfy an effectful CARD from cached prior output if that skips a declared effect or its authorization/ordering/failure/provenance boundary; effectful reuse requires an explicit frozen replay/cache semantic;
 34. bind every material runtime input to a stable `input_id` plus the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed; a mutable path/URL/name alone is not reproducibility evidence;
-35. prefer small, inspectable transformations.
+35. use `failure_card_id` consistently for the CARD whose unhandled failure produced an enclosing failure record;
+36. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -91,6 +92,7 @@ result binding
 result binding map
 identified input
 identified output
+backend-selection scope
 result-determinism scope
 QSOL-CORE
 Semantic IR
@@ -231,6 +233,32 @@ A single execution-wide randomness scope is valid only when a frozen normalizati
 
 A recorded randomness transition is evidence, not authorization. If a scope cannot satisfy its requested randomness contract and no pre-execution rule authorizes another mode, fail closed.
 
+## Backend-selection provenance work
+
+Do not assume one backend decision governs an entire JOB.
+
+When target requests can differ by CARD, region, kernel, generated unit, or another frozen scope, use scoped entries carrying at least:
+
+```text
+scope_kind
+scope_id
+source_card_ids[]
+backend_unit_id?
+requested_target?
+selected_backend
+selected_backend_version?
+target_architecture?
+device?
+selection_policy_id?
+selection_policy_version?
+selection_tuning_id?
+selection_tuning_hash?
+```
+
+A single execution-wide backend-selection scope is valid only when a frozen rule establishes that one machinery decision governs the entire execution. An explicit host target on one CARD and `ON BEST` on another remain distinct source decisions even when both resolve to the same backend.
+
+For automatic selection, policy/tuning identity is provenance, not optional decoration. It records why the selected machinery was chosen.
+
 ## Input provenance work
 
 Do not treat a mutable locator as the identity of a material input.
@@ -263,6 +291,7 @@ artifact_location?
 semantic_class
 status
 producer_card_ids[]
+backend_selection_scope_ids[]
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
@@ -343,7 +372,7 @@ A backend implements frozen semantics. It does not define them.
 
 A backend must consume the established lower pipeline; it must not become a second Semantic IR → QSOL-CORE compiler with private semantics or bypass the mandatory Core→Vector/Dataflow lowering for scalar/control/effect operations.
 
-Automatic backend selection must trace the selection policy and material tuning identity when those affect the choice.
+Backend selection must be recorded at the scope it governs. Automatic selection must additionally trace the selection policy and material tuning identity when those affect the choice.
 
 CUDA backend implementation follows the frozen generic GPU contract. QX-CUDA vendor controls are a separate optional profile and may not be invented inside the CUDA backend phase.
 
@@ -405,13 +434,15 @@ For every substantive change, ask:
 - Did scoped result-determinism provenance get collapsed into one false global requested/effective pair?
 - Did scoped numeric provenance get collapsed into one false global contract/mode?
 - Did scoped randomness provenance get collapsed into one false global RNG/mode/stream?
-- Did an output lose the randomness-scope references that identify the RNG configuration which governed it?
+- Did backend-selection provenance collapse multiple target decisions into one false global backend/policy record?
+- Did an output lose the backend-selection or randomness-scope references that identify the machinery/RNG configuration which governed it?
 - Did a material input retain only a mutable path/URL/name without the exact canonical value, content hash, or immutable artifact/version identity consumed?
 - Did several outputs get collapsed under one semantic class or evidence status?
 - Did provenance weaken or skip one of the mandatory lowering stages?
 - Did an extension get mistaken for a capability grant?
 - Did an extension leak into core?
 - Did a serializer lose a stable JOB/DECK/CARD ID, `result`, semantic class, `qualifiers{}`, `failure_behavior`, extension requirements, effect requirements, or another semantic/enforcement field?
+- Did a failure record use `card_id` where the canonical failing-CARD field is `failure_card_id`?
 - Did a human text implementation invent grammar before a normative text-profile freeze?
 - Did reordering change failure/effect observability?
 - Did dead-result elimination erase a possible failure?
