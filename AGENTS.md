@@ -56,7 +56,7 @@ When proposing changes:
 14. trace deterministic result-binding preservation/renaming at **both** mandatory lowering boundaries;
 15. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
 16. do not dead-eliminate a potentially failing operation merely because its result is unused;
-17. preserve all canonical semantic/enforcement fields, including semantic class, `result`, `qualifiers{}`, extension requirements, and explicit `failure_behavior`, across any serialization claiming semantic losslessness;
+17. preserve stable JOB/DECK/CARD identifiers plus all canonical semantic/enforcement fields, including semantic class, `result`, `qualifiers{}`, extension requirements, and explicit `failure_behavior`, across any serialization claiming semantic losslessness;
 18. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
 19. distinguish extension availability/functionality from runtime capability authorization; activating an extension never grants permission;
 20. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
@@ -73,7 +73,8 @@ When proposing changes:
 31. apply completion-state precedence so known `COMPLETED` cannot also be `UNKNOWN`;
 32. distinguish a cleanly aborted begun effect from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
 33. do not satisfy an effectful CARD from cached prior output if that skips a declared effect or its authorization/ordering/failure/provenance boundary; effectful reuse requires an explicit frozen replay/cache semantic;
-34. prefer small, inspectable transformations.
+34. bind every material runtime input to a stable `input_id` plus the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed; a mutable path/URL/name alone is not reproducibility evidence;
+35. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -83,10 +84,12 @@ Use current project vocabulary consistently:
 JOB
 DECK
 CARD
+stable JOB/DECK/CARD ID
 VERB
 NOUN
 result binding
 result binding map
+identified input
 identified output
 result-determinism scope
 QSOL-CORE
@@ -228,6 +231,24 @@ A single execution-wide randomness scope is valid only when a frozen normalizati
 
 A recorded randomness transition is evidence, not authorization. If a scope cannot satisfy its requested randomness contract and no pre-execution rule authorizes another mode, fail closed.
 
+## Input provenance work
+
+Do not treat a mutable locator as the identity of a material input.
+
+Each material `inputs[]` entry should conceptually carry at least:
+
+```text
+input_id
+input_kind
+canonical_value?          # inline scalar/record input
+content_hash?             # external bytes/artifact content
+artifact_id_or_version?
+location?
+media_or_schema_type?
+```
+
+A stable `input_id` plus either a canonical value or immutable content/artifact identity is required to distinguish exactly what was consumed. Paths, URLs, dataset names, model names, and similar locators may aid retrieval, but they do not replace content identity. If the implementation cannot establish the required material input identity, fail replay/provenance validation closed rather than guessing.
+
 ## Result provenance work
 
 Do not represent several outputs as plural hashes plus one shared epistemic class or status.
@@ -263,7 +284,7 @@ Cached value/result substitution is legal only for computations proven safe for 
 
 Do not replace an effectful CARD with prior cached output if doing so skips a file write, process launch, network/AI call, clock read, or other declared effect. That would bypass the capability authorization boundary, effect/failure ordering, and per-effect-attempt provenance. Effectful reuse requires an explicit frozen cache/replay semantic that preserves or explicitly defines all of those boundaries. Without such a rule, execute the effect normally or fail closed.
 
-A cached artifact may be used as an explicit declared input or reference when the semantic contract says so; that is not the same as silently satisfying an effectful CARD from cache.
+A cached artifact may be used as an explicit declared input or reference when the semantic contract says so; that is not the same as silently satisfying an effectful CARD from cache. When used as input, the cached artifact itself must be bound by immutable input identity/content provenance.
 
 For CI and optimization evidence rules, read `docs/OPTIMIZATION-AND-CI.md` before changing performance-sensitive or validation-sensitive code.
 
@@ -328,8 +349,9 @@ CUDA backend implementation follows the frozen generic GPU contract. QX-CUDA ven
 
 ## Serialization work
 
-A format claiming semantic losslessness must round-trip all execution- and dependency-relevant canonical fields, including:
+A format claiming semantic losslessness must round-trip all execution-, dependency-, and reference-relevant canonical fields, including:
 
+- stable JOB/DECK/CARD identifiers;
 - result bindings;
 - semantic classes;
 - qualifiers;
@@ -340,7 +362,7 @@ A format claiming semantic losslessness must round-trip all execution- and depen
 - extension/profile identities and versions;
 - data, effect, and failure-order constraints.
 
-Do not silently default or discard a missing semantic/enforcement field during transport.
+Do not silently default, discard, or renumber a stable identity or missing semantic/enforcement field during transport.
 
 Machine-readable canonical interchange may proceed before the human QSOL grammar is frozen. Human `.qsl` parsing/serialization may not.
 
@@ -369,6 +391,7 @@ If a task targets one phase, leave later-phase work in `ROADMAP.md` unless it is
 For every substantive change, ask:
 
 - Did meaning change?
+- Did a stable JOB/DECK/CARD identity disappear, change, or get renumbered without an explicit migration?
 - Did a semantic class disappear or become detached from its CARD/output?
 - Did an extension requirement/version disappear before an extension-owned construct was interpreted?
 - Did a result binding disappear or change identity?
@@ -382,11 +405,13 @@ For every substantive change, ask:
 - Did scoped result-determinism provenance get collapsed into one false global requested/effective pair?
 - Did scoped numeric provenance get collapsed into one false global contract/mode?
 - Did scoped randomness provenance get collapsed into one false global RNG/mode/stream?
+- Did an output lose the randomness-scope references that identify the RNG configuration which governed it?
+- Did a material input retain only a mutable path/URL/name without the exact canonical value, content hash, or immutable artifact/version identity consumed?
 - Did several outputs get collapsed under one semantic class or evidence status?
 - Did provenance weaken or skip one of the mandatory lowering stages?
 - Did an extension get mistaken for a capability grant?
 - Did an extension leak into core?
-- Did a serializer lose `result`, semantic class, `qualifiers{}`, `failure_behavior`, extension requirements, effect requirements, or another semantic/enforcement field?
+- Did a serializer lose a stable JOB/DECK/CARD ID, `result`, semantic class, `qualifiers{}`, `failure_behavior`, extension requirements, effect requirements, or another semantic/enforcement field?
 - Did a human text implementation invent grammar before a normative text-profile freeze?
 - Did reordering change failure/effect observability?
 - Did dead-result elimination erase a possible failure?
