@@ -88,12 +88,14 @@ JOB
            ├── RESULT BINDING
            ├── TYPE / UNIT
            ├── QUALIFIERS
+           ├── SEMANTIC CLASS
            ├── EFFECT REQUIREMENTS[]
            │    ├── EFFECT ID
            │    ├── EFFECT KIND
            │    └── REQUIRED CAPABILITIES[]
            ├── DETERMINISM / RANDOMNESS CONTRACT
            ├── NUMERIC CONTRACT
+           ├── EXTENSION REQUIREMENTS[]
            ├── FAILURE BEHAVIOR
            └── DEPENDENCIES / EFFECT ORDER
 ```
@@ -102,7 +104,11 @@ A `CARD` is intended to be the smallest independently addressable semantic state
 
 The `RESULT BINDING` identifies the value produced by a CARD when one is named. It must survive canonicalization and serialization because dependent CARDs may reference it.
 
+`SEMANTIC CLASS` carries the CARD's epistemic classification where applicable, such as observation, simulation, validation, or proof. It is canonical semantic state and must survive any representation boundary until a frozen rule explicitly validates how it is preserved or safely represented elsewhere.
+
 `EFFECT REQUIREMENTS[]` is the canonical effect/authorization association. Each protected effect has its own stable effect identity and complete capability set. A CARD-level union of capabilities may be useful for preflight, but it does not replace the per-effect mapping and must not be used to guess which permissions govern which action.
+
+`EXTENSION REQUIREMENTS[]` identifies any versioned profile/contract needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. Extension availability remains separate from runtime capability authorization.
 
 A `DECK` is a source-ordered collection of cards with explicit/derived dependency constraints representing one executable research workflow.
 
