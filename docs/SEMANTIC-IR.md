@@ -12,7 +12,7 @@ The Semantic IR should preserve information that ordinary compiler IRs often dis
 - epistemic class;
 - units and types;
 - explicit effects;
-- capability requirements;
+- effect-to-capability requirements;
 - dependencies;
 - source provenance;
 - result-determinism requirements;
@@ -46,8 +46,7 @@ Card {
     unit?
     qualifiers{}
     semantic_class?
-    effects[]
-    capabilities[]
+    effect_requirements[]
     result_determinism?
     numeric_contract?
     randomness_contract?
@@ -57,7 +56,17 @@ Card {
     failure_behavior?
     source_location
 }
+
+EffectRequirement {
+    effect_id
+    effect_kind
+    required_capabilities[]
+}
 ```
+
+`effect_requirements[]` is the canonical association between a protected effect and the complete capability set that must authorize that specific effect. A CARD may have zero, one, or multiple effect requirements. Separate unassociated `effects[]` and `capabilities[]` arrays are insufficient once one CARD can initiate multiple effects with different authorization requirements.
+
+A derived CARD-level union of required capabilities may be useful for static preflight or summaries, but that union does not replace the per-effect mapping.
 
 These enforcement fields belong in the canonical semantic input. They must not be invented only after a backend has already chosen machinery.
 
@@ -130,9 +139,9 @@ PROVE CONSERVATION WITH LEAN
 
 may carry a proof-class boundary and an explicit external verification dependency.
 
-## Effects
+## Effects and capability bindings
 
-Effects should be statically discoverable whenever practical.
+Effects describe what an operation does. Capabilities describe what the execution environment must authorize before a protected effect begins.
 
 Candidate effect classes include:
 
@@ -150,11 +159,21 @@ MUTATION
 
 A card may be pure or effectful. A backend may not silently add an undeclared externally observable effect when the source contract forbids it.
 
+Each protected effect carries its own complete capability set through `effect_requirements[]`. For example, a remote AI operation might conceptually require:
+
+```text
+effect_id = ai_call_1
+effect_kind = AI_MODEL
+required_capabilities = [AI_MODEL, NETWORK]
+```
+
+while another effect on the same CARD may require a different set.
+
+All capabilities in the set for a specific effect must be authorized before that effect begins. Lowering and tracing must preserve the effect-to-capability association rather than guessing from a CARD-level union.
+
 GPU selection is intentionally not a Semantic-IR effect. Choosing CPU, SIMD, GPU, CUDA, or another accelerator is machinery selection and belongs in MORPH/execution metadata. GPU access may still require an explicit extension/capability contract.
 
 ## Capabilities
-
-Effects describe what an operation does. Capabilities describe what the execution environment permits it to do.
 
 Example:
 
@@ -162,11 +181,11 @@ Example:
 DENY NETWORK
 ```
 
-should allow validation to reject any reachable card requiring network access.
+should allow validation to reject any reachable protected effect whose `required_capabilities[]` includes `NETWORK`.
 
 Extension availability is separate. A deck may `USE QX-NET` because it needs that profile while still denying the `NETWORK` capability at execution time.
 
-Capability authorization for a protected external effect must succeed before that effect begins. The canonical model must therefore preserve the required capability independently from later environment grant/deny decisions.
+Capability authorization for a protected external effect must succeed before that effect begins. The canonical model therefore preserves the complete per-effect capability set independently from later environment grant/deny decisions.
 
 ## Dependencies and sequencing
 
@@ -225,7 +244,8 @@ The Semantic IR need not encode operating-system-specific error numbers in the c
 - failed evaluation must not manufacture an ordinary result value;
 - pure operations must not leave committed semantic state after failure;
 - potentially failing pure operations remain ordering-relevant under fail-stop execution;
-- effectful operations must expose whether an effect was not started, completed, partial, or of unknown completion state;
+- effectful operations must expose the completion state of every identified effect attempt;
+- an effect attempt that begins but is proven to have produced no externally observable change must be distinguishable from both `NOT_STARTED` and `PARTIAL`;
 - an unhandled DECK failure propagates to the enclosing JOB by default unless an explicit frozen JOB-level handler says otherwise;
 - later backends must not choose incompatible trap/continue/rollback behavior for the same semantic program.
 
@@ -242,6 +262,7 @@ Canonicalization may include:
 - normalized unit identifiers;
 - normalized keyword case;
 - deterministic ordering for unordered metadata;
+- deterministic ordering of `required_capabilities[]` within each effect requirement;
 - explicit schema/specification version;
 - deterministic escaping and encoding;
 - deterministic derivation of effect-order and failure-order constraints;
@@ -262,7 +283,7 @@ Potential uses:
 - transformation verification;
 - backend comparison.
 
-Hash identity must be defined over canonical semantic content rather than incidental formatting if source formatting is not itself part of the semantic contract.
+Hash identity must be defined over canonical semantic content rather than incidental formatting if source formatting is not itself part of the semantic contract. Execution-relevant qualifiers, effect requirements, per-effect capability sets, and explicit failure behavior contribute to semantic identity.
 
 ## Lowering
 
