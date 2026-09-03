@@ -64,6 +64,8 @@ B ─┘      ↑
 
 This representation makes transformation opportunities explicit.
 
+Source order remains semantically relevant for observable effects even when pure vector operations are scheduled from data dependencies. A vector/dataflow lowering must preserve effect-order constraints carried by the Semantic IR.
+
 ## Chaining and fusion
 
 A backend may fuse a legal chain:
@@ -182,9 +184,11 @@ Parallel execution can create nondeterminism through:
 - backend library choices;
 - varying launch/scheduling behavior.
 
-The dataflow IR must carry enough information for QSOL-MORPH to determine whether a requested deterministic contract can be satisfied.
+The dataflow IR must carry enough information for QSOL-MORPH to determine whether a requested result-determinism contract can be satisfied while independently preserving any randomness/reproducibility contract.
 
-If it cannot, the backend should fail or explicitly report the weaker execution class rather than silently proceeding as if nothing changed.
+If the requested result-determinism contract cannot be satisfied, the backend must fail closed unless the source or execution policy explicitly permitted the weaker result contract before execution. Reporting a weaker class in the trace is required when such a permitted downgrade occurs, but reporting alone is not authorization to downgrade.
+
+Likewise, a backend must not replace a required seeded random stream with an unseeded or external-entropy source merely because it can report that change afterward.
 
 ## Performance principle
 
