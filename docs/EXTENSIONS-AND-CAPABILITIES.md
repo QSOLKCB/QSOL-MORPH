@@ -15,18 +15,20 @@ QX-CUDA     CUDA-specific controls
 QX-AI       model interaction
 QX-PROVE    formal-verification adapters
 QX-MIDI     MIDI 2.0 integration
-QX-NET      network access
+QX-NET      network-related syntax/adapters
 ```
 
 These names are provisional until frozen by a future specification.
 
 ## Core rule
 
-An extension may add capability. It should not silently redefine frozen core meaning.
+An extension may add capability or syntax surface. It should not silently redefine frozen core meaning.
 
 If a feature is target-specific, vendor-specific, effectful, or optional, the default assumption is that it belongs in an extension rather than QSOL-CORE.
 
 ## Declaring extensions
+
+Extension availability and runtime authorization are separate concerns.
 
 Illustrative source:
 
@@ -34,14 +36,16 @@ Illustrative source:
 USE QX-VEC
 USE QX-MATH
 USE QX-GPU
-DENY QX-NET
+USE QX-NET
+
+DENY NETWORK
 ```
 
-This allows a program to expose its execution surface before it runs.
+`USE QX-NET` means that the deck expects the network extension/profile to exist. `DENY NETWORK` means that execution is not authorized to perform the network capability. A validator can therefore distinguish unsupported syntax/profile requirements from prohibited runtime effects.
 
 ## Capabilities
 
-A capability is permission to perform a class of effect.
+A capability is permission to perform a class of effect or access a class of machinery.
 
 Candidate capability families include:
 
@@ -65,27 +69,37 @@ An **effect** describes what an operation does.
 
 A **capability** describes what the execution environment allows.
 
+An **extension profile** describes optional language/adapter functionality that must be available to interpret or lower the deck.
+
 Example:
 
 ```text
 FETCH DATASET
 ```
 
-may require a network effect and therefore a network capability.
-
-If the deck declares:
+may require a network effect and therefore the `NETWORK` capability. If it uses syntax supplied by QX-NET, the deck may additionally declare:
 
 ```text
-DENY QX-NET
+USE QX-NET
 ```
 
-then reachable network-requiring operations should be rejected before execution where practical.
+If the deck or execution policy declares:
+
+```text
+DENY NETWORK
+```
+
+then reachable network-requiring operations should be rejected before execution where practical, even when QX-NET is installed and available.
+
+Conversely, allowing `NETWORK` does not make QX-NET syntax available if that extension is absent.
 
 ## Fail closed
 
 Capability checking should prefer rejection over silent escalation.
 
 A program denied network access must not have a backend quietly substitute a network-backed helper because that helper is convenient.
+
+Likewise, an unavailable extension must not be treated as equivalent to a denied capability. The diagnostic should say which boundary failed.
 
 ## Extension versioning
 
@@ -118,6 +132,14 @@ RUN MODEL ON CUDA WITH:
 ```
 
 A generic backend should not be required to understand CUDA-specific launch syntax.
+
+GPU access may require an execution capability/profile, but selecting GPU machinery is not itself an externally observable Semantic-IR effect. Device selection belongs in MORPH/execution trace metadata.
+
+## POSIX profile
+
+QX-POSIX is a composable execution profile rather than a compiler backend.
+
+A program emitted through C, LLVM, or another backend may still use POSIX process, file, signal, environment, and stream semantics when QX-POSIX is explicitly active and the corresponding capabilities are allowed.
 
 ## AI capability boundary
 
