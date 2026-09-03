@@ -19,7 +19,8 @@ Candidate preserved dimensions include:
 ```text
 semantics
 named invariants
-determinism class
+result-determinism contract
+randomness/reproducibility contract
 validation behavior
 provenance/evidence boundaries
 public API / serialized contract
@@ -131,7 +132,28 @@ Run expensive suites only when their governed surface changes, while retaining a
 
 ### Content-addressed caches
 
-Cache toolchains, generated IR, test fixtures, and build products using keys tied to the real semantic inputs.
+Cache toolchains, generated IR, test fixtures, and build products only with keys derived from every material content-producing input for that artifact.
+
+Depending on the cached object, material key inputs may include:
+
+```text
+canonical source / Semantic-IR identity
+QSOL specification/schema version
+QSOL-MORPH/compiler version
+backend identity and version
+target architecture / ABI
+compiler and linker flags
+numeric contract
+result-determinism contract
+randomness/reproducibility configuration
+active extension/profile versions
+generated-code options
+relevant toolchain/library versions
+```
+
+A semantic source hash by itself is not a safe key for generated target artifacts. If changing an input can change the bytes, semantics, ABI, or required execution contract of the cached artifact, that input must either participate in the cache key or be validated as part of cache acceptance.
+
+Cache metadata should be inspectable enough to explain why a hit was considered compatible.
 
 ### Reference/optimized split
 
