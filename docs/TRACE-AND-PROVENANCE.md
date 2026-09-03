@@ -9,10 +9,10 @@ The goal is not merely to say that a program ran. The goal is to make it possibl
 - how Semantic IR lowered into QSOL-CORE;
 - how QSOL-CORE lowered into the mandatory Vector/Dataflow IR;
 - how result bindings were preserved or renamed at each lowering boundary;
-- what backend was selected;
-- why that backend was selected;
+- what backend was selected for each governed execution unit;
+- why each backend was selected;
 - what transformations were applied;
-- what inputs and capabilities were required, granted, denied, and used;
+- what exact immutable inputs and capabilities were required, granted, denied, and used;
 - what identified outputs were produced and what semantic class/status belongs to each one;
 - what result determinism was requested and actually provided for each governed scope;
 - what numeric contract and material numeric mode governed each relevant execution scope;
@@ -138,11 +138,7 @@ Potential fields:
 vector_dataflow_ir_hash
 morph_version
 optimization_profile
-selected_backend
-backend_selection_policy_id
-backend_selection_policy_version
-backend_selection_tuning_id
-backend_selection_tuning_hash
+backend_selection_scopes[]
 vectorization decisions
 fusion decisions
 memory-placement decisions
@@ -151,7 +147,28 @@ numeric_execution_scopes[]
 randomness_execution_scopes[]
 ```
 
-`backend_selection_policy_*` and tuning identity are material when selection is automatic, such as `ON BEST`. Recording only the backend says what ran but may not explain or reproduce why that machinery was chosen.
+Backend selection is scoped because one JOB may intentionally target different machinery for different CARDs, regions, kernels, or generated units. A conceptual entry may contain:
+
+```text
+backend_selection_scopes[]:
+    scope_kind              # EXECUTION / CARD / REGION / KERNEL / GENERATED_UNIT / frozen equivalent
+    scope_id
+    source_card_ids[]
+    backend_unit_id?
+    requested_target?
+    selected_backend
+    selected_backend_version?
+    target_architecture?
+    device?
+    selection_policy_id?
+    selection_policy_version?
+    selection_tuning_id?
+    selection_tuning_hash?
+```
+
+Selection-policy and tuning identity are material when selection is automatic, such as `ON BEST`. Recording only a selected backend says what ran but may not explain or reproduce why that machinery was chosen.
+
+A single execution-wide backend-selection scope is valid only when a frozen rule establishes that one target decision governs the whole execution. Explicit host targeting on one CARD and `ON BEST` on another must remain separate entries even when both eventually resolve to the same backend.
 
 ## Scoped result-determinism provenance
 
@@ -229,12 +246,12 @@ A transition record is evidence, not permission. A backend must fail closed if a
 Potential fields:
 
 ```text
-target architecture
-device
 runtime/compiler versions
+backend_selection_scopes[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
+inputs[]
 required_capabilities[]
 granted_capabilities[]
 denied_capabilities[]
@@ -247,11 +264,34 @@ external tool versions
 start/stop metadata where permitted
 ```
 
+Each `backend_selection_scopes[]` entry records the selected machinery and, where applicable, the explicit target request or automatic-selection policy/tuning identity for the CARDs or lower execution unit it governs.
+
 Each `numeric_execution_scopes[]` entry records the active numeric contract plus the **material numeric mode** used for that scope when contract-permitted choices can change legal result bytes. Material choices may include FMA behavior, denormal handling, effective precision, selected math-library mode, reduction strategy, or another frozen numeric-mode identity.
 
 Each `result_determinism_scopes[]` entry records the requested and effective guarantee for the computation it governs. A DECK containing both `STRICT` and `NUMERIC` CARDs therefore retains those distinctions rather than weakening the strict CARD or overstating the numeric CARD.
 
 Each `randomness_execution_scopes[]` entry records the requested/effective randomness contract and every replay-relevant RNG input for the computation it governs. Separate seeded computations must retain separate scope identities when their streams or RNG configuration differ.
+
+## Identified input provenance
+
+Every material runtime input must be traceable to the exact immutable value or artifact content actually consumed.
+
+A conceptual input entry may contain:
+
+```text
+input_id
+input_kind
+canonical_value?
+content_hash?
+artifact_id_or_version?
+location?
+media_or_schema_type?
+source_card_ids[]?
+```
+
+`input_id` is the stable provenance identity for this consumed input. Inline scalar/record inputs may bind a canonical value directly. Files, datasets, models, downloaded objects, or other mutable external resources require a content hash, immutable artifact/version identity, or equivalent frozen identity sufficient to distinguish the actual bytes/content consumed.
+
+A path, URL, dataset name, model name, branch name, or other mutable locator is retrieval context only. It must not substitute for immutable input identity. If a material input contributes to a research result and its consumed identity cannot be established, the execution cannot claim reproducible provenance for that input and should fail closed where the active contract requires replay/auditability.
 
 Capability provenance must distinguish requirement, authorization, and use. A failed execution denied `NETWORK` should be able to show:
 
@@ -350,6 +390,7 @@ outputs[]:
     semantic_class
     status
     producer_card_ids[]
+    backend_selection_scope_ids[]
     result_determinism_scope_ids[]
     numeric_scope_ids[]
     randomness_scope_ids[]
@@ -360,7 +401,7 @@ outputs[]:
 
 Each output record binds the artifact/result identity to **its own** epistemic `semantic_class` and execution/status information. A JOB that emits both a simulation artifact and a separately validated artifact therefore cannot serialize both under one shared class.
 
-`result_binding` links the output to the canonical or mapped binding that produced it where applicable. `producer_card_ids[]` preserves the semantic provenance edge back to its producer(s), while the determinism/numeric/randomness scope references identify the execution contracts that governed that particular output.
+`result_binding` links the output to the canonical or mapped binding that produced it where applicable. `producer_card_ids[]` preserves the semantic provenance edge back to its producer(s), while the backend-selection/determinism/numeric/randomness scope references identify the machinery and execution contracts that governed that particular output.
 
 An output must not acquire `VALIDATION` or `PROOF` status merely because another output in the same JOB has that status.
 
@@ -387,7 +428,7 @@ Useful failure fields may include:
 ```text
 job_status
 deck_status
-card_id
+failure_card_id
 failure_class
 failure_stage
 backend_detail?
@@ -396,6 +437,8 @@ completed_decks[]
 effect_attempts[]
 observable_artifacts[]
 ```
+
+`failure_card_id` is the canonical field name for the CARD whose unhandled failure produced the enclosing failure record. Failure schemas must not alternate between `card_id` and `failure_card_id` for this meaning.
 
 An unhandled CARD failure stops its DECK by default, and an unhandled DECK failure fails its enclosing JOB by default. The trace must not imply that dependent DECKs or comparisons successfully consumed a missing or partial failed result.
 
@@ -412,6 +455,7 @@ A trace should distinguish:
 - lowered QSOL-CORE identity;
 - mandatory Vector/Dataflow IR identity;
 - generated target identity;
+- immutable material input identities;
 - extension/contract identity;
 - each identified output/result identity.
 
@@ -457,7 +501,7 @@ UNVERIFIED CACHE HIT
 
 The exact categories are not frozen.
 
-Ordinary result/value substitution from cache is legal only for computations proven safe for reuse under the active contract. In the conservative default, that means the reused computation is effect-free and substitution preserves result determinism, numeric behavior, randomness/replay requirements, failure behavior, ordering, epistemic class, dependencies, and output provenance.
+Ordinary result/value substitution from cache is legal only for computations proven safe for reuse under the active contract. In the conservative default, that means the reused computation is effect-free and substitution preserves result determinism, numeric behavior, randomness/replay requirements, failure behavior, ordering, epistemic class, dependencies, input identities, machinery-selection provenance, and output provenance.
 
 An effectful CARD must **not** be satisfied merely by returning a prior cached value if doing so skips a declared external effect. A cached file write, process launch, network request, AI call, clock read, or other protected effect cannot silently stand in for a new required effect attempt, because that would bypass capability authorization, effect ordering, failure behavior, and per-attempt provenance.
 
@@ -476,7 +520,7 @@ Absent such a frozen rule, the implementation must execute the effect normally o
 
 A cached artifact may still be used as an explicit declared input, reference fixture, or optimization artifact when the semantic contract says so. That is different from silently replacing an effectful CARD evaluation.
 
-Cache provenance should bind the material cache identity, including specification/compiler/backend/target/determinism/numeric/randomness/extension and lower-IR inputs required to justify reuse. Where result determinism, numeric behavior, or randomness is scoped, the cache identity must bind the relevant scoped entries rather than ambiguous global singletons.
+Cache provenance should bind the material cache identity, including specification/compiler/backend-selection scopes/target/determinism/numeric/randomness/extension, immutable input identities, and lower-IR inputs required to justify reuse. Where machinery selection, result determinism, numeric behavior, or randomness is scoped, the cache identity must bind the relevant scoped entries rather than ambiguous global singletons.
 
 ## Optimization provenance
 
@@ -507,9 +551,9 @@ This distinction is intentionally aligned with the optimization discipline devel
 
 ## Trace policy
 
-Not every execution needs every field. The active specification, scoped result-determinism requirements, scoped numeric contracts, scoped randomness contracts, capability policy, extension set, semantic-to-core lowering contract, Vector/Dataflow lowering contract, backend-selection policy, and cache/replay legality rules should define the minimum trace required for a claim.
+Not every execution needs every field. The active specification, backend-selection scopes, scoped result-determinism requirements, scoped numeric contracts, scoped randomness contracts, immutable input requirements, capability policy, extension set, semantic-to-core lowering contract, Vector/Dataflow lowering contract, and cache/replay legality rules should define the minimum trace required for a claim.
 
-The roadmap requires a trace/failure/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/execution-contract/policy binding.
+The roadmap requires a trace/failure/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/input/execution-contract/machinery/policy binding.
 
 ## Principle
 
