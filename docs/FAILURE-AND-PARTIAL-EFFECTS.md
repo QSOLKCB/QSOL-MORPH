@@ -25,6 +25,32 @@ Earlier successfully committed effects remain part of history. Later cards do no
 
 If QSOL later introduces recovery, retry, compensation, or exception-like constructs, those must be explicit semantic constructs with defined ordering and provenance rules.
 
+## Default JOB behavior
+
+A JOB coordinates DECKs, so DECK failure must have a JOB-level meaning.
+
+The candidate default is also fail-stop at the JOB boundary:
+
+```text
+CARD failure
+    ↓ unhandled
+DECK failure
+    ↓ unhandled
+JOB failure
+```
+
+When a DECK fails and no explicit JOB-level recovery rule handles that failure:
+
+- the enclosing JOB becomes failed;
+- no later DECK in the JOB starts;
+- a dependent DECK or comparison must not execute against missing, failed, or partial output as though it were complete;
+- already completed DECKs and their externally observable effects remain part of provenance;
+- partial artifacts may be retained only with their failed/partial status intact.
+
+This default deliberately avoids inventing implicit continuation semantics.
+
+If a future JOB construct permits independent DECK continuation, retry, fallback, compensation, or parallel execution after another DECK fails, that behavior must be explicit and frozen, including dependency, cancellation, ordering, artifact-status, and provenance rules.
+
 ## Pure CARD failure
 
 A pure CARD that fails commits no semantic state.
@@ -36,6 +62,10 @@ Examples include:
 - failed pure preconditions.
 
 A failed pure evaluation must not leave behind a partially assigned result.
+
+Pure does **not** imply unobservable under fail-stop execution. A pure CARD that may fail can change whether later effects occur. Therefore a potentially failing pure CARD cannot be freely moved across observable effects unless an explicit ordering/commit rule proves the transformation preserves failure behavior.
+
+Only operations proven pure **and total** under the active contract are candidates for unconstrained dependency-based reordering.
 
 ## Arithmetic failures
 
@@ -99,19 +129,35 @@ The implementation cannot establish whether or how much of the external effect b
 
 `UNKNOWN` is preferable to inventing a clean rollback claim without evidence.
 
-## Capability and precondition checks
+## Capability authorization and preconditions
 
-Where practical, capability and static/precondition checks should occur before an external effect begins.
+Capability authorization is a hard boundary, not a best-effort preflight.
 
-For example, a network operation denied the `NETWORK` capability should fail before opening a connection.
+**Every protected external effect must have its required capability successfully authorized before that effect begins.**
 
-This reduces partial effects, but it does not permit implementations to claim atomicity for external systems that cannot provide it.
+For example, an operation requiring `NETWORK` must not open a socket, resolve through a network-backed helper, transmit data, or otherwise begin the protected network effect unless `NETWORK` has been granted for that execution.
+
+If authorization is denied or cannot be established, the operation fails with the effect state `NOT_STARTED`.
+
+This rule is unconditional for capability authorization. A backend may not downgrade it to "where practical" merely because preflight is inconvenient.
+
+Other non-authorization checks, such as static validation or external-system preconditions that cannot always be known in advance, should occur before an effect begins where practical. Failure of those checks after an effect begins must use the partial-effect model rather than pretending the effect never happened.
 
 ## Prior effects and ordering
 
-Effectful CARDs are source-ordered by default under the candidate model.
+Source order is semantically relevant whenever reordering could change failure or external observability.
 
 If:
+
+```text
+@010 WRITE A
+@011 DIV X 0
+@012 WRITE B
+```
+
+then source-order fail-stop semantics permit `WRITE A` to complete before the division fails and prevent `WRITE B` from starting. A scheduler must not move the failing division before `WRITE A` merely because the division is pure and data-independent.
+
+Similarly, if:
 
 ```text
 @010 WRITE A
@@ -121,7 +167,7 @@ If:
 
 and `@010` and `@011` completed before `@012` failed, both writes remain observable and must remain in the trace.
 
-A backend must not pretend that the DECK was transactional unless the source explicitly requested a transaction-like construct whose semantics are frozen and supported.
+A backend must not pretend that the DECK or JOB was transactional unless the source explicitly requested a transaction-like construct whose semantics are frozen and supported.
 
 ## Process and external-tool failures
 
@@ -156,23 +202,28 @@ Exact names are not frozen in this documentation phase.
 A failed execution should be traceable with enough information to answer:
 
 - which CARD failed;
-- at what stage it failed;
+- which DECK failed;
+- whether the JOB failed or an explicit JOB-level handler changed the outcome;
+- at what stage the failure occurred;
 - which stable failure class applies;
 - which backend/runtime detail was reported;
-- which prior effects had completed;
+- which prior effects and DECKs had completed;
 - whether the failed effect was `NOT_STARTED`, `PARTIAL`, or `UNKNOWN`;
 - whether any output artifact became externally visible;
-- what determinism, numeric, randomness, capability, and extension contracts were active.
+- what determinism, numeric, randomness, capability, policy, and extension contracts were active.
 
 A minimal conceptual record may contain:
 
 ```text
 execution_status
+job_status
+deck_status
 failure_card_id
 failure_class
 failure_stage
 backend_detail?
 prior_committed_effects[]
+completed_decks[]
 partial_effect_state
 observable_artifacts[]
 ```
@@ -205,8 +256,8 @@ Backends may translate failure into native mechanisms such as return codes, tagg
 
 Those are implementation choices.
 
-They must map back to the same QSOL success/failure and partial-effect semantics.
+They must map back to the same QSOL CARD/DECK/JOB success/failure and partial-effect semantics.
 
 ## Principle
 
-> Failure is observable behavior. Do not leave it to backend folklore.
+> Failure is observable behavior. Authorization happens before the effect. Do not leave either to backend folklore.
