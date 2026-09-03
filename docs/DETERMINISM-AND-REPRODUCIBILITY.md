@@ -177,6 +177,8 @@ QSOL-MORPH must not label a transformation semantically identical under a strict
 
 The active numeric contract determines which transformations are legal.
 
+The execution trace should also bind the **material numeric mode** used within that contract when choices such as FMA behavior, denormal handling, effective precision, or math-library mode can change otherwise legal result bytes.
+
 ## Parallelism
 
 Parallel execution is not inherently nondeterministic, but it often exposes order-sensitive behavior.
@@ -205,6 +207,15 @@ RUN MODEL ON BEST
 
 then the trace should identify what `BEST` resolved to and under which selection policy.
 
+Material automatic-selection provenance includes, where applicable:
+
+```text
+backend_selection_policy_id
+backend_selection_policy_version
+backend_selection_tuning_id
+backend_selection_tuning_hash
+```
+
 For a frozen experiment, a later replay may choose to require the recorded backend rather than re-run target selection.
 
 ## Reproducibility manifest
@@ -215,13 +226,21 @@ A future run manifest may include:
 spec_version
 source_hash
 semantic_ir_hash
+semantic_to_core_spec_version
+semantic_to_core_implementation_version
+core_ir_hash
 morph_version
 backend
 backend_version
 target_architecture
 device
+backend_selection_policy_id
+backend_selection_policy_version
+backend_selection_tuning_id
+backend_selection_tuning_hash
 numeric_contract_id
 numeric_contract_hash
+material_numeric_mode
 requested_result_determinism
 effective_result_determinism
 determinism_transition_authorized_by
@@ -235,13 +254,19 @@ stream_id
 parallel_partitioning
 inputs[]
 outputs[]
-extensions[]
-capabilities[]
+resolved_extensions[]
+required_capabilities[]
+granted_capabilities[]
+denied_capabilities[]
+capability_policy_id
+capability_policy_version
+capabilities_used[]
+effect_attempts[]
 optimization_profile
 kernel_or_binary_hashes[]
 ```
 
-Not every field is required for every execution.
+Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; seeded RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted.
 
 The manifest should represent independent reproducibility facets independently rather than collapsing them into one ambiguous label.
 
