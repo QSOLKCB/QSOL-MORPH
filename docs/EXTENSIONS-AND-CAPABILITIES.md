@@ -22,7 +22,7 @@ These names are provisional until frozen by a future specification.
 
 ## Core rule
 
-An extension may add capability or syntax surface. It should not silently redefine frozen core meaning.
+An extension may add versioned syntax, adapters, effects, lowering hooks, or capability **requirements**. Activating or installing an extension never grants a runtime capability by itself, and an extension must not silently redefine frozen core meaning.
 
 If a feature is target-specific, vendor-specific, effectful, or optional, the default assumption is that it belongs in an extension rather than QSOL-CORE.
 
@@ -45,7 +45,7 @@ DENY NETWORK
 
 ## Capabilities
 
-A capability is permission to perform a class of effect or access a class of machinery.
+A capability is runtime permission to perform a class of protected effect or access a class of protected machinery.
 
 Candidate capability families include:
 
@@ -89,13 +89,26 @@ If the deck or execution policy declares:
 DENY NETWORK
 ```
 
-then reachable network-requiring operations should be rejected before execution where practical, even when QX-NET is installed and available.
+then a network-requiring effect must not begin. Capability authorization is unconditional and must succeed before the protected effect starts, even when QX-NET is installed and available.
 
 Conversely, allowing `NETWORK` does not make QX-NET syntax available if that extension is absent.
 
+## Multiple capability requirements
+
+A single protected effect may require more than one capability.
+
+For example, a QX-AI operation that invokes a remote model may require both:
+
+```text
+AI_MODEL
+NETWORK
+```
+
+Every capability required by that specific effect attempt must be granted before the attempt begins. Trace/provenance therefore records the complete per-attempt required-capability set rather than one optional capability label.
+
 ## Fail closed
 
-Capability checking should prefer rejection over silent escalation.
+Capability checking should reject rather than silently escalate.
 
 A program denied network access must not have a backend quietly substitute a network-backed helper because that helper is convenient.
 
@@ -139,7 +152,9 @@ GPU access may require an execution capability/profile, but selecting GPU machin
 
 QX-POSIX is a composable execution profile rather than a compiler backend.
 
-A program emitted through C, LLVM, or another backend may still use POSIX process, file, signal, environment, and stream semantics when QX-POSIX is explicitly active and the corresponding capabilities are allowed.
+Its operational semantics must be frozen by a normative QX-POSIX contract before a reference implementation or backend adapter is allowed to choose process, stream, file, environment, signal, encoding, buffering, failure, or effect-completion behavior.
+
+A program emitted through C, LLVM, or another backend may still use POSIX process, file, signal, environment, and stream semantics when QX-POSIX is explicitly active and every capability required by the specific protected effect is authorized.
 
 ## AI capability boundary
 
@@ -151,6 +166,7 @@ A future QX-AI profile should expose material properties such as:
 - sampling or deterministic settings;
 - input/output boundaries;
 - external network requirements;
+- complete capability requirements;
 - caching;
 - provenance;
 - replay limitations.
@@ -165,4 +181,4 @@ A QSOL card can retain stable semantics while QX-MIDI maps relevant events or pr
 
 ## Principle
 
-> Keep the core small. Make optional power explicit. Never let an extension smuggle new meaning into old syntax.
+> Keep the core small. Make optional power explicit. An extension defines functionality and requirements; policy grants permissions. Never let one masquerade as the other.
