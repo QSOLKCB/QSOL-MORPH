@@ -296,7 +296,7 @@ observable_artifacts[]
 Each `effect_attempts[]` entry should be independently identifiable and may carry fields such as:
 
 ```text
-attempt_id
+effect_attempt_id
 declared_effect_id
 card_id
 effect_kind
@@ -307,7 +307,7 @@ backend_detail?
 observable_artifacts[]
 ```
 
-`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `attempt_id` identifies the particular runtime attempt. They are not interchangeable.
+`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt. They are not interchangeable.
 
 The trace must not collapse multiple external actions into one aggregate `partial_effect_state`.
 
