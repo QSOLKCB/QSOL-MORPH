@@ -23,7 +23,9 @@ File extensions are provisional until frozen by specification.
 
 ## Canonical semantic object
 
-All supported serialization formats should map to the same canonical semantic objects:
+All supported **lossless** serialization formats must map to the same complete canonical semantic objects.
+
+The shared serialized object model must be able to carry, where applicable:
 
 ```text
 JOB
@@ -32,13 +34,27 @@ CARD
 VERB
 NOUN
 OPERANDS
+VALUES
 TYPES
 UNITS
+SEMANTIC_CLASS
 EFFECTS
+REQUIRED_CAPABILITIES
+RESULT_DETERMINISM_CONTRACT
+NUMERIC_CONTRACT
+RANDOMNESS_CONTRACT
 DEPENDENCIES
+EFFECT_ORDER_CONSTRAINTS
+FAILURE_ORDER_CONSTRAINTS
+EXTENSION_DECLARATIONS
+EXTENSION_VERSION_REQUIREMENTS
+SOURCE_IDENTITY / LOCATIONS
+SCHEMA / SPECIFICATION VERSION
 ```
 
-A serializer must not invent meaning that does not exist in the semantic model.
+A serializer must not invent meaning that does not exist in the semantic model, and a lossless serializer must not discard enforcement fields that determine whether or how a program may execute.
+
+In particular, round-tripping a DECK must not silently lose permissions, determinism requirements, numeric tolerances, randomness requirements, extension identities, or sequencing constraints.
 
 ## Human form
 
@@ -55,6 +71,8 @@ LOCK RESULT
 
 The human form should optimize readability and semantic regularity.
 
+Human-readable shorthand may omit fields only when the parser can reconstruct them unambiguously from the active frozen specification. Canonical serialization must retain the resolved semantic values.
+
 ## JSONL form
 
 A streaming representation may resemble:
@@ -66,6 +84,8 @@ A streaming representation may resemble:
 {"verb":"RUN","noun":"PROJECTILE"}
 ```
 
+These examples are deliberately incomplete sketches, not the canonical JSONL schema.
+
 JSONL is attractive for:
 
 - streaming;
@@ -74,9 +94,11 @@ JSONL is attractive for:
 - line-addressable transformations;
 - append-oriented traces.
 
+If JSONL claims semantic losslessness, contract and enforcement metadata must be represented either on the relevant CARD records or through explicitly linked JOB/DECK metadata records whose scope and identity are deterministic.
+
 ## JSON form
 
-Canonical JSON may represent full jobs/decks with explicit schema/specification identity.
+Canonical JSON may represent full jobs/decks with explicit schema/specification identity and all canonical enforcement fields.
 
 If used for hashing, canonical JSON requires strict rules for:
 
@@ -85,7 +107,9 @@ If used for hashing, canonical JSON requires strict rules for:
 - Unicode handling;
 - escaping;
 - omitted versus null fields;
-- map ordering.
+- map ordering;
+- canonical contract identifiers;
+- deterministic representation of unordered capability/extension sets.
 
 A normal pretty-printed JSON document should not be assumed canonical merely because it parses.
 
@@ -102,13 +126,15 @@ Illustrative card:
 </card>
 ```
 
+This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical enforcement field and scoped JOB/DECK contract.
+
 XML is an interchange profile, not the preferred human authoring syntax.
 
 ## Binary form
 
 A binary representation may eventually improve startup time, storage efficiency, or direct runtime loading.
 
-A binary form should include enough versioning to avoid interpreting bytes under the wrong semantic contract.
+A binary form should include enough schema, specification, extension, and contract identity to avoid interpreting bytes under the wrong semantic or authorization model.
 
 ## Round-trip requirement
 
@@ -124,6 +150,8 @@ semantic object'
 semantic object == semantic object'
 ```
 
+Equality here includes execution-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any required capability, determinism, numeric, randomness, extension/version, dependency, effect-order, or failure-order contract.
+
 Formatting metadata need not round-trip unless explicitly included in the representation contract.
 
 ## Canonical hashing
@@ -131,6 +159,8 @@ Formatting metadata need not round-trip unless explicitly included in the repres
 Hashes should be computed over a defined canonical representation or semantic canonicalization process.
 
 Do not hash incidental whitespace and then call the digest a semantic identity unless source-text identity is specifically the object being bound.
+
+Contract and extension identities that affect execution must contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Versioning
 
@@ -140,7 +170,8 @@ A future reader must be able to determine whether a deck was written under:
 
 - an older compatible version;
 - a newer unsupported version;
-- a version requiring migration.
+- a version requiring migration;
+- extension contracts whose required versions are unavailable or incompatible.
 
 ## Migration
 
@@ -149,8 +180,13 @@ Semantic migrations should be explicit and inspectable.
 A migration tool should ideally report changed cards/fields and distinguish:
 
 - pure representation updates;
-- semantic changes requiring human review.
+- semantic changes requiring human review;
+- permission/capability changes;
+- determinism/numeric/randomness contract changes;
+- extension-version changes.
+
+A migration must not silently manufacture a new execution authorization or weaker scientific contract merely to make an old deck parse.
 
 ## Principle
 
-> One meaning, many transports. Canonicalize before you hash. Version before you freeze.
+> One meaning, many transports. Round-trip the contract, canonicalize before you hash, and version before you freeze.
