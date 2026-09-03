@@ -334,6 +334,15 @@ A future run manifest may include:
 spec_version
 source_hash
 semantic_ir_hash
+job_id
+deck_id
+card_ids[]
+execution_status
+job_status
+deck_status
+failure_card_id?
+failure_class?
+failure_stage?
 semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
@@ -362,6 +371,10 @@ optimization_profile
 kernel_or_binary_hashes[]
 ```
 
+`job_id` and `deck_id` identify the stable canonical hierarchy member represented by this execution. `card_ids[]` identifies the stable CARD identities that the manifest's producer, output, failure, scope, effect-attempt, and cache-reuse references may name. A whole-source hash is not a substitute for the selected JOB/DECK execution identity.
+
+`execution_status`, `job_status`, and `deck_status` record the enclosing run outcome even when no output exists. When a failure occurs, `failure_card_id`, `failure_class`, and `failure_stage` identify the canonical failing CARD and stable semantic failure context. Effect completion alone cannot stand in for the enclosing CARD/DECK/JOB outcome: a process effect may be `COMPLETED` while its CARD and JOB fail because the completed process returned a non-success exit status.
+
 Each `backend_selection_scopes[]` entry binds source CARDs/lower execution units to their requested and selected machinery plus automatic-selection policy/tuning identity where applicable.
 
 Each `result_determinism_scopes[]` entry binds the scope identity, source CARD provenance, requested/effective guarantees, any preauthorized transition, and backend execution-unit identity where useful.
@@ -376,7 +389,7 @@ Each `outputs[]` entry binds its artifact/result identity to its own semantic cl
 
 Each `cache_reuse_records[]` entry makes cold versus reused execution auditable and binds the material cache identity plus any legality/verification evidence supporting substitution.
 
-Not every optional field applies to every execution, but no material reproducibility decision may disappear merely because another run would have reached the same bytes by a different path.
+Not every optional field applies to every execution, but stable JOB/DECK identity and the enclosing execution outcome are material even when a failed run produces no outputs, and no material reproducibility decision may disappear merely because another run would have reached the same bytes by a different path.
 
 The manifest should represent independent reproducibility facets independently rather than collapsing them into false execution-wide singletons.
 
