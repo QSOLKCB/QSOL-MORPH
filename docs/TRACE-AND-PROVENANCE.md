@@ -8,12 +8,13 @@ The goal is not merely to say that a program ran. The goal is to make it possibl
 - what semantic representation was produced;
 - how Semantic IR lowered into QSOL-CORE;
 - how QSOL-CORE lowered into the mandatory Vector/Dataflow IR;
+- how result bindings were preserved or renamed at each lowering boundary;
 - what backend was selected;
 - why that backend was selected;
 - what transformations were applied;
 - what inputs and capabilities were required, granted, denied, and used;
-- what outputs were produced;
-- what result determinism was requested and actually provided;
+- what identified outputs were produced and what semantic class/status belongs to each one;
+- what result determinism was requested and actually provided for each governed scope;
 - what numeric contract and material numeric mode governed each relevant execution scope;
 - what randomness was requested and actually used;
 - what extension versions/contracts were active;
@@ -56,13 +57,24 @@ card_ids
 dependency_graph_hash
 epistemic_classes
 extension_requirements[]
-requested_result_determinism
+result_determinism_bindings[]
 numeric_contract_bindings[]
 requested_randomness_contract
 required_capabilities[]
 ```
 
-`numeric_contract_bindings[]` represents the canonical scopes in which numeric contracts are attached, including CARD-scoped contracts where present. A trace must not collapse several distinct source contracts into one global identifier unless a frozen normalization rule proves that the collapse preserves meaning.
+`result_determinism_bindings[]` represents the canonical scopes at which source result-determinism requirements are attached, including CARD-scoped requirements where present. A conceptual source binding may contain:
+
+```text
+scope_kind
+scope_id
+source_card_ids[]
+requested_result_determinism
+```
+
+A trace must not collapse several distinct source result requirements into one execution-wide value unless a frozen normalization rule proves that the normalization preserves every source requirement.
+
+`numeric_contract_bindings[]` similarly represents the canonical scopes in which numeric contracts are attached. A trace must not collapse several distinct source numeric contracts into one global identifier unless a frozen normalization rule proves that the collapse preserves meaning.
 
 ### Semantic-to-Core trace
 
@@ -75,11 +87,24 @@ semantic_ir_hash
 semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
+result_binding_map[]
 resolved_extensions[]
 qualifier_lowering_decisions[]
+result_determinism_lowering_decisions[]
 numeric_contract_lowering_decisions[]
 lowering_diagnostics[]
 ```
+
+`result_binding_map[]` records any deterministic preservation or renaming of source result bindings into QSOL-CORE identities. A conceptual entry may contain:
+
+```text
+source_card_id
+source_result_binding
+lower_result_binding
+mapping_rule_id?
+```
+
+If a binding is unchanged, an explicit identity mapping or a frozen rule permitting its deterministic reconstruction may be used. If a binding is renamed, the map must make that rename provenance-visible; IR hashes alone do not tell a consumer which lower name corresponds to a source result.
 
 A backend should never be the first component to decide how semantic CARDs lower into QSOL-CORE.
 
@@ -94,10 +119,13 @@ core_ir_hash
 vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
+result_binding_map[]
 vector_dataflow_lowering_diagnostics[]
 ```
 
-If the Vector/Dataflow lowering implementation, specification, graph structure, control representation, effect ordering, capability metadata, or numeric structure changes, the trace must be able to identify the exact lower IR that MORPH received.
+This stage's `result_binding_map[]` links QSOL-CORE result bindings to their Vector/Dataflow identities when the lower IR preserves, splits, fuses, or renames bindings under a frozen rule. Both lowering boundaries therefore retain explicit name provenance rather than relying on consumers to reverse-engineer identity from graph structure.
+
+If the Vector/Dataflow lowering implementation, specification, graph structure, control representation, effect ordering, capability metadata, result-binding mapping, or numeric structure changes, the trace must be able to identify the exact lower IR that MORPH received.
 
 ### Morph trace
 
@@ -115,10 +143,38 @@ backend_selection_tuning_hash
 vectorization decisions
 fusion decisions
 memory-placement decisions
+result_determinism_scopes[]
 numeric_execution_scopes[]
 ```
 
 `backend_selection_policy_*` and tuning identity are material when selection is automatic, such as `ON BEST`. Recording only the backend says what ran but may not explain or reproduce why that machinery was chosen.
+
+## Scoped result-determinism provenance
+
+Result-determinism requirements may differ within one DECK or JOB because the canonical model permits CARD-scoped contracts.
+
+For example, one CARD may require `STRICT` while another permits `NUMERIC`. A trace therefore must not use one singular requested/effective result-determinism pair for the whole execution unless a frozen normalization rule proves that one pair faithfully represents every governed computation.
+
+Conceptually:
+
+```text
+result_determinism_scopes[]:
+    scope_kind              # EXECUTION / CARD / REGION / KERNEL / frozen equivalent
+    scope_id
+    source_card_ids[]
+    requested_result_determinism
+    effective_result_determinism
+    transition_authorized_by?
+    backend_unit_id?
+```
+
+A scope can be retained from a source CARD or introduced by a semantics-preserving lowering when several source CARDs are grouped into one lower region/kernel. Any grouping must preserve the strongest applicable source requirements or follow another frozen normalization rule that is provenance-visible.
+
+If a scoped source requirement requests `STRICT` and an execution policy explicitly permits `NUMERIC` for that scope, the trace retains both values and the rule/policy authorizing the transition. Recording only the effective value would erase the source requirement; recording only the requested value would misstate what the backend delivered.
+
+A transition record is evidence, not permission. A backend must fail closed if the requested scoped contract cannot be satisfied and no pre-execution rule authorizes a weaker scoped contract.
+
+## Scoped numeric provenance
 
 `numeric_execution_scopes[]` records contract/mode information at the scope where it is actually valid. A conceptual entry may contain:
 
@@ -142,9 +198,7 @@ Potential fields:
 target architecture
 device
 runtime/compiler versions
-requested_result_determinism
-effective_result_determinism
-determinism_transition_authorized_by
+result_determinism_scopes[]
 numeric_execution_scopes[]
 requested_randomness_mode
 effective_randomness_mode
@@ -168,9 +222,9 @@ start/stop metadata where permitted
 
 Each `numeric_execution_scopes[]` entry records the active numeric contract plus the **material numeric mode** used for that scope when contract-permitted choices can change legal result bytes. Material choices may include FMA behavior, denormal handling, effective precision, selected math-library mode, reduction strategy, or another frozen numeric-mode identity.
 
-`requested_result_determinism` and `effective_result_determinism` are intentionally distinct. If source requests `STRICT` but an execution policy explicitly permits `NUMERIC`, the trace must retain both contracts and the rule or policy that authorized the transition. Recording only the final class would erase the original requirement; recording only the requested class would misstate the guarantee actually delivered.
+Each `result_determinism_scopes[]` entry records the requested and effective guarantee for the computation it governs. A DECK containing both `STRICT` and `NUMERIC` CARDs therefore retains those distinctions rather than weakening the strict CARD or overstating the numeric CARD.
 
-Randomness uses the same separation. If source requests `SEEDED` and an explicit policy permits another mode, the trace must retain:
+Randomness uses a separate requested/effective separation. If source requests `SEEDED` and an explicit policy permits another mode, the trace must retain:
 
 ```text
 requested_randomness_mode
@@ -264,17 +318,37 @@ This is an array because a DECK may contain many effectful CARDs and a single CA
 
 Successful executions record completed effect attempts too. Effect-attempt provenance is not only a failure-reporting mechanism.
 
-### Result trace
+## Result trace
 
-Potential fields:
+Results are represented as identified output records rather than parallel plural fields plus one shared semantic class.
+
+Conceptually:
 
 ```text
-output hashes
-test status
-validation status where an explicit VALIDATION transition occurred
-numeric_execution_scopes[]
-result semantic class
-artifact locations
+outputs[]:
+    output_id
+    result_binding?
+    artifact_hash
+    artifact_location?
+    semantic_class
+    status
+    producer_card_ids[]
+    result_determinism_scope_ids[]
+    numeric_scope_ids[]
+    test_status?
+    validation_status?       # only for explicit VALIDATION semantics
+    proof_status?            # only for explicit PROOF semantics
+```
+
+Each output record binds the artifact/result identity to **its own** epistemic `semantic_class` and execution/status information. A JOB that emits both a simulation artifact and a separately validated artifact therefore cannot serialize both under one shared class.
+
+`result_binding` links the output to the canonical or mapped binding that produced it where applicable. `producer_card_ids[]` preserves the semantic provenance edge back to its producer(s), while the determinism/numeric scope references identify the execution contracts that governed that particular output.
+
+An output must not acquire `VALIDATION` or `PROOF` status merely because another output in the same JOB has that status.
+
+Execution-wide fields may still include:
+
+```text
 execution_status
 job_status
 deck_status
@@ -321,7 +395,7 @@ A trace should distinguish:
 - mandatory Vector/Dataflow IR identity;
 - generated target identity;
 - extension/contract identity;
-- result identity.
+- each identified output/result identity.
 
 Those are different objects and should not be collapsed into one digest.
 
@@ -365,7 +439,7 @@ UNVERIFIED CACHE HIT
 
 The exact categories are not frozen.
 
-Cache provenance should bind the material cache identity, including specification/compiler/backend/target/numeric/randomness/extension and lower-IR inputs required to justify reuse. Where numeric behavior is scoped, the cache identity must bind the relevant scoped contract/mode entries rather than one ambiguous global pair.
+Cache provenance should bind the material cache identity, including specification/compiler/backend/target/determinism/numeric/randomness/extension and lower-IR inputs required to justify reuse. Where result determinism or numeric behavior is scoped, the cache identity must bind the relevant scoped entries rather than ambiguous global singletons.
 
 ## Optimization provenance
 
@@ -396,7 +470,7 @@ This distinction is intentionally aligned with the optimization discipline devel
 
 ## Trace policy
 
-Not every execution needs every field. The active specification, determinism profile, scoped numeric contracts, randomness contract, capability policy, extension set, semantic-to-core lowering contract, Vector/Dataflow lowering contract, and backend-selection policy should define the minimum trace required for a claim.
+Not every execution needs every field. The active specification, scoped result-determinism requirements, scoped numeric contracts, randomness contract, capability policy, extension set, semantic-to-core lowering contract, Vector/Dataflow lowering contract, and backend-selection policy should define the minimum trace required for a claim.
 
 The roadmap requires a trace/failure/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/execution-contract/policy binding.
 
