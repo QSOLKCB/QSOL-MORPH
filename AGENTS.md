@@ -24,6 +24,8 @@ PR #1 is documentation foundation.
 
 PR #2 is reserved for locking core invariants.
 
+QSOL-CORE implementation must not precede its normative operational specification.
+
 ## Semantic rules for agents
 
 When proposing changes:
@@ -33,11 +35,15 @@ When proposing changes:
 3. prefer one canonical concept over synonyms;
 4. keep effects explicit;
 5. keep backend-specific controls out of core unless explicitly justified;
-6. treat determinism and provenance as first-class requirements;
+6. treat determinism, numeric contracts, randomness, and provenance as first-class requirements;
 7. do not call performance improvement an optimization unless the required semantics remain valid;
 8. do not promote simulation/test/AI output into stronger evidence classes without an explicit rule;
-9. do not silently weaken failure behavior;
-10. prefer small, inspectable transformations.
+9. do not silently weaken CARD, DECK, or JOB failure behavior;
+10. require successful capability authorization before every protected external effect begins;
+11. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
+12. preserve all canonical enforcement fields across any serialization claiming semantic losslessness;
+13. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
+14. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -57,6 +63,8 @@ backend
 extension profile
 capability
 effect
+numeric contract
+randomness contract
 trace
 provenance
 ```
@@ -73,7 +81,9 @@ Do not infer implementation support from examples in documentation.
 
 Use the reference semantics first.
 
-A valid optimization must preserve the active semantic/numeric/determinism contract.
+A valid optimization must preserve the active semantic/numeric/determinism/randomness/failure-order/authorization contract.
+
+Only operations proven pure and total may be freely reordered solely from data dependencies. A pure operation that may fail can still change whether effects occur under fail-stop execution.
 
 For CI and optimization evidence rules, read `docs/OPTIMIZATION-AND-CI.md` before changing performance-sensitive or validation-sensitive code.
 
@@ -82,6 +92,22 @@ For CI and optimization evidence rules, read `docs/OPTIMIZATION-AND-CI.md` befor
 Backend-specific behavior belongs behind explicit backend or extension boundaries.
 
 Generated target code should remain inspectable where practical.
+
+A backend implements frozen semantics. It does not define them.
+
+Automatic backend selection must trace the selection policy and material tuning identity when those affect the choice.
+
+## Serialization work
+
+A format claiming semantic losslessness must round-trip all execution-relevant canonical fields, including:
+
+- effects and required capabilities;
+- result-determinism and numeric contracts;
+- randomness contracts;
+- extension/profile identities and versions;
+- data, effect, and failure-order constraints.
+
+Do not silently default a missing enforcement field during transport.
 
 ## Documentation hierarchy
 
@@ -107,9 +133,13 @@ For every substantive change, ask:
 
 - Did meaning change?
 - Did an effect become implicit?
-- Did determinism weaken?
+- Did authorization move until after an effect began?
+- Did determinism, numeric, or randomness guarantees weaken?
 - Did provenance weaken?
 - Did an extension leak into core?
+- Did a serializer lose an enforcement field?
+- Did reordering change failure/effect observability?
+- Did a backend or implementation invent semantics not yet frozen?
 - Did an optimization alter a result contract?
 - Did documentation claim functionality that does not exist?
 
