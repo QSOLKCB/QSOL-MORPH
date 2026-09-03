@@ -51,20 +51,24 @@ When proposing changes:
 9. do not silently weaken CARD, DECK, or JOB failure behavior;
 10. require successful authorization of **every** capability required by a protected external effect before that effect begins;
 11. preserve the explicit effect → complete capability-set association; do not replace it with an ambiguous CARD-level union;
-12. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
-13. do not dead-eliminate a potentially failing operation merely because its result is unused;
-14. preserve all canonical semantic/enforcement fields, including `qualifiers{}` and explicit `failure_behavior`, across any serialization claiming semantic losslessness;
-15. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
-16. distinguish extension availability/functionality from runtime capability authorization; activating an extension never grants permission;
-17. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
-18. preserve execution-relevant qualifiers through Semantic→Core lowering unless a frozen rule explicitly consumes them and records the resulting decision;
-19. preserve the complete QSOL-CORE control/effect/contract surface through the mandatory Vector/Dataflow IR;
-20. record both mandatory lowering identities/hashes in provenance: Semantic→Core and Core→Vector/Dataflow;
-21. record material numeric mode, automatic-backend selection policy/tuning identity, and identified per-effect-attempt states when relevant to provenance;
-22. record the complete required-capability set for each effect attempt;
-23. define effect-attempt completion independently from the enclosing CARD outcome;
-24. distinguish a cleanly aborted begun effect from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
-25. prefer small, inspectable transformations.
+12. preserve result bindings used by dependent CARDs across canonicalization, serialization, and lowering;
+13. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
+14. do not dead-eliminate a potentially failing operation merely because its result is unused;
+15. preserve all canonical semantic/enforcement fields, including `result`, `qualifiers{}` and explicit `failure_behavior`, across any serialization claiming semantic losslessness;
+16. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
+17. distinguish extension availability/functionality from runtime capability authorization; activating an extension never grants permission;
+18. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
+19. preserve execution-relevant qualifiers through Semantic→Core lowering unless a frozen rule explicitly consumes them and records the resulting decision;
+20. preserve the complete QSOL-CORE control/effect/contract surface through the mandatory Vector/Dataflow IR;
+21. record both mandatory lowering identities/hashes in provenance: Semantic→Core and Core→Vector/Dataflow;
+22. record scoped numeric contract/mode provenance when different CARDs, regions, or kernels can use different legal numeric behavior;
+23. record automatic-backend selection policy/tuning identity and identified per-effect-attempt states when relevant to provenance;
+24. record the complete required-capability set for each effect attempt;
+25. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
+26. define effect-attempt completion independently from the enclosing CARD outcome;
+27. apply completion-state precedence so known `COMPLETED` cannot also be `UNKNOWN`;
+28. distinguish a cleanly aborted begun effect from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
+29. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -76,6 +80,7 @@ DECK
 CARD
 VERB
 NOUN
+result binding
 QSOL-CORE
 Semantic IR
 Semantic-to-Core Lowering
@@ -87,7 +92,10 @@ extension profile
 capability
 effect
 effect requirement
+declared effect ID
+effect attempt ID
 numeric contract
+numeric execution scope
 randomness contract
 effect attempt
 trace
@@ -112,10 +120,11 @@ A legal lowering must preserve or explicitly validate before erasure:
 
 - epistemic class and evidence boundaries;
 - types and units;
+- result bindings;
 - execution-relevant qualifiers;
-- `effect_requirements[]` and each effect's complete `required_capabilities[]`;
+- `effect_requirements[]` and each effect's stable `effect_id` plus complete `required_capabilities[]`;
 - explicit `failure_behavior`;
-- result-determinism, numeric, and randomness contracts;
+- result-determinism, scoped numeric, and randomness contracts;
 - extension identities/versions;
 - source, effect, and failure ordering;
 - CARD / DECK / JOB provenance.
@@ -131,17 +140,36 @@ Because every backend path traverses this IR, it must represent or preserve the 
 - scalar and vector data operations;
 - control flow;
 - calls/returns and call state;
-- explicit effects;
+- explicit effects with declared effect identity;
 - complete required-capability sets;
-- qualifiers and explicit failure behavior carried from earlier stages where still material;
+- result bindings and qualifiers where still material;
+- explicit failure behavior carried from earlier stages where still material;
 - failure/totality classification;
 - source/effect/failure ordering;
-- determinism, numeric, randomness, and extension contracts;
+- determinism, scoped numeric, randomness, and extension contracts;
 - provenance and per-effect-attempt identity.
 
 A non-vectorizable QSOL-CORE operation is not permission to bypass the IR. Use a defined scalar/control/effect/pass-through construct or fail conformance until the IR has one.
 
 The Core→Vector/Dataflow stage is independently provenance-bearing. Trace at least the Core IR hash, Vector/Dataflow specification identity, lowering implementation identity, and resulting Vector/Dataflow IR hash when material.
+
+## Numeric provenance work
+
+Do not assume one numeric contract or one material numeric mode governs an entire execution.
+
+When contracts or modes can differ by CARD, region, kernel, or another frozen scope, use scoped entries carrying at least:
+
+```text
+scope_kind
+scope_id
+source_card_ids[]
+numeric_contract_id
+numeric_contract_hash
+material_numeric_mode
+backend_unit_id?
+```
+
+A single execution-wide numeric scope is valid only when a frozen normalization rule proves that one contract/mode pair governs the whole execution.
 
 ## Optimization work
 
@@ -159,19 +187,34 @@ For CI and optimization evidence rules, read `docs/OPTIMIZATION-AND-CI.md` befor
 
 Completion state belongs to the effect attempt, not the enclosing CARD outcome.
 
-Use the candidate meanings consistently:
+Use this precedence:
 
 ```text
-NOT_STARTED   = protected effect never began
-COMPLETED     = effect reached its defined external completion boundary
-ABORTED_CLEAN = effect began, did not complete, and is proven to have produced no externally observable change
-PARTIAL       = effect began, did not complete, and some portion became externally observable
-UNKNOWN       = completion/observability cannot be established
+1. NOT_STARTED if the protected effect never began.
+2. COMPLETED if the effect reached its defined completion boundary.
+3. If begun and known incomplete:
+   ABORTED_CLEAN if no external change occurred;
+   PARTIAL if some incomplete portion became observable;
+   UNKNOWN if clean-vs-partial cannot be established.
+4. UNKNOWN if completion itself cannot be established.
 ```
 
-A completed process that exits with status `2` may have `completion_state = COMPLETED` while its enclosing CARD reports `PROCESS_FAILED`.
+Known `COMPLETED` takes precedence over uncertainty about broader external consequences. A completed process that exits with status `2` may have `completion_state = COMPLETED` while its enclosing CARD reports `PROCESS_FAILED`.
 
 A buffered/atomic operation that begins but provably publishes no external change before aborting is `ABORTED_CLEAN`, not `NOT_STARTED`, `PARTIAL`, or `UNKNOWN`.
+
+Every runtime effect attempt must record:
+
+```text
+effect_attempt_id
+declared_effect_id
+card_id
+effect_kind
+required_capabilities[]
+completion_state
+```
+
+`declared_effect_id` references canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies this concrete attempt. Do not conflate them.
 
 Every effect attempt must record the full set of capabilities required for that attempt, not one representative capability. An attempt must not begin until all required capabilities are granted.
 
@@ -201,8 +244,9 @@ CUDA backend implementation follows the frozen generic GPU contract. QX-CUDA ven
 
 ## Serialization work
 
-A format claiming semantic losslessness must round-trip all execution-relevant canonical fields, including:
+A format claiming semantic losslessness must round-trip all execution- and dependency-relevant canonical fields, including:
 
+- result bindings;
 - qualifiers;
 - effect requirements and complete per-effect required-capability sets;
 - explicit failure behavior;
@@ -211,7 +255,7 @@ A format claiming semantic losslessness must round-trip all execution-relevant c
 - extension/profile identities and versions;
 - data, effect, and failure-order constraints.
 
-Do not silently default a missing semantic/enforcement field during transport.
+Do not silently default or discard a missing semantic/enforcement field during transport.
 
 Machine-readable canonical interchange may proceed before the human QSOL grammar is frozen. Human `.qsl` parsing/serialization may not.
 
@@ -240,24 +284,27 @@ If a task targets one phase, leave later-phase work in `ROADMAP.md` unless it is
 For every substantive change, ask:
 
 - Did meaning change?
+- Did a result binding disappear or change identity?
 - Did an effect become implicit?
 - Did an effect lose its explicit capability-set association?
+- Did a runtime attempt lose its link to the canonical declared effect ID?
 - Did authorization move until after an effect began?
 - Did an effect attempt omit one of several required capabilities?
 - Did determinism, numeric, or randomness guarantees weaken?
+- Did scoped numeric provenance get collapsed into one false global contract/mode?
 - Did provenance weaken or skip one of the mandatory lowering stages?
 - Did an extension get mistaken for a capability grant?
 - Did an extension leak into core?
-- Did a serializer lose `qualifiers{}`, `failure_behavior`, effect requirements, or another semantic/enforcement field?
+- Did a serializer lose `result`, `qualifiers{}`, `failure_behavior`, effect requirements, or another semantic/enforcement field?
 - Did a human text implementation invent grammar before a normative text-profile freeze?
 - Did reordering change failure/effect observability?
 - Did dead-result elimination erase a possible failure?
 - Did a backend or implementation invent semantics not yet frozen?
-- Did Semantic IR → QSOL-CORE lowering lose a qualifier, contract, effect binding, failure behavior, or provenance edge?
+- Did Semantic IR → QSOL-CORE lowering lose a result binding, qualifier, contract, effect binding, failure behavior, or provenance edge?
 - Did Core→Vector/Dataflow lowering lose a contract or provenance edge?
 - Did Vector/Dataflow IR drop or bypass control, calls, effects, capabilities, contracts, or scalar semantics?
 - Did a trace collapse several effect attempts into one ambiguous state?
-- Was effect completion inferred incorrectly from CARD success/failure?
+- Could the same known-completed attempt be labeled both `COMPLETED` and `UNKNOWN`?
 - Was a cleanly aborted begun effect mislabeled as `NOT_STARTED`, `PARTIAL`, or `UNKNOWN`?
 - Did QX-POSIX implementation precede its normative contract?
 - Did generic GPU/CUDA implementation invent unfrozen accelerator semantics?
