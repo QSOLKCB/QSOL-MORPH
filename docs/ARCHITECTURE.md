@@ -95,7 +95,7 @@ A `CARD` is intended to be the smallest independently addressable semantic state
 
 A `DECK` is a source-ordered collection of cards with explicit/derived dependency constraints representing one executable research workflow.
 
-For pure CARDs, backends may schedule according to dependency edges because source order is not by itself observable. Effectful CARDs are source-ordered by default: the canonical model should derive sequencing constraints between observable effects so that two writes, external calls, process launches, or similar effects cannot be reordered merely because they lack a data dependency.
+Only CARDs proven **pure and total** under the active contract may be freely scheduled from dependency edges. A pure CARD that may fail is still ordering-relevant under fail-stop semantics, because moving it across an observable effect can change which effects commit before failure. Effectful CARDs are source-ordered by default: the canonical model should derive sequencing constraints between observable effects so that two writes, external calls, process launches, or similar effects cannot be reordered merely because they lack a data dependency.
 
 A future explicit construct may permit parallel or commutative effects, but only under frozen rules that define when the relaxation is semantically legal and what ordering remains observable.
 
