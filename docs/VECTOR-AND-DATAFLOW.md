@@ -4,6 +4,46 @@ QSOL-MORPH treats vector computation as a first-class architectural concept rath
 
 The goal is to express bulk scientific computation once, then map it onto scalar CPUs, SIMD units, GPUs, or future accelerators without forcing source code to encode one machine's physical width.
 
+Because this IR is part of the mandatory end-to-end backend pipeline, it is **not a vector-only filter**. It must also preserve the complete supported QSOL-CORE semantic surface for operations that are not vectorizable.
+
+## Role in the mandatory pipeline
+
+The documented pipeline is singular:
+
+```text
+Canonical Semantic IR
+    ↓
+Semantic-to-QSOL-CORE Lowering
+    ↓
+QSOL-CORE
+    ↓
+Vector/Dataflow IR
+    ↓
+MORPH
+    ↓
+backend
+```
+
+Therefore every supported QSOL-CORE operation must have a semantics-preserving representation through the Vector/Dataflow IR stage.
+
+The IR may represent vectorizable computation as dataflow graphs while carrying non-vector operations as defined scalar, control, call, effect, sequencing, or pass-through nodes/regions.
+
+It must preserve, where applicable:
+
+- scalar and vector data operations;
+- branches and control-flow regions;
+- call/return boundaries and call state;
+- explicit effects;
+- required capabilities;
+- source/effect/failure ordering constraints;
+- result-determinism, numeric, and randomness contracts;
+- extension/profile identity required by execution;
+- failure and totality classification;
+- provenance links to QSOL-CORE and originating semantic CARDs;
+- identities needed for per-effect-attempt tracing.
+
+A backend must not bypass this IR merely because a QSOL-CORE operation is not vectorizable. If the IR cannot represent a supported core operation without semantic loss, that is an IR design/conformance failure rather than permission to invent a second backend path.
+
 ## Abstract vectors
 
 A QSOL vector is semantic data, not a promise about one hardware register.
@@ -64,7 +104,44 @@ B ─┘      ↑
 
 This representation makes transformation opportunities explicit.
 
-Source order remains semantically relevant for observable effects and for potentially failing operations under fail-stop execution. Only CARDs proven **pure and total** under the active contract may be freely scheduled from data dependencies. A vector/dataflow lowering must preserve effect-order and failure-order constraints carried by the Semantic IR.
+Source order remains semantically relevant for observable effects and for potentially failing operations under fail-stop execution. Only operations proven **pure and total** under the active contract may be freely scheduled from data dependencies.
+
+A Vector/Dataflow lowering must preserve all control, call, effect-order, failure-order, capability, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
+
+## Control flow and calls
+
+Control operations must survive this mandatory IR stage without being flattened into ambiguous data dependencies.
+
+A future frozen representation may use basic blocks, regions, explicit control edges, continuations, or another small model, but it must preserve the QSOL-CORE meaning of:
+
+```text
+BRANCH
+JUMP
+CALL
+RETURN
+STOP
+```
+
+and any frozen call/stack state semantics.
+
+Vectorization may occur inside control regions when legal. It must not erase or speculate across a control boundary in a way that changes failure, effect, or result behavior.
+
+## Effects and capabilities
+
+Explicit effects remain explicit through this IR.
+
+Conceptually, effect nodes/regions must retain enough information to preserve:
+
+```text
+effect kind
+required capability
+source/failure order
+effect attempt identity/provenance
+```
+
+A file write, process launch, network action, clock access, AI call, or other effect must not disappear merely because the surrounding numeric work becomes a vector graph.
+
+Capability authorization remains an execution boundary and must occur before the corresponding protected effect begins.
 
 ## Chaining and fusion
 
@@ -82,9 +159,11 @@ into an implementation equivalent to:
 Z[i] = sqrt(A[i] * B[i] + C[i])
 ```
 
-provided the active numeric and semantic contract permits the transformation.
+provided the active numeric, failure, ordering, and semantic contracts permit the transformation.
 
 Fusion must not be justified solely by performance. It must be semantically legal.
+
+Fusion may not swallow an effect, control boundary, or potentially failing operation in a way that changes observable ordering or failure behavior.
 
 ## Masks
 
@@ -98,6 +177,8 @@ ADD ENERGY DELTA WHERE ACTIVE
 ```
 
 A target may lower masks into vector predicates, branchless scalar operations, GPU predicates, or another equivalent representation.
+
+A data-parallel mask is not automatically equivalent to arbitrary QSOL-CORE control flow; lowering must preserve the distinction where observable semantics differ.
 
 ## Reductions
 
@@ -174,6 +255,22 @@ Normal research source should prefer `AUTO` or omit placement where automatic pl
 
 Explicit placement is an expert control and should remain visible in the trace when material.
 
+## Failure and totality
+
+The IR must retain whether an operation is:
+
+```text
+pure + total
+pure + potentially failing
+effectful
+```
+
+or the frozen equivalent classification.
+
+An unused result does not make a potentially failing operation unobservable under fail-stop execution. An optimizer operating on this IR must not delete such an operation unless it preserves the original failure at the same observable point.
+
+Only operations proven pure and total may be removed solely because their results are dead.
+
 ## Determinism
 
 Parallel execution can create nondeterminism through:
@@ -184,14 +281,29 @@ Parallel execution can create nondeterminism through:
 - backend library choices;
 - varying launch/scheduling behavior.
 
-The dataflow IR must carry enough information for QSOL-MORPH to determine whether a requested result-determinism contract can be satisfied while independently preserving any randomness/reproducibility contract.
+The IR must carry enough information for QSOL-MORPH to determine whether a requested result-determinism contract can be satisfied while independently preserving any randomness/reproducibility contract.
 
 If the requested result-determinism contract cannot be satisfied, the backend must fail closed unless the source or execution policy explicitly permitted the weaker result contract before execution. Reporting a weaker class in the trace is required when such a permitted downgrade occurs, but reporting alone is not authorization to downgrade.
 
 Likewise, a backend must not replace a required seeded random stream with an unseeded or external-entropy source merely because it can report that change afterward.
 
+## Conformance requirement
+
+Vector/Dataflow IR conformance should include fixtures covering more than arithmetic.
+
+Representative tests should include:
+
+- scalar-only QSOL-CORE programs;
+- branches and calls;
+- effectful operations with capabilities;
+- failing pure operations ordered around effects;
+- mixed scalar/vector regions;
+- determinism/numeric/randomness contract preservation;
+- per-effect-attempt provenance identity;
+- unsupported constructs failing closed rather than bypassing the IR.
+
 ## Performance principle
 
-> Move data as little as possible. Express parallelism semantically. Let MORPH choose the physical execution strategy.
+> Move data as little as possible. Preserve the whole program. Expose vectorizable structure. Let MORPH choose the physical execution strategy.
 
 The architecture is inspired by vector and chaining traditions, but it is target-independent by design.
