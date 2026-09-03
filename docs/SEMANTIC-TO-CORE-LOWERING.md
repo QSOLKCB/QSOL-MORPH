@@ -11,7 +11,8 @@ QSOL source carries information that a conventional machine-oriented IR often do
 - research intent;
 - epistemic class;
 - values, types, and units;
-- effects and required capabilities;
+- execution-relevant qualifiers;
+- effects and their complete required-capability sets;
 - result-determinism requirements;
 - numeric contracts;
 - randomness contracts;
@@ -55,8 +56,9 @@ A lowering may produce conceptually:
 LoweredCard {
     source_card_id
     core_operations[]
+    preserved_qualifiers{}
     preserved_metadata
-    effect_and_capability_requirements
+    effect_requirements[]
     ordering_constraints
     failure_contract
     provenance_edges
@@ -65,9 +67,31 @@ LoweredCard {
 
 Some semantic CARDs may lower to multiple core operations.
 
-Some semantic CARDs may establish metadata, evidence boundaries, orchestration, or trace requirements rather than ordinary arithmetic instructions.
+Some semantic CARDs may establish metadata, evidence boundaries, orchestration, trace requirements, target-selection constraints, or adapter/tuning requirements rather than ordinary arithmetic instructions.
 
-A CARD must never disappear merely because a backend does not understand its semantic role.
+A CARD or execution-relevant qualifier must never disappear merely because a backend does not understand its semantic role.
+
+## Qualifier preservation
+
+`qualifiers{}` is part of the lowering contract.
+
+Execution-relevant qualifiers may include, where frozen by the active specification or extension contract:
+
+```text
+target selection
+adapter selection
+tuning controls
+extension-specific controls
+placement constraints
+other machine-selection or lowering modifiers
+```
+
+A lowering must either:
+
+1. preserve the qualifier explicitly into QSOL-CORE/lower metadata for later MORPH interpretation; or
+2. consume it under a frozen rule whose validated effect is represented in the lowered result and provenance.
+
+It may not silently erase or default a qualifier that can change machinery, legality, authorization, or behavior.
 
 ## Epistemic preservation
 
@@ -99,16 +123,27 @@ Lowering changes representation. It does not upgrade claims.
 
 ## Effects and capabilities
 
-Semantic effects and capability requirements survive lowering as distinct concepts.
+Semantic effect requirements survive lowering as explicit per-effect associations.
 
 For example, a semantic file write may lower into one or more core effect operations while retaining:
 
 ```text
-effect = WRITE_FILE
-required_capability = FILESYSTEM_WRITE
+effect_id = write_1
+effect_kind = WRITE_FILE
+required_capabilities = [FILESYSTEM_WRITE]
 ```
 
-Capability authorization must still complete successfully before the protected effect begins.
+A remote AI effect may instead retain:
+
+```text
+effect_id = ai_call_1
+effect_kind = AI_MODEL
+required_capabilities = [AI_MODEL, NETWORK]
+```
+
+Capability authorization must complete successfully for **every capability in the set** before that protected effect begins.
+
+A lowering may not collapse multiple effect-specific requirement sets into an ambiguous CARD-level union if doing so loses which permissions govern which attempt.
 
 A lowering may not replace an explicit local operation with a network-backed helper unless the semantic and capability contracts explicitly permit that effect.
 
@@ -146,17 +181,17 @@ Only CARDs proven **pure and total** under the active contract may be freely reo
 
 Potentially failing pure CARDs remain ordering-relevant under fail-stop semantics when moving them could change which external effects commit.
 
-Effectful CARDs retain their effect-order constraints.
+Effectful CARDs retain their effect-order constraints and per-effect capability bindings.
 
-The lower representation must preserve enough information for QSOL-CORE to reproduce CARD → DECK → JOB failure propagation and per-effect-attempt completion state.
+The lower representation must preserve enough information for QSOL-CORE to reproduce CARD → DECK → JOB failure propagation, explicit `failure_behavior`, and per-effect-attempt completion state.
 
 ## Unsupported semantic constructs
 
-If a semantic construct has no legal QSOL-CORE lowering, the lowering phase must fail explicitly.
+If a semantic construct or execution-relevant qualifier has no legal QSOL-CORE lowering, the lowering phase must fail explicitly.
 
 It must not:
 
-- drop the construct;
+- drop the construct or qualifier;
 - replace it with a no-op without a frozen rule;
 - silently weaken an execution contract;
 - translate an unknown epistemic class into ordinary data;
@@ -168,9 +203,9 @@ Failing closed is preferable to emitting a program with changed meaning.
 
 Extensions may define additional lowering rules behind explicit versioned contracts.
 
-A lowering trace should bind the resolved extension identity used to interpret extension-owned constructs.
+A lowering trace should bind the resolved extension identity used to interpret extension-owned constructs and qualifiers.
 
-An extension may add lowering capability. It may not silently redefine frozen core meaning.
+An extension may add lowering functionality. It may not silently redefine frozen core meaning.
 
 ## Conformance fixtures
 
@@ -183,12 +218,13 @@ Fixtures should cover at least:
 - units/types;
 - observations and assumptions;
 - TEST / VALIDATION / PROOF boundaries;
-- effects and capability requirements;
+- execution-relevant qualifiers, including target/adapter/tuning/extension-control qualifiers;
+- single and multiple effects with distinct complete capability sets;
 - seeded randomness;
 - numeric contracts;
-- failure and ordering constraints;
-- extension-owned constructs;
-- unsupported construct rejection.
+- explicit failure behavior and ordering constraints;
+- extension-owned constructs and qualifiers;
+- unsupported construct/qualifier rejection.
 
 A reference lowering implementation should pass those fixtures before backend code generation is considered conforming.
 
@@ -204,6 +240,7 @@ lowering_spec_version
 lowering_implementation_version
 core_ir_hash
 resolved_extensions[]
+qualifier_lowering_decisions[]
 lowering_diagnostics[]
 ```
 
