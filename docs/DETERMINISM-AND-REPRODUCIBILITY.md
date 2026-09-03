@@ -33,13 +33,15 @@ The same canonical program, declared inputs, implementation version, and require
 
 Results may differ at the bit level across legal implementations but remain within an explicitly declared numeric contract.
 
+A `NUMERIC` declaration is incomplete without that numeric contract. The contract must identify enough information to judge legal variation, such as tolerance/error metric, domain, precision behavior, or a referenced frozen numeric profile.
+
 ### DECLARED-NONDETERMINISTIC result behavior
 
 The program intentionally permits nondeterministic observable results. The source and trace must expose that fact.
 
 ### SEEDED randomness
 
-Pseudorandom behavior is reproducible with respect to a recorded algorithm, seed, stream identity, partitioning, and relevant execution contract.
+Pseudorandom behavior is reproducible with respect to a recorded algorithm, algorithm version, seed, stream identity, partitioning/stream mapping, and relevant execution contract.
 
 `SEEDED` is not a weaker or stronger result-determinism class. A computation may, for example, be both:
 
@@ -58,6 +60,34 @@ randomness = SEEDED
 Likewise, a computation with deterministic seeded RNG may still permit nondeterministic scheduling if the result contract explicitly allows it.
 
 The exact names and complete facet set are not frozen.
+
+## Requested versus effective contracts
+
+A trace must preserve the distinction between what was requested and what was actually provided.
+
+For example, if source requests:
+
+```text
+requested_result_determinism = STRICT
+```
+
+and an execution policy explicitly permits:
+
+```text
+effective_result_determinism = NUMERIC
+```
+
+then the trace must retain both values and the rule/policy authorizing the transition.
+
+Conceptually:
+
+```text
+requested_result_determinism
+effective_result_determinism
+determinism_transition_authorized_by
+```
+
+A recorded downgrade is evidence of what happened. It is not itself authorization to weaken a source requirement.
 
 ## Sources of nondeterminism
 
@@ -102,7 +132,7 @@ stream_id
 parallel_partitioning
 ```
 
-Using the same integer seed is insufficient if the generator or parallel stream mapping changes.
+Using the same integer seed is insufficient if the generator version or parallel stream mapping changes.
 
 A seeded RNG declaration establishes the randomness facet. It does not by itself establish the result-determinism facet.
 
@@ -151,6 +181,8 @@ A deterministic parallel backend may require:
 
 When those requirements cannot be met, the backend must reject the requested result-determinism contract unless the source or execution policy explicitly permits a weaker result contract. Merely reporting a downgrade after execution is not sufficient permission.
 
+For seeded parallel execution, the partitioning/stream-mapping scheme is part of the reproducibility input and must be recorded when it can change the generated sequence.
+
 ## Backend selection
 
 Automatic backend selection must be traceable.
@@ -178,11 +210,17 @@ backend
 backend_version
 target_architecture
 device
-numeric_contract
-result_determinism
+numeric_contract_id
+numeric_contract_hash
+requested_result_determinism
+effective_result_determinism
+determinism_transition_authorized_by
 randomness_mode
 rng_algorithm
+rng_version
 seed
+stream_id
+parallel_partitioning
 inputs[]
 outputs[]
 extensions[]
@@ -203,7 +241,7 @@ QSOL-MORPH should state the strongest reproducibility guarantee actually provide
 
 ## Failure behavior
 
-A backend should fail closed when a required determinism contract cannot be satisfied.
+A backend should fail closed when a required determinism or numeric contract cannot be satisfied.
 
 Silently downgrading:
 
@@ -216,6 +254,8 @@ would make the trace accurate only after violating the user's declared execution
 A downgrade is acceptable only when the source or execution policy explicitly permits it before execution.
 
 The same rule applies independently to randomness and other reproducibility facets: an implementation may not substitute external entropy for a required seeded stream merely because it records that substitution afterward.
+
+General execution failure and partial-effect semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
 
 ## Design principle
 
