@@ -241,7 +241,7 @@ Conceptually:
 
 ```text
 failure_class = PROCESS_FAILED
-card_id = @042
+failure_card_id = @042
 backend_detail.exit_status = 2
 ```
 
