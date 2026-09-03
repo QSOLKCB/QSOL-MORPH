@@ -11,9 +11,9 @@ QSOL source
     ↓
 canonical semantic model
     ↓
-QSOL-CORE / lower IR
+QSOL-CORE
     ↓
-vector/dataflow analysis
+Vector/Dataflow IR
     ↓
 MORPH legality + optimization
     ↓
@@ -21,6 +21,8 @@ backend lowering
     ↓
 target artifact + trace
 ```
+
+The roadmap places Vector/Dataflow IR before the first MORPH code-generation backend so this remains the single documented lowering architecture.
 
 ## MORPH responsibilities
 
@@ -32,27 +34,29 @@ QSOL-MORPH may:
 - choose legal lowering strategies;
 - vectorize;
 - fuse;
-- schedule;
+- schedule within effect/failure-order constraints;
 - place data;
 - specialize for a target;
 - emit inspectable code or binaries;
-- record material transformation decisions.
+- record material transformation and selection decisions.
 
 It may not silently redefine scientific meaning.
 
 ## Reference C backend
 
-The first executable backend should be deliberately conservative. Portable C provides a useful baseline because it is broadly supported, easy to inspect, easy to diff, and suitable as an independent reference against more aggressive backends.
+The first code-generation backend should be deliberately conservative. Portable C provides a useful baseline because it is broadly supported, easy to inspect, easy to diff, and suitable as an independent reference against more aggressive backends.
 
 The C path exists first for semantic clarity, not maximum performance.
 
 ## LLVM
 
-LLVM can provide mature target support and optimization while QSOL-MORPH retains responsibility for QSOL-specific legality. A transformation being legal to LLVM is not automatically legal under a QSOL numeric, provenance, or epistemic contract.
+LLVM can provide mature target support and optimization while QSOL-MORPH retains responsibility for QSOL-specific legality. A transformation being legal to LLVM is not automatically legal under a QSOL numeric, provenance, failure-order, authorization, or epistemic contract.
 
 ## POSIX
 
-A POSIX profile should expose process and stream behavior explicitly:
+POSIX is a composable execution profile, not a compiler backend peer.
+
+`QX-POSIX` may expose process and stream behavior explicitly:
 
 ```text
 stdin
@@ -65,7 +69,7 @@ environment
 signals
 ```
 
-Typed QSOL records may cross into byte or text streams at explicit process boundaries.
+Typed QSOL records may cross into byte or text streams at explicit process boundaries. A C-, LLVM-, Fortran-, or other generated target may use the POSIX profile when enabled and authorized.
 
 ## Fortran
 
@@ -88,9 +92,11 @@ numeric contracts
 determinism contracts
 ```
 
-## CUDA
+## CUDA backend
 
-CUDA should be an explicit backend/profile beneath the generic GPU model.
+**CUDA is a backend/machinery selection.**
+
+Selecting CUDA answers where/how the generic GPU computation is lowered. It does not by itself require vendor-specific source controls.
 
 Desired simple form:
 
@@ -98,18 +104,34 @@ Desired simple form:
 RUN GRAVITY ON CUDA
 ```
 
-QSOL-MORPH may generate normal CUDA plumbing such as allocation, transfers, launch configuration, synchronization, and cleanup. Generated CUDA should remain inspectable.
+QSOL-MORPH may generate normal CUDA plumbing such as allocation, transfers, launch configuration, synchronization, cleanup, and stable failure mapping. Generated CUDA should remain inspectable.
 
-An expert escape hatch may expose explicit target controls through an extension profile.
+## QX-CUDA control profile
+
+**`QX-CUDA` is an optional vendor-specific extension profile**, separate from selecting the CUDA backend.
+
+The profile exists for explicit CUDA-only controls such as launch geometry, shared-memory configuration, or other vendor-specific tuning that generic QSOL source should not need.
 
 Illustrative form:
 
 ```text
+USE QX-CUDA
 RUN GRAVITY ON CUDA WITH:
     blocks 256
     threads 128
     shared 48 KiB
 ```
+
+A deck may select the CUDA backend without using QX-CUDA-specific syntax. Conversely, source that uses QX-CUDA controls declares that vendor-specific extension dependency explicitly.
+
+This distinction keeps:
+
+```text
+CUDA      = machinery/backend
+QX-CUDA   = optional source/control extension
+```
+
+from collapsing into one ambiguous concept.
 
 ## Automatic target selection
 
@@ -120,7 +142,21 @@ RUN MODEL ON HOST
 RUN MODEL ON BEST
 ```
 
-`BEST` requires a declared policy. The selected backend, device, policy version, and relevant tuning state should be recorded when material to reproducibility.
+`BEST` requires a declared selection policy.
+
+When automatic selection is material, the trace should bind:
+
+```text
+selected_backend
+selected_device
+selection_policy_id
+selection_policy_version
+tuning_state_id/hash
+```
+
+This allows replay/audit to explain both **what** ran and **why** that target was selected.
+
+For a frozen replay, policy may require the previously selected target rather than re-running an evolved selection/tuning process.
 
 ## Future backends
 
@@ -141,9 +177,9 @@ A target earns support because it is useful, not because it exists.
 
 ## Backend equivalence
 
-Backends need not produce identical machine code or performance. They must satisfy the semantic and determinism contract requested by the source and active specification.
+Backends need not produce identical machine code or performance. They must satisfy the semantic, failure, authorization, numeric, randomness, and determinism contracts required by the source and active specification.
 
-For floating-point programs, equivalence may be exact or tolerance-bounded depending on the declared numeric profile.
+For floating-point programs, equivalence may be exact or tolerance-bounded depending on the declared numeric contract.
 
 ## Inspectability
 
