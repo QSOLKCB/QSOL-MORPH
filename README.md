@@ -353,13 +353,15 @@ PR #1  Documentation Foundation
 PR #2  Lock in Core Invariants
 PR #3  Canonical Data Model
 PR #4  Canonical Serialization
-PR #5  Trace, Failure, and Provenance Foundation
-PR #6  QSOL-CORE Reference Machine
-PR #7  Reference MORPH to C
-...    Vector/Dataflow, optimization, POSIX profile, LLVM, GPU, CUDA
+PR #5  Execution Contract, Trace, Failure, and Provenance Foundation
+PR #6  Normative QSOL-CORE Operational Specification
+PR #7  QSOL-CORE Reference Machine
+PR #8  Vector/Dataflow IR
+PR #9  Reference MORPH to C
+...    optimization, POSIX profile, LLVM, GPU, CUDA
 ```
 
-The roadmap is intentionally designed so executable research code does not precede the contracts needed to interpret and audit its behavior.
+The roadmap is intentionally designed so executable research code does not precede the contracts needed to interpret and audit its behavior, and QSOL-CORE implementation does not precede its normative operational specification.
 
 ## Design influences
 
