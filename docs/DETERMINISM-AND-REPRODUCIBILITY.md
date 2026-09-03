@@ -4,36 +4,60 @@ QSOL-MORPH is intended for research computing, where performance is useful but r
 
 This document describes the candidate determinism model. It is non-normative until the invariant freeze.
 
-## Determinism classes
+## Composable reproducibility contract
 
-A future specification may distinguish several execution classes rather than treating determinism as a single boolean.
+Determinism should not be represented as a single enum that mixes result guarantees with randomness configuration.
 
-Candidate classes:
+A future execution contract should instead compose at least two orthogonal facets:
 
 ```text
-STRICT
-NUMERIC
-SEEDED
-DECLARED-NONDETERMINISTIC
+RESULT DETERMINISM
+    STRICT
+    NUMERIC
+    DECLARED-NONDETERMINISTIC
+
+RANDOMNESS
+    NONE
+    SEEDED
+    EXTERNAL-ENTROPY
+    DECLARED-NONDETERMINISTIC
 ```
 
-### STRICT
+Additional facets may be added if the specification needs to represent scheduling, external-service replay, or other independent sources of nondeterminism.
+
+### STRICT result determinism
 
 The same canonical program, declared inputs, implementation version, and required execution contract produce the same observable result bytes.
 
-### NUMERIC
+### NUMERIC result determinism
 
 Results may differ at the bit level across legal implementations but remain within an explicitly declared numeric contract.
 
-### SEEDED
+### DECLARED-NONDETERMINISTIC result behavior
 
-Pseudorandom behavior is deterministic with respect to a recorded algorithm, seed, stream identity, and relevant execution contract.
+The program intentionally permits nondeterministic observable results. The source and trace must expose that fact.
 
-### DECLARED-NONDETERMINISTIC
+### SEEDED randomness
 
-The program intentionally permits nondeterministic behavior. The source and trace must expose that fact.
+Pseudorandom behavior is reproducible with respect to a recorded algorithm, seed, stream identity, partitioning, and relevant execution contract.
 
-The exact names and semantics of these classes are not frozen.
+`SEEDED` is not a weaker or stronger result-determinism class. A computation may, for example, be both:
+
+```text
+result_determinism = STRICT
+randomness = SEEDED
+```
+
+or:
+
+```text
+result_determinism = NUMERIC
+randomness = SEEDED
+```
+
+Likewise, a computation with deterministic seeded RNG may still permit nondeterministic scheduling if the result contract explicitly allows it.
+
+The exact names and complete facet set are not frozen.
 
 ## Sources of nondeterminism
 
@@ -70,6 +94,7 @@ RUN MONTE_CARLO
 A reproducible trace may need to record:
 
 ```text
+rng_mode
 rng_algorithm
 rng_version
 seed
@@ -78,6 +103,8 @@ parallel_partitioning
 ```
 
 Using the same integer seed is insufficient if the generator or parallel stream mapping changes.
+
+A seeded RNG declaration establishes the randomness facet. It does not by itself establish the result-determinism facet.
 
 ## Time
 
@@ -122,7 +149,7 @@ A deterministic parallel backend may require:
 - controlled atomics;
 - stable synchronization semantics.
 
-When those requirements cannot be met, the backend should reject a strict contract or explicitly record a weaker one.
+When those requirements cannot be met, the backend must reject the requested result-determinism contract unless the source or execution policy explicitly permits a weaker result contract. Merely reporting a downgrade after execution is not sufficient permission.
 
 ## Backend selection
 
@@ -152,7 +179,8 @@ backend_version
 target_architecture
 device
 numeric_contract
-determinism_class
+result_determinism
+randomness_mode
 rng_algorithm
 seed
 inputs[]
@@ -164,6 +192,8 @@ kernel_or_binary_hashes[]
 ```
 
 Not every field is required for every execution.
+
+The manifest should represent independent reproducibility facets independently rather than collapsing them into one ambiguous label.
 
 ## Reproducibility versus portability
 
@@ -183,7 +213,9 @@ STRICT -> DECLARED-NONDETERMINISTIC
 
 would make the trace accurate only after violating the user's declared execution requirement.
 
-A downgrade is acceptable only when the source or execution policy explicitly permits it.
+A downgrade is acceptable only when the source or execution policy explicitly permits it before execution.
+
+The same rule applies independently to randomness and other reproducibility facets: an implementation may not substitute external entropy for a required seeded stream merely because it records that substitution afterward.
 
 ## Design principle
 
