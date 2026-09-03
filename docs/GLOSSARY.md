@@ -22,6 +22,10 @@ The operation performed by a CARD, such as `OBSERVE`, `RUN`, `TEST`, or `TRACE`.
 
 The semantic target of a CARD, such as `TEMPERATURE`, `MODEL`, or `RESULT`.
 
+## result binding
+
+The canonical identity naming a value produced by a CARD for dependency/reference use by later CARDs. It is distinct from the produced value itself and must survive lossless serialization and lowering, either unchanged or through a deterministic provenance-bound rename map.
+
 ## semantic anchor
 
 A keyword chosen because its ordinary, research, and computational meanings align closely enough to reduce ambiguity for humans and AI.
@@ -36,23 +40,31 @@ The proposed reduced semantic machine beneath the research-facing language.
 
 ## Semantic IR
 
-The canonical typed representation that preserves research intent, units, qualifiers, effect requirements, explicit failure behavior, dependencies, numeric/reproducibility contracts, and semantic class before lower machine-oriented transformations.
+The canonical typed representation that preserves research intent, result bindings, units, qualifiers, effect requirements, explicit failure behavior, dependencies, scoped numeric/reproducibility contracts, and semantic class before lower machine-oriented transformations.
 
 ## effect requirement
 
 The canonical binding between one protected effect and the complete runtime capability set required before that effect may begin. Conceptually it contains an `effect_id`, `effect_kind`, and `required_capabilities[]`. A CARD-level union of capabilities may be useful for preflight but does not replace the per-effect association.
 
+## declared effect ID
+
+The stable canonical `EffectRequirement.effect_id` identifying a semantic effect declaration. It survives lowering and is distinct from a runtime effect-attempt ID.
+
+## effect attempt ID
+
+The runtime identity of one concrete attempt to perform a declared effect. Provenance records both this ID and the originating declared effect ID so retries, duplicates, omissions, or same-kind effects can be audited.
+
 ## Semantic-to-Core Lowering
 
-The independently specified transformation from canonical Semantic IR into QSOL-CORE plus preserved metadata/provenance. It must preserve or validly consume qualifiers, effect requirements, explicit failure behavior, epistemic boundaries, contracts, ordering, and identity under frozen rules.
+The independently specified transformation from canonical Semantic IR into QSOL-CORE plus preserved metadata/provenance. It must preserve or validly consume result bindings, qualifiers, effect requirements, declared effect identities, explicit failure behavior, epistemic boundaries, scoped contracts, ordering, and identity under frozen rules.
 
 ## Vector/Dataflow IR
 
-The mandatory target-independent lower IR that preserves the complete supported QSOL-CORE surface while exposing vector and dataflow structure where applicable. It must represent or preserve scalar operations, vector operations, control flow, calls/returns, explicit effects and their complete capability sets, qualifiers/failure behavior still material at this stage, dependency/effect/failure ordering, determinism/numeric/randomness contracts, extension bindings, and provenance. Backends must not bypass this IR for non-vectorizable core operations.
+The mandatory target-independent lower IR that preserves the complete supported QSOL-CORE surface while exposing vector and dataflow structure where applicable. It must represent or preserve result/data identity, scalar/vector operations, control flow, calls/returns, explicit effects and their complete capability sets, qualifiers/failure behavior still material at this stage, dependency/effect/failure ordering, determinism/scoped-numeric/randomness contracts, extension bindings, and provenance. Backends must not bypass this IR for non-vectorizable core operations.
 
 ## Core-to-Vector/Dataflow Lowering
 
-The independently specified and provenance-bearing transformation from QSOL-CORE into the mandatory Vector/Dataflow IR. A conforming run identifies the input Core IR, active Vector/Dataflow specification, lowering implementation, and resulting Vector/Dataflow IR.
+The independently specified and provenance-bearing transformation from QSOL-CORE into the mandatory Vector/Dataflow IR. A conforming run identifies the input Core IR, active Vector/Dataflow specification, lowering implementation, resulting Vector/Dataflow IR, and any material result-binding map.
 
 ## MORPH
 
@@ -84,7 +96,7 @@ An operation with externally observable or stateful behavior, such as file I/O, 
 
 ## effect attempt
 
-One identified attempt to perform a protected external effect. It records the originating CARD/effect identity, the complete required-capability set, ordering/provenance information, and a completion state.
+One identified runtime attempt to perform a protected external effect. It records both its runtime effect-attempt ID and originating declared effect ID, the complete required-capability set, ordering/provenance information, and a completion state.
 
 ## NOT_STARTED
 
@@ -92,7 +104,7 @@ An effect-attempt state meaning the protected effect never began.
 
 ## COMPLETED
 
-An effect-attempt state meaning the effect reached its defined external completion boundary. This is independent of whether the enclosing CARD ultimately succeeds or fails.
+An effect-attempt state meaning the effect reached its defined external completion boundary. Known completion takes precedence over uncertainty about broader external consequences. This is independent of whether the enclosing CARD ultimately succeeds or fails.
 
 ## ABORTED_CLEAN
 
@@ -104,7 +116,7 @@ An effect-attempt state meaning the protected effect began, did not complete, an
 
 ## UNKNOWN
 
-An effect-attempt state meaning completion or external observability cannot be established reliably.
+An effect-attempt state used when completion itself cannot be established, or when an attempt is known incomplete but cannot be classified as clean versus partial. It does not override a known `COMPLETED` state.
 
 ## deterministic execution
 
@@ -120,7 +132,11 @@ The independent contract describing whether randomness is absent, reproducibly s
 
 ## numeric contract
 
-Rules describing which numeric transformations and result differences are legal for a program or operation.
+Rules describing which numeric transformations and result differences are legal for a program or operation. Numeric contracts may be scoped to CARDs, regions, kernels, or another frozen scope.
+
+## numeric execution scope
+
+A provenance entry binding a scope identity to its numeric-contract identity/hash and effective material numeric mode, optionally including source CARD identities and backend execution-unit identity. Multiple scopes are retained when different legal numeric behavior applies within one run.
 
 ## trace
 
@@ -128,7 +144,7 @@ A structured record of semantic, lowering, transformation, execution, failure, o
 
 ## provenance
 
-Evidence connecting a result or failure to its source, inputs, mandatory lowering stages, transformations, execution context, authorization decisions, and validation boundary.
+Evidence connecting a result or failure to its source, inputs, mandatory lowering stages, transformations, execution context, scoped numeric behavior, authorization decisions, and validation boundary.
 
 ## canonical form
 
