@@ -242,28 +242,42 @@ When those requirements cannot be met for a governed scope, the backend must rej
 
 For seeded parallel execution, the partitioning/stream-mapping scheme is part of the scoped reproducibility input and must be recorded when it can change the generated sequence.
 
-## Backend selection
+## Scoped backend selection
 
-Automatic backend selection must be traceable.
+Backend selection must be traceable at the scope where the target decision actually applies.
 
-If a source requests:
+A JOB may contain, for example, one CARD explicitly targeting a host backend and another using:
 
 ```text
 RUN MODEL ON BEST
 ```
 
-then the trace should identify what `BEST` resolved to and under which selection policy.
+One execution-wide `backend` field cannot represent both decisions. Reproducibility therefore uses scoped machinery-selection entries.
 
-Material automatic-selection provenance includes, where applicable:
+Conceptually:
 
 ```text
-backend_selection_policy_id
-backend_selection_policy_version
-backend_selection_tuning_id
-backend_selection_tuning_hash
+backend_selection_scopes[]:
+    scope_kind
+    scope_id
+    source_card_ids[]
+    backend_unit_id?
+    requested_target?
+    selected_backend
+    selected_backend_version?
+    target_architecture?
+    device?
+    selection_policy_id?
+    selection_policy_version?
+    selection_tuning_id?
+    selection_tuning_hash?
 ```
 
-For a frozen experiment, a later replay may choose to require the recorded backend rather than re-run target selection.
+Automatic-selection policy and tuning identity are material for scopes using policies such as `ON BEST`. Explicitly targeted scopes can leave those policy fields absent while still recording their requested and effective target.
+
+A single execution-wide backend-selection scope is legal only when a frozen rule establishes that one machinery decision governs the entire execution. Separate source target qualifiers must remain separately attributable even when they happen to resolve to the same backend.
+
+For a frozen experiment, a later replay may require the recorded selected backend for each governed scope rather than re-run an evolved selection policy.
 
 ## Lowering provenance
 
@@ -302,6 +316,7 @@ artifact_location?
 semantic_class
 status
 producer_card_ids[]
+backend_selection_scope_ids[]
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
@@ -312,7 +327,7 @@ proof_status?
 
 A simulation output and a separately validated output remain distinct records. The validation status of one output must not promote another output merely because both were produced in the same JOB.
 
-`randomness_scope_ids[]` identifies the exact randomness contracts/streams that governed an output when randomness contributed to that result.
+`backend_selection_scope_ids[]` identifies the machinery-selection decisions that governed the output. `randomness_scope_ids[]` identifies the exact randomness contracts/streams that governed an output when randomness contributed to that result.
 
 ## Input provenance
 
@@ -328,6 +343,7 @@ content_hash?             # required for material external byte/artifact inputs
 artifact_id_or_version?
 location?
 media_or_schema_type?
+source_card_ids[]?
 ```
 
 Every material input requires a stable `input_id` plus either its canonical value or an immutable content/artifact identity sufficient to distinguish the exact input consumed. For a file, dataset, model, downloaded object, or other mutable external resource, a location alone is not reproducibility evidence; the consumed bytes or immutable artifact/version must be hash-bound.
@@ -351,14 +367,7 @@ vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 core_to_vector_result_binding_map[]
 morph_version
-backend
-backend_version
-target_architecture
-device
-backend_selection_policy_id
-backend_selection_policy_version
-backend_selection_tuning_id
-backend_selection_tuning_hash
+backend_selection_scopes[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
@@ -376,6 +385,8 @@ optimization_profile
 kernel_or_binary_hashes[]
 ```
 
+Each `backend_selection_scopes[]` entry binds the source CARDs/lower execution unit to its requested target where applicable, selected backend/version, target/device identity, and automatic-selection policy/tuning identity when automatic selection was used.
+
 Each `result_determinism_scopes[]` entry binds the scope identity, source CARD provenance, requested and effective guarantees, any preauthorized transition, and backend execution-unit identity when useful.
 
 Each `numeric_execution_scopes[]` entry binds the scope identity, source CARD provenance where applicable, numeric-contract identity/hash, effective material numeric mode, and backend execution-unit identity when useful.
@@ -384,9 +395,9 @@ Each `randomness_execution_scopes[]` entry binds the scope identity, source CARD
 
 Each `inputs[]` entry binds the declared material input to a stable input ID and the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed.
 
-Each `outputs[]` entry binds its artifact/result identity to its own semantic class, status, producer provenance, and governing determinism/numeric/randomness scopes.
+Each `outputs[]` entry binds its artifact/result identity to its own semantic class, status, producer provenance, and governing backend-selection/determinism/numeric/randomness scopes.
 
-Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; scoped seeded-RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; binding maps are material when result identities are transformed; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation; scoped determinism/numeric/randomness entries are material whenever their contracts affect legal results; immutable input identity is material whenever an external or mutable input contributes to a result.
+Not every field is required for every execution. Backend-selection policy/tuning fields are material within scopes where the backend was chosen automatically; scoped seeded-RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; binding maps are material when result identities are transformed; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation; scoped machinery/determinism/numeric/randomness entries are material whenever their decisions or contracts affect legal results; immutable input identity is material whenever an external or mutable input contributes to a result.
 
 The manifest should represent independent reproducibility facets independently rather than collapsing them into ambiguous labels or false execution-wide singletons.
 
