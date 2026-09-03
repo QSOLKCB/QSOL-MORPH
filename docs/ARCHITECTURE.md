@@ -40,7 +40,9 @@ The project exists to let a researcher and an AI reason about one stable semanti
 └─────────┬────────┬────────┬──────────────┘
           │        │        │
           ▼        ▼        ▼
-          C       LLVM    POSIX       ...
+          C       LLVM    Fortran      ...
+          │        │        │
+          └────────┴────────┴── may compose with QX-POSIX
                             │
                     ┌───────┴────────┐
                     ▼                ▼
@@ -84,12 +86,18 @@ JOB
            ├── TYPE / UNIT
            ├── QUALIFIERS
            ├── EFFECTS
-           └── DEPENDENCIES
+           ├── CAPABILITIES
+           ├── DETERMINISM / RANDOMNESS CONTRACT
+           └── DEPENDENCIES / EFFECT ORDER
 ```
 
 A `CARD` is intended to be the smallest independently addressable semantic statement.
 
-A `DECK` is an ordered and/or dependency-constrained collection of cards representing one executable research workflow.
+A `DECK` is a source-ordered collection of cards with explicit/derived dependency constraints representing one executable research workflow.
+
+For pure CARDs, backends may schedule according to dependency edges because source order is not by itself observable. Effectful CARDs are source-ordered by default: the canonical model should derive sequencing constraints between observable effects so that two writes, external calls, process launches, or similar effects cannot be reordered merely because they lack a data dependency.
+
+A future explicit construct may permit parallel or commutative effects, but only under frozen rules that define when the relaxation is semantically legal and what ordering remains observable.
 
 A `JOB` coordinates one or more decks and their execution relationships.
 
@@ -150,7 +158,7 @@ Responsibilities may include:
 - generation of inspectable target code;
 - recording material execution decisions.
 
-MORPH is not allowed to silently redefine the source program's scientific meaning.
+MORPH is not allowed to silently redefine the source program's scientific meaning or bypass source effect-order constraints.
 
 ## 6. Backend layer
 
@@ -160,7 +168,6 @@ Possible backend families include:
 
 - portable C;
 - LLVM;
-- POSIX process/stream execution;
 - Fortran;
 - CUDA;
 - HIP;
@@ -170,6 +177,8 @@ Possible backend families include:
 - a native QSOL VM;
 - formal-verification adapters;
 - MIDI 2.0 adapters.
+
+POSIX process, stream, filesystem, environment, and signal semantics are modeled as the composable `QX-POSIX` profile rather than a mutually exclusive backend. A C-, LLVM-, Fortran-, or other generated program may use that profile when explicitly enabled and authorized.
 
 A backend may expose additional target-specific control through an explicit extension profile. Backend-specific features should not leak into the core by default.
 
@@ -189,7 +198,7 @@ QSOL-MORPH may automatically choose or optimize machinery, but material decision
 
 ### Extensions are not core growth
 
-Capabilities such as CUDA, networking, AI model calls, or MIDI should be introduced through explicit profiles unless a future core specification establishes otherwise.
+Capabilities such as CUDA, networking, AI model calls, POSIX process behavior, or MIDI should be introduced through explicit profiles/capability boundaries unless a future core specification establishes otherwise.
 
 ## Example path
 
