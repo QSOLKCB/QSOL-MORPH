@@ -146,9 +146,12 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - capability authorization is completed successfully **before every protected external effect begins**;
 - other static/precondition checks should occur before an external effect where practical;
 - effects already externally observable before a later failure are not retroactively erased;
-- every identified effect attempt must be traceable independently as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents); `NOT_STARTED` is valid only when that protected effect never began, while an effect that began and then failed must be `PARTIAL` or `UNKNOWN` unless it completed before a later failure;
+- every identified effect attempt must be traceable independently as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents);
+- `NOT_STARTED` is valid only when that protected effect never began;
+- `COMPLETED` means the effect itself reached its defined external completion boundary, independently of whether the enclosing CARD later succeeds or fails;
+- an effect that began but did not reach its completion boundary before failure must be `PARTIAL` or `UNKNOWN` as appropriate;
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
-- failure traces identify the CARD, DECK/JOB outcome, failure class/stage, prior committed effects, per-attempt effect states, and whether any output artifact became observable.
+- failure traces identify the CARD, DECK/JOB outcome, failure class/stage, per-attempt effect states, and whether any output artifact became observable.
 
 This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind that result to the program, execution policy, numeric contract, reproducibility contract, extension set, authorization decisions, and execution/failure context that produced it.
 
@@ -218,23 +221,35 @@ The reference lowering must:
 
 No MORPH backend should be considered end-to-end conforming until this first lowering stage is present.
 
-## PR #10 — Vector/Dataflow IR
+## PR #10 — Full Semantics-Preserving Vector/Dataflow IR
 
-Define and implement the target-independent vector/dataflow layer used by MORPH backend lowering.
+Define and implement the target-independent lower computational IR used by **every** MORPH backend path.
+
+The name reflects its vector/dataflow optimization role, but the IR is not permitted to represent only vectorizable arithmetic. Because it is mandatory in the singular pipeline, it must preserve the full supported QSOL-CORE semantic and contract surface.
 
 Planned concepts:
 
-- abstract vector registers;
-- vector load/store;
-- arithmetic and logic;
-- masks;
-- reductions;
-- dependencies;
+- abstract vector registers and scalar values;
+- vector/scalar load/store, arithmetic, logic, comparison, and data movement;
+- masks and reductions;
+- dependencies and dataflow edges;
+- explicit control-flow representation for branch/jump/stop semantics;
+- call/return boundaries and frozen call-state semantics;
+- explicit effect nodes/regions;
+- required capability metadata and authorization boundaries;
+- source-order, effect-order, and failure-order constraints;
+- per-effect-attempt identity/provenance hooks;
+- result-determinism, numeric, randomness, and extension-contract preservation;
 - fusion legality;
 - alias rules;
 - parallel partitioning;
-- totality/failure-order constraints;
-- deterministic numeric-contract enforcement.
+- totality/failure classification;
+- deterministic numeric-contract enforcement;
+- provenance links back to QSOL-CORE and originating semantic CARDs.
+
+Every supported QSOL-CORE operation must either lower to a defined IR construct or be preserved through a defined semantics-preserving scalar/control/effect/pass-through construct. Unsupported representation must fail closed. A backend may not bypass this IR for branches, calls, effects, or other non-vector operations merely because they are not optimization candidates.
+
+Conformance fixtures must include scalar-only programs, control flow, calls, explicit effects/capabilities, mixed vector/scalar regions, potentially failing operations ordered around effects, and full contract/provenance preservation.
 
 This phase occurs before the first MORPH code-generation backend so the documented pipeline remains singular:
 
@@ -245,7 +260,7 @@ Reference Semantic-to-Core Lowering
     ↓
 QSOL-CORE
     ↓
-Vector/Dataflow IR
+Full Vector/Dataflow IR
     ↓
 MORPH
     ↓
@@ -263,7 +278,7 @@ Semantic-to-Core Lowering
         ↓
 QSOL-CORE
         ↓
-Vector/Dataflow IR
+Full Vector/Dataflow IR
         ↓
 QSOL-MORPH
         ↓
@@ -278,7 +293,8 @@ Goals:
 - no optimizer cleverness required for correctness;
 - provenance-bound generated artifacts and results;
 - failure behavior equivalent to the QSOL-CORE reference contract;
-- end-to-end comparison from canonical Semantic IR through the reference machine and C result path.
+- end-to-end comparison from canonical Semantic IR through the reference machine and C result path;
+- no backend bypass of the mandatory lower IR for control, calls, effects, or scalar operations.
 
 The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity and generated target hashes where material.
 
@@ -286,14 +302,16 @@ The C backend inherits the PR #5 trace/failure/authorization gate and must recor
 
 Introduce semantics-preserving transformations such as:
 
-- constant folding;
-- dead-result elimination;
+- constant folding under the active type/numeric/failure contract;
+- dead-result elimination **only** for operations proven pure and total, unless the original failure is preserved at the same observable point;
 - vectorization;
 - dataflow fusion;
 - temporary-elision;
 - legal operation reordering under explicit totality, failure-order, and numeric contracts.
 
-Every optimization must be testable against the invariant set, lowering fixtures, and QSOL-CORE reference semantics.
+No optimization may erase or move an observable failure merely because a computed value is unused. Under fail-stop semantics, an unused potentially failing operation remains observable because its failure can prevent later effects or results.
+
+Every optimization must be testable against the invariant set, lowering fixtures, full-IR fixtures, and QSOL-CORE reference semantics.
 
 ## PR #13 — POSIX Profile
 
@@ -361,11 +379,12 @@ Targets may include:
 
 - deterministic evaluation for a defined subset;
 - semantic preservation for selected Semantic IR → QSOL-CORE lowering rules;
+- semantic preservation through the mandatory full Vector/Dataflow IR;
 - semantic preservation for selected morph passes;
 - invariant consistency;
 - epistemic-class preservation;
 - canonical serialization properties;
-- failure-state, JOB propagation, authorization, and ordering properties for a defined subset.
+- failure-state, JOB propagation, authorization, effect-attempt, and ordering properties for a defined subset.
 
 ## Extension workstreams
 
