@@ -166,8 +166,8 @@ target_architecture
 device
 selection_policy_id?
 selection_policy_version?
-tuning_state_id?
-tuning_state_hash?
+selection_tuning_id?
+selection_tuning_hash?
 ```
 
 Policy/tuning fields are material when selection is automatic, such as `ON BEST`. An explicit target still needs enough scope identity to establish which source computation and generated unit used that machinery.
