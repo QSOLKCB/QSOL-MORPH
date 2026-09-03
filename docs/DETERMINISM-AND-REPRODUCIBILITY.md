@@ -27,7 +27,7 @@ Additional facets may be added if the specification needs to represent schedulin
 
 ### STRICT result determinism
 
-The same canonical program, declared inputs, implementation version, and required execution contract produce the same observable result bytes.
+The same canonical program, declared inputs, implementation version, and required execution contract produce the same observable result bytes for the scope governed by the contract.
 
 ### NUMERIC result determinism
 
@@ -39,7 +39,7 @@ Each contract must identify enough information to judge legal variation, such as
 
 ### DECLARED-NONDETERMINISTIC result behavior
 
-The program intentionally permits nondeterministic observable results. The source and trace must expose that fact.
+The governed computation intentionally permits nondeterministic observable results. The source and trace must expose that fact.
 
 ### SEEDED randomness
 
@@ -59,15 +59,34 @@ result_determinism = NUMERIC
 randomness = SEEDED
 ```
 
-Likewise, a computation with deterministic seeded RNG may still permit nondeterministic scheduling if the result contract explicitly allows it.
+Likewise, a computation with deterministic seeded RNG may still permit nondeterministic scheduling if its result contract explicitly allows it.
 
 The exact names and complete facet set are not frozen.
 
-## Requested versus effective contracts
+## Scoped requested versus effective result contracts
 
-A trace must preserve the distinction between what was requested and what was actually provided.
+A trace must preserve the distinction between what was requested and what was actually provided **at the scope where the requirement applies**.
 
-For example, if source requests:
+The canonical model may attach different result-determinism requirements to different CARDs. A DECK may therefore contain, for example, one `STRICT` CARD and another `NUMERIC` CARD. One execution-wide requested/effective pair cannot represent that program without either weakening the strict requirement or overstating the numeric result.
+
+Conceptually, provenance uses scoped entries:
+
+```text
+result_determinism_scopes[]:
+    scope_kind
+    scope_id
+    source_card_ids[]
+    requested_result_determinism
+    effective_result_determinism
+    transition_authorized_by?
+    backend_unit_id?
+```
+
+`scope_kind` may eventually distinguish execution, CARD, region, kernel, or another frozen scope.
+
+A single execution-wide entry is legal only when a frozen normalization rule proves that one requested/effective pair faithfully represents every source requirement. Otherwise the distinct source/effective scopes remain visible.
+
+For example, if one governed scope requests:
 
 ```text
 requested_result_determinism = STRICT
@@ -79,25 +98,17 @@ and an execution policy explicitly permits:
 effective_result_determinism = NUMERIC
 ```
 
-then the trace must retain both values and the rule/policy authorizing the transition.
+then that scope's trace entry must retain both values and the rule/policy authorizing the transition.
 
-Conceptually:
+A recorded transition is evidence of what happened. It is not itself authorization to weaken a source requirement.
 
-```text
-requested_result_determinism
-effective_result_determinism
-determinism_transition_authorized_by
-```
-
-The same distinction applies independently to randomness:
+The same requested/effective distinction applies independently to randomness:
 
 ```text
 requested_randomness_mode
 effective_randomness_mode
 randomness_transition_authorized_by
 ```
-
-A recorded transition is evidence of what happened. It is not itself authorization to weaken a source requirement.
 
 ## Sources of nondeterminism
 
@@ -216,7 +227,7 @@ A deterministic parallel backend may require:
 - controlled atomics;
 - stable synchronization semantics.
 
-When those requirements cannot be met, the backend must reject the requested result-determinism contract unless the source or execution policy explicitly permits a weaker result contract. Merely reporting a downgrade after execution is not sufficient permission.
+When those requirements cannot be met for a governed scope, the backend must reject that scope's requested result-determinism contract unless the source or execution policy explicitly permits a weaker result contract. Merely reporting a downgrade after execution is not sufficient permission.
 
 For seeded parallel execution, the partitioning/stream-mapping scheme is part of the reproducibility input and must be recorded when it can change the generated sequence.
 
@@ -253,12 +264,41 @@ Material identities include:
 semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
+semantic_to_core_result_binding_map[]
 vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
+core_to_vector_result_binding_map[]
 ```
 
-If the QSOL-CORE → Vector/Dataflow lowering changes its control-flow graph, effect ordering, capability metadata, vector structure, or numeric representation while Semantic IR and MORPH remain unchanged, the manifest must still distinguish the run.
+The binding maps are material whenever a lowering preserves, renames, splits, or otherwise maps result identities. IR hashes identify the representations but do not by themselves tell a provenance consumer which lower result name corresponds to a source binding.
+
+If the QSOL-CORE → Vector/Dataflow lowering changes its control-flow graph, effect ordering, capability metadata, result-binding mapping, vector structure, or numeric representation while Semantic IR and MORPH remain unchanged, the manifest must still distinguish the run.
+
+## Result provenance
+
+A run may produce several outputs with different epistemic classes and statuses.
+
+Reproducibility therefore treats `outputs[]` as identified records rather than a list of hashes paired with one execution-wide semantic class.
+
+A conceptual output record may include:
+
+```text
+output_id
+result_binding?
+artifact_hash
+artifact_location?
+semantic_class
+status
+producer_card_ids[]
+result_determinism_scope_ids[]
+numeric_scope_ids[]
+test_status?
+validation_status?
+proof_status?
+```
+
+A simulation output and a separately validated output remain distinct records. The validation status of one output must not promote another output merely because both were produced in the same JOB.
 
 ## Reproducibility manifest
 
@@ -271,9 +311,11 @@ semantic_ir_hash
 semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
+semantic_to_core_result_binding_map[]
 vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
+core_to_vector_result_binding_map[]
 morph_version
 backend
 backend_version
@@ -283,10 +325,8 @@ backend_selection_policy_id
 backend_selection_policy_version
 backend_selection_tuning_id
 backend_selection_tuning_hash
+result_determinism_scopes[]
 numeric_execution_scopes[]
-requested_result_determinism
-effective_result_determinism
-determinism_transition_authorized_by
 requested_randomness_mode
 effective_randomness_mode
 randomness_transition_authorized_by
@@ -309,21 +349,25 @@ optimization_profile
 kernel_or_binary_hashes[]
 ```
 
+Each `result_determinism_scopes[]` entry binds the scope identity, source CARD provenance, requested and effective guarantees, any preauthorized transition, and backend execution-unit identity when useful.
+
 Each `numeric_execution_scopes[]` entry binds the scope identity, source CARD provenance where applicable, numeric-contract identity/hash, effective material numeric mode, and backend execution-unit identity when useful.
 
-Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; seeded RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation; scoped numeric entries are material whenever numeric contracts or modes affect legal results.
+Each `outputs[]` entry binds its artifact/result identity to its own semantic class, status, producer provenance, and governing determinism/numeric scopes.
 
-The manifest should represent independent reproducibility facets independently rather than collapsing them into ambiguous labels or a false execution-wide singleton.
+Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; seeded RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; binding maps are material when result identities are transformed; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation; scoped determinism/numeric entries are material whenever their contracts affect legal results.
+
+The manifest should represent independent reproducibility facets independently rather than collapsing them into ambiguous labels or false execution-wide singletons.
 
 ## Reproducibility versus portability
 
 Portable source does not imply bit-identical execution across every target.
 
-QSOL-MORPH should state the strongest reproducibility guarantee actually provided by a given source/backend/numeric-contract combination, including the scopes to which that guarantee applies.
+QSOL-MORPH should state the strongest reproducibility guarantee actually provided by a given source/backend/contract combination, including the scopes and outputs to which that guarantee applies.
 
 ## Failure behavior
 
-A backend should fail closed when a required determinism or numeric contract cannot be satisfied.
+A backend should fail closed when a required scoped determinism or numeric contract cannot be satisfied.
 
 Silently downgrading:
 
@@ -331,9 +375,9 @@ Silently downgrading:
 STRICT -> DECLARED-NONDETERMINISTIC
 ```
 
-would make the trace accurate only after violating the user's declared execution requirement.
+for a scope that did not authorize that transition would make the trace accurate only after violating the user's declared execution requirement.
 
-A downgrade is acceptable only when the source or execution policy explicitly permits it before execution.
+A downgrade is acceptable only when the source or execution policy explicitly permits it before execution for the affected scope.
 
 The same rule applies independently to randomness and other reproducibility facets: an implementation may not substitute external entropy for a required seeded stream merely because it records that substitution afterward.
 
