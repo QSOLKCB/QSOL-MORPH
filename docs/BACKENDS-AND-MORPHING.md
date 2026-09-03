@@ -150,23 +150,37 @@ RUN MODEL ON BEST
 
 `BEST` requires a declared selection policy.
 
-When automatic selection is material, the trace should bind:
+Backend choice may differ across CARDs, regions, kernels, or generated units. Provenance therefore uses scoped machinery-selection records rather than assuming one execution-wide backend.
+
+A conceptual `backend_selection_scopes[]` entry may bind:
 
 ```text
+scope_kind
+scope_id
+source_card_ids[]
+backend_unit_id
+requested_target
 selected_backend
-selected_device
-selection_policy_id
-selection_policy_version
-tuning_state_id/hash
+selected_backend_version
+target_architecture
+device
+selection_policy_id?
+selection_policy_version?
+tuning_state_id?
+tuning_state_hash?
 ```
 
-This allows replay/audit to explain both **what** ran and **why** that target was selected.
+Policy/tuning fields are material when selection is automatic, such as `ON BEST`. An explicit target still needs enough scope identity to establish which source computation and generated unit used that machinery.
+
+A single execution-wide backend-selection record is valid only when one frozen machinery decision genuinely governs the whole run. Mixed-target JOBs keep distinct scope entries.
+
+This allows replay/audit to explain both **what** ran and **why** each target was selected.
 
 For a frozen replay, policy may require the previously selected target rather than re-running an evolved selection/tuning process.
 
 ## Future backends
 
-Candidate targets include:
+Candidate backend targets include:
 
 ```text
 HIP
@@ -174,12 +188,12 @@ OpenCL
 Vulkan Compute
 WebAssembly
 native QSOL VM
-MIDI 2.0 adapters
-Lean 4 adapters
 future accelerators
 ```
 
-A target earns support because it is useful, not because it exists.
+Adapter or integration mappings are **not** compiler backends merely because they exchange data or invoke an external system. MIDI 2.0 mapping belongs to the versioned `QX-MIDI` extension/adapter workstream, while formal-tool integration such as Lean belongs behind the appropriate proof/verification extension boundary such as `QX-PROVE`.
+
+A target earns backend support because it is useful as machinery, not because an adapter exists for it.
 
 ## Backend equivalence
 
