@@ -12,7 +12,7 @@ The project aims to let humans and AI reason about one stable semantic program w
 
 **Experimental / pre-alpha.**
 
-The project is currently specification-first and documentation-first. The language grammar, Semantic IR, QSOL-CORE instruction set, extension profiles, and backend contracts remain provisional until frozen by later normative work.
+The project is currently specification-first and documentation-first. The language grammar, Semantic IR, QSOL-CORE instruction set, lowering contracts, extension profiles, and backend contracts remain provisional until frozen by later normative work.
 
 PR #1 establishes the architectural foundation. PR #2 is reserved for locking in the first core invariants before executable implementation begins.
 
@@ -48,7 +48,7 @@ QSOL-MORPH separates those layers.
 │ JOB → DECK → CARD → VERB / NOUN         │
 │ effects • capabilities • contracts       │
 └────────────────────┬─────────────────────┘
-                     │
+                     │ semantic-to-core lowering
                      ▼
 ┌──────────────────────────────────────────┐
 │ QSOL-CORE                                │
@@ -74,6 +74,8 @@ QSOL-MORPH separates those layers.
                                    ▼
                              CPU / GPU / VM
 ```
+
+The Semantic IR → QSOL-CORE arrow is an explicit language contract, not backend plumbing. Its mapping is specified and tested independently before MORPH code-generation backends are introduced.
 
 POSIX is intentionally **not** modeled as a mutually exclusive compiler backend. POSIX process, stream, filesystem, environment, and signal behavior belongs in the composable `QX-POSIX` execution profile, which may be used by generated C, LLVM, Fortran, or other targets when explicitly enabled and authorized.
 
@@ -167,6 +169,34 @@ EFFECT     explicit stateful/external operations
 
 The final instruction set will be determined by the frozen specification, not by this README.
 
+## Semantic-to-core lowering
+
+Canonical Semantic IR carries richer research semantics than QSOL-CORE. The first lowering stage therefore has its own specification and conformance boundary.
+
+Conceptually:
+
+```text
+Canonical Semantic IR
+    ↓
+Semantic-to-QSOL-CORE Lowering
+    ↓
+QSOL-CORE + preserved metadata/provenance
+```
+
+The lowering must preserve or explicitly validate before erasure:
+
+- epistemic class and evidence boundaries;
+- types and units;
+- effects and required capabilities;
+- determinism, numeric, and randomness contracts;
+- extension identities;
+- source/effect/failure ordering;
+- CARD / DECK / JOB provenance.
+
+Unsupported semantic constructs fail explicitly instead of being dropped or delegated to a backend to reinterpret.
+
+See [Semantic-to-QSOL-CORE Lowering](docs/SEMANTIC-TO-CORE-LOWERING.md).
+
 ## Vector and dataflow model
 
 Vectors are semantic data, not promises about physical register width.
@@ -213,9 +243,11 @@ RANDOMNESS
 
 `SEEDED` does not replace a result-determinism contract.
 
-A `NUMERIC` result contract must bind the numeric rules that define legal variation. A seeded run must record enough information to reproduce its stream, including RNG algorithm, version, seed, stream identity, and parallel partitioning where applicable.
+A `NUMERIC` result contract must bind the numeric rules that define legal variation. The trace also binds the material numeric mode actually used when permitted choices such as FMA, denormal handling, precision, or math-library mode can affect legal bytes.
 
-Traces must distinguish requested from effective determinism whenever an explicitly authorized downgrade occurs.
+A seeded run must record enough information to reproduce its stream, including RNG algorithm, version, seed, stream identity, and parallel partitioning where applicable.
+
+Traces must distinguish requested from effective determinism and randomness whenever an explicitly authorized transition occurs.
 
 ## Failure semantics
 
@@ -228,9 +260,9 @@ SUCCESS(value?)
 FAILURE(record)
 ```
 
-An unhandled failure stops the DECK. Pure failures commit no semantic state. Effects already observable before a later failure are not retroactively erased.
+An unhandled failure stops the DECK and propagates to the JOB by default. Pure failures commit no semantic state. Effects already observable before a later failure are not retroactively erased.
 
-Effectful failure must distinguish states such as:
+Each external effect attempt receives its own completion state:
 
 ```text
 NOT_STARTED
@@ -239,7 +271,7 @@ PARTIAL
 UNKNOWN
 ```
 
-This prevents C, LLVM, CUDA, POSIX adapters, or future backends from inventing mutually incompatible error behavior.
+This prevents C, LLVM, CUDA, POSIX adapters, or future backends from inventing mutually incompatible error behavior or collapsing several external actions into one ambiguous flag.
 
 See [Failure and Partial-Effect Semantics](docs/FAILURE-AND-PARTIAL-EFFECTS.md).
 
@@ -295,17 +327,21 @@ Potential trace material includes:
 ```text
 source hash
 semantic IR hash
+semantic-to-core spec + implementation identity
+QSOL-CORE IR hash
 specification version
 MORPH/compiler identity
 backend / target identity
+backend-selection policy + tuning identity when automatic
 requested and effective result determinism
-numeric contract
-RNG algorithm + version + seed + stream + partitioning
-capabilities
-extensions
+numeric contract + material numeric mode
+requested/effective randomness + RNG identity
+capability requirements + authorization policy
+resolved extension identities
+identified effect attempts + completion states
 inputs / output hashes
 optimization decisions
-failure / partial-effect state
+failure records
 ```
 
 A cached result is not evidence that a cold reconstruction still works. A benchmark from one machine is not automatically a target claim for another machine.
@@ -334,6 +370,7 @@ Key documents:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Human–AI Language Model](docs/LANGUAGE-MODEL.md)
 - [Candidate Semantic IR](docs/SEMANTIC-IR.md)
+- [Semantic-to-QSOL-CORE Lowering](docs/SEMANTIC-TO-CORE-LOWERING.md)
 - [Vector and Dataflow](docs/VECTOR-AND-DATAFLOW.md)
 - [Backends and Morphing](docs/BACKENDS-AND-MORPHING.md)
 - [Extensions and Capabilities](docs/EXTENSIONS-AND-CAPABILITIES.md)
@@ -349,19 +386,21 @@ Key documents:
 The project is deliberately staged:
 
 ```text
-PR #1  Documentation Foundation
-PR #2  Lock in Core Invariants
-PR #3  Canonical Data Model
-PR #4  Canonical Serialization
-PR #5  Execution Contract, Trace, Failure, and Provenance Foundation
-PR #6  Normative QSOL-CORE Operational Specification
-PR #7  QSOL-CORE Reference Machine
-PR #8  Vector/Dataflow IR
-PR #9  Reference MORPH to C
-...    optimization, POSIX profile, LLVM, GPU, CUDA
+PR #1   Documentation Foundation
+PR #2   Lock in Core Invariants
+PR #3   Canonical Data Model
+PR #4   Canonical Serialization
+PR #5   Execution Contract, Trace, Failure, and Provenance Foundation
+PR #6   Normative QSOL-CORE Operational Specification
+PR #7   QSOL-CORE Reference Machine
+PR #8   Normative Semantic-to-QSOL-CORE Lowering Specification
+PR #9   Reference Semantic-to-QSOL-CORE Lowering
+PR #10  Vector/Dataflow IR
+PR #11  Reference MORPH to C
+...     optimization, POSIX profile, LLVM, GPU, CUDA
 ```
 
-The roadmap is intentionally designed so executable research code does not precede the contracts needed to interpret and audit its behavior, and QSOL-CORE implementation does not precede its normative operational specification.
+The roadmap is intentionally designed so executable research code does not precede the contracts needed to interpret and audit its behavior, QSOL-CORE implementation does not precede its normative operational specification, and backend work does not invent Semantic IR → QSOL-CORE lowering.
 
 ## Design influences
 
