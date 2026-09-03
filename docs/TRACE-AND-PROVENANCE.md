@@ -6,15 +6,17 @@ The goal is not merely to say that a program ran. The goal is to make it possibl
 
 - what source was executed;
 - what semantic representation was produced;
+- how Semantic IR lowered into QSOL-CORE;
 - what backend was selected;
 - why that backend was selected;
 - what transformations were applied;
 - what inputs and capabilities were required, granted, denied, and used;
 - what outputs were produced;
 - what result determinism was requested and actually provided;
-- what numeric contract governed legal result variation;
+- what numeric contract and material numeric mode governed execution;
 - what randomness was requested and actually used;
 - what extension versions/contracts were active;
+- which external effect attempts occurred and what completion state each reached;
 - whether execution failed and what effects were already observable.
 
 ## Trace layers
@@ -24,6 +26,7 @@ A future trace may contain several layers:
 ```text
 SOURCE TRACE
 SEMANTIC TRACE
+LOWERING TRACE
 MORPH TRACE
 EXECUTION TRACE
 RESULT TRACE
@@ -57,6 +60,23 @@ requested_randomness_contract
 required_capabilities[]
 ```
 
+### Lowering trace
+
+The Semantic IR → QSOL-CORE transition is itself provenance-bearing.
+
+Potential fields:
+
+```text
+semantic_ir_hash
+semantic_to_core_spec_version
+semantic_to_core_implementation_version
+core_ir_hash
+resolved_extensions[]
+lowering_diagnostics[]
+```
+
+A backend should never be the first component to decide how semantic CARDs lower into QSOL-CORE.
+
 ### Morph trace
 
 Potential fields:
@@ -74,6 +94,7 @@ fusion decisions
 memory-placement decisions
 numeric_contract_id
 numeric_contract_hash
+material_numeric_mode
 ```
 
 `backend_selection_policy_*` and tuning identity are material when selection is automatic, such as `ON BEST`. Recording only the backend says what ran but may not explain or reproduce why that machinery was chosen.
@@ -91,6 +112,7 @@ effective_result_determinism
 determinism_transition_authorized_by
 numeric_contract_id
 numeric_contract_hash
+material_numeric_mode
 requested_randomness_mode
 effective_randomness_mode
 randomness_transition_authorized_by
@@ -106,9 +128,12 @@ capability_policy_id
 capability_policy_version
 capabilities_used[]
 resolved_extensions[]
+effect_attempts[]
 external tool versions
 start/stop metadata where permitted
 ```
+
+`material_numeric_mode` records execution choices allowed by the numeric contract that may still change legal result bytes, such as FMA behavior, denormal handling, effective precision, selected math-library mode, or another frozen numeric-mode identity.
 
 `requested_result_determinism` and `effective_result_determinism` are intentionally distinct. If source requests `STRICT` but an execution policy explicitly permits `NUMERIC`, the trace must retain both contracts and the rule or policy that authorized the transition. Recording only the final class would erase the original requirement; recording only the requested class would misstate the guarantee actually delivered.
 
@@ -148,6 +173,38 @@ implementation/content identity where required
 
 A profile name alone is insufficient provenance if different versions can change lowering, effects, or results.
 
+## Per-effect-attempt provenance
+
+Every protected external effect attempt should have its own identity and completion state.
+
+A conceptual entry may contain:
+
+```text
+effect_attempt_id
+card_id
+effect_kind
+required_capability?
+sequence_index
+completion_state
+backend_detail?
+observable_artifacts[]
+```
+
+where `completion_state` is one of:
+
+```text
+NOT_STARTED
+COMPLETED
+PARTIAL
+UNKNOWN
+```
+
+or frozen equivalents.
+
+This is an array because a DECK may contain many effectful CARDs and a single CARD may eventually initiate more than one external effect. A single aggregate `partial_effect_state` cannot explain which write, process launch, network operation, or external tool invocation became observable.
+
+Successful executions record completed effect attempts too. Effect-attempt provenance is not only a failure-reporting mechanism.
+
 ### Result trace
 
 Potential fields:
@@ -165,25 +222,14 @@ deck_status
 failure_card_id
 failure_class
 failure_stage
-partial_effect_state
+effect_attempts[]
 ```
 
 ## Failure and partial-effect provenance
 
 A failed execution remains a provenance-bearing execution event.
 
-The trace should distinguish whether an effect was:
-
-```text
-NOT_STARTED
-COMPLETED
-PARTIAL
-UNKNOWN
-```
-
-or frozen semantic equivalents.
-
-Capability denial must occur before the protected effect begins and therefore records `NOT_STARTED`. Other precondition failures should occur before the effect where possible; if an external operation has already become observable before failing, the trace must not imply rollback that did not happen.
+Capability denial must occur before the protected effect begins and therefore records that identified attempt as `NOT_STARTED`. Other precondition failures should occur before the effect where possible; if an external operation has already become observable before failing, the corresponding attempt must not be reported as `NOT_STARTED`.
 
 Useful failure fields may include:
 
@@ -196,7 +242,7 @@ failure_stage
 backend_detail?
 prior_committed_effects[]
 completed_decks[]
-partial_effect_state
+effect_attempts[]
 observable_artifacts[]
 ```
 
@@ -212,6 +258,7 @@ A trace should distinguish:
 
 - source-text identity;
 - canonical semantic identity;
+- lowered QSOL-CORE identity;
 - generated target identity;
 - extension/contract identity;
 - result identity.
@@ -289,7 +336,7 @@ This distinction is intentionally aligned with the optimization discipline devel
 
 ## Trace policy
 
-Not every execution needs every field. The active specification, determinism profile, numeric contract, randomness contract, capability policy, extension set, and backend-selection policy should define the minimum trace required for a claim.
+Not every execution needs every field. The active specification, determinism profile, numeric contract, randomness contract, capability policy, extension set, semantic-to-core lowering contract, and backend-selection policy should define the minimum trace required for a claim.
 
 The roadmap requires a trace/failure/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/execution-contract/policy binding.
 
