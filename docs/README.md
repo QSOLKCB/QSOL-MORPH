@@ -11,9 +11,11 @@ The documentation-foundation phase is intentionally **non-normative**. PR #2 is 
 3. [Architecture](ARCHITECTURE.md)
 4. [Human–AI Language Model](LANGUAGE-MODEL.md)
 5. [Candidate Semantic IR](SEMANTIC-IR.md)
+6. [Semantic-to-QSOL-CORE Lowering](SEMANTIC-TO-CORE-LOWERING.md)
 
 ## Execution model
 
+- [Semantic-to-QSOL-CORE Lowering](SEMANTIC-TO-CORE-LOWERING.md)
 - [Vector and Dataflow](VECTOR-AND-DATAFLOW.md)
 - [Backends and Morphing](BACKENDS-AND-MORPHING.md)
 - [Extensions and Capabilities](EXTENSIONS-AND-CAPABILITIES.md)
@@ -42,7 +44,25 @@ TRACE ALL
 LOCK RESULT
 ```
 
-Until the normative invariant/specification phase is merged, examples show intended semantic shape rather than a backwards-compatible language promise.
+Until the normative invariant/specification phases are merged, examples show intended semantic shape rather than a backwards-compatible language promise.
+
+The intended lowering chain is explicit:
+
+```text
+Canonical Semantic IR
+    ↓
+Semantic-to-QSOL-CORE Lowering
+    ↓
+QSOL-CORE
+    ↓
+Vector/Dataflow IR
+    ↓
+MORPH
+    ↓
+backend
+```
+
+No backend owns or invents the meaning of an earlier arrow.
 
 ## Core mnemonic
 
