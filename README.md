@@ -2,190 +2,174 @@
 
 **Deterministic code morphing for human–AI research computing.**
 
-QSOL-MORPH is a code translation, optimisation, and execution layer for the emerging QSOL research-language architecture.
-
-Its purpose is simple:
+QSOL-MORPH is the proposed translation, optimization, and execution layer for the QSOL research-language architecture.
 
 > **QSOL describes intent. QSOL-CORE defines meaning. QSOL-MORPH chooses machinery.**
 
-A QSOL program should describe what a researcher intends to compute without forcing that researcher, or an assisting AI, to manually rewrite the same computation for every processor, accelerator, operating environment, or execution backend.
-
-QSOL-MORPH provides the translation boundary between stable QSOL semantics and changing computational machinery.
-
----
+The project aims to let humans and AI reason about one stable semantic program while allowing the implementation beneath it to change across CPUs, GPUs, compiler backends, operating environments, and future accelerators.
 
 ## Status
 
 **Experimental / pre-alpha.**
 
-QSOL-MORPH is currently an architectural research project.
+The project is currently specification-first and documentation-first. The language grammar, Semantic IR, QSOL-CORE instruction set, extension profiles, and backend contracts remain provisional until frozen by later normative work.
 
-Interfaces, intermediate representations, backend models, and specifications are expected to evolve substantially during early development.
+PR #1 establishes the architectural foundation. PR #2 is reserved for locking in the first core invariants before executable implementation begins.
 
-The project presently defines a direction rather than claiming production readiness.
+## Why QSOL-MORPH?
 
----
+Research code often mixes scientific intent with machinery-specific plumbing:
 
-# Why QSOL-MORPH?
+- numerical algorithms;
+- accelerator APIs;
+- memory placement;
+- process and filesystem behavior;
+- build systems;
+- provenance;
+- reproducibility;
+- formal verification glue;
+- AI/tool orchestration.
 
-Modern research software frequently mixes several different concerns:
+The scientific meaning may stay the same while the machinery changes completely.
 
-* scientific intent;
-* numerical algorithms;
-* hardware architecture;
-* parallelisation;
-* memory placement;
-* accelerator APIs;
-* operating-system behaviour;
-* provenance;
-* reproducibility;
-* build systems;
-* foreign-language interfaces.
+QSOL-MORPH separates those layers.
 
-This creates unnecessary coupling.
-
-A researcher may know exactly what should be computed while still needing to express that calculation separately as:
-
-* Python;
-* C;
-* Fortran;
-* CUDA;
-* shell;
-* SIMD intrinsics;
-* GPU kernels;
-* workflow configuration;
-* formal verification glue.
-
-The scientific meaning did not change.
-
-Only the machinery changed.
-
-QSOL-MORPH is intended to separate those two layers.
-
----
-
-# Core Principle
+## Architecture
 
 ```text
-MEANING
-    ↓
-QSOL Semantic Representation
-
-COMPUTATION
-    ↓
-QSOL Vector / Dataflow IR
-
-MACHINERY
-    ↓
-QSOL-MORPH
+┌──────────────────────────────────────────┐
+│ QSOL SOURCE / HUMAN-AI SEMANTIC LAYER   │
+│ intent • epistemic class • units        │
+└────────────────────┬─────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────┐
+│ CANONICAL SEMANTIC MODEL                 │
+│ JOB → DECK → CARD → VERB / NOUN         │
+│ effects • capabilities • contracts       │
+└────────────────────┬─────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────┐
+│ QSOL-CORE                                │
+│ small orthogonal semantic machine        │
+└────────────────────┬─────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────┐
+│ VECTOR / DATAFLOW IR                     │
+│ vectors • masks • dependencies • fusion │
+└────────────────────┬─────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────┐
+│ QSOL-MORPH                               │
+│ map • specialize • fuse • schedule      │
+│ validate legality • emit trace           │
+└──────────┬──────────┬──────────┬─────────┘
+           │          │          │
+           ▼          ▼          ▼
+           C        LLVM      FORTRAN      ...
+                                   │
+                                   ▼
+                             CPU / GPU / VM
 ```
 
-Humans and AI collaborate at the semantic layer.
+POSIX is intentionally **not** modeled as a mutually exclusive compiler backend. POSIX process, stream, filesystem, environment, and signal behavior belongs in the composable `QX-POSIX` execution profile, which may be used by generated C, LLVM, Fortran, or other targets when explicitly enabled and authorized.
 
-QSOL-MORPH maps that meaning onto available computational machinery.
+## Semantic model
 
----
-
-# Conceptual Architecture
+The proposed structural hierarchy is:
 
 ```text
-┌─────────────────────────────────────┐
-│             QSOL SOURCE             │
-│                                     │
-│ AIM OBSERVE ASSUME MODEL DERIVE     │
-│ RUN TEST PROVE TRACE LOCK           │
-└─────────────────┬───────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────┐
-│         CANONICAL QSOL IR           │
-│                                     │
-│ JOB → DECK → CARD → VERB / NOUN     │
-│ typed • canonical • hashable        │
-└─────────────────┬───────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────┐
-│       VECTOR / DATAFLOW IR          │
-│                                     │
-│ vectors • masks • dependencies      │
-│ fusion • pipelines • reductions     │
-└─────────────────┬───────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────┐
-│            QSOL-MORPH               │
-│                                     │
-│ lower • map • fuse • vectorise      │
-│ specialise • schedule • verify      │
-└────┬─────┬─────┬─────┬─────┬───────┘
-     │     │     │     │     │
-     ▼     ▼     ▼     ▼     ▼
-   POSIX   C   LLVM  FORTRAN CUDA
-                              │
-                         ┌────┴────┐
-                         ▼         ▼
-                        CPU       GPU
+JOB
+ └── DECK
+      └── CARD
+           ├── VERB
+           ├── NOUN
+           ├── OPERANDS
+           ├── TYPE / UNIT
+           ├── SEMANTIC CLASS
+           ├── EFFECTS
+           ├── CAPABILITIES
+           ├── NUMERIC / REPRODUCIBILITY CONTRACTS
+           └── DEPENDENCIES
 ```
 
-Additional backend families may eventually include:
+A CARD is the smallest independently addressable semantic statement.
+
+Illustrative examples:
 
 ```text
-HIP
-OpenCL
-Vulkan Compute
-WebAssembly
-native QSOL VM
-MIDI 2.0
-Lean 4
-specialised accelerators
-future architectures
+OBSERVE TEMPERATURE 294.3 K
+ASSUME VACUUM TRUE
+DERIVE ENERGY = MASS * C * C
+TEST ENERGY
+TRACE RESULT
+LOCK RESULT
 ```
 
-Backend support does not imply that all targets share identical performance characteristics.
+Illustrative syntax is **not yet a frozen grammar**.
 
-They should, where applicable, share defined QSOL semantics.
+## Human–AI shared semantics
 
----
+QSOL uses recognizable semantic anchors rather than punctuation-heavy syntax where practical.
 
-# Design Influences
-
-QSOL-MORPH deliberately borrows architectural ideas rather than reinventing them.
-
-## Transmeta
-
-Transmeta's Code Morphing approach demonstrated the power of maintaining a stable software-visible execution model while translating operations onto substantially different underlying machinery.
-
-QSOL-MORPH applies a related principle to research software:
+Candidate research verbs include:
 
 ```text
-stable semantics
-       ↓
-translation
-       ↓
-replaceable machinery
+AIM
+OBSERVE
+ASSUME
+MODEL
+DERIVE
+RUN
+TEST
+PROVE
+TRACE
+LOCK
 ```
 
-The target architecture is an implementation detail.
+The goal is for the same source to carry useful operational meaning for a researcher, an AI agent, a compiler, and later formal tooling.
 
-Program meaning is not.
+Epistemic distinctions are intentional:
 
----
+```text
+OBSERVATION
+    !=
+ASSUMPTION
+    !=
+SIMULATION
+    !=
+DERIVATION
+    !=
+VALIDATION
+    !=
+PROOF
+```
 
-## Cray
+Optimization must not silently promote one class into another.
 
-Cray systems demonstrated the value of treating vector computation as a fundamental architectural operation.
+## QSOL-CORE direction
 
-QSOL-MORPH therefore treats:
+QSOL-CORE is intended to remain deliberately small.
 
-* vectors;
-* reductions;
-* masks;
-* pipelines;
-* chained operations;
-* data locality;
+Candidate instruction families include:
 
-as first-class optimisation opportunities rather than merely library conventions.
+```text
+DATA       LOAD STORE MOVE
+ARITH      ADD SUB MUL DIV MOD
+LOGIC      AND OR XOR NOT
+COMPARE    EQ NE LT LE GT GE
+CONTROL    JUMP BRANCH CALL RET STOP
+EFFECT     explicit stateful/external operations
+```
+
+The final instruction set will be determined by the frozen specification, not by this README.
+
+## Vector and dataflow model
+
+Vectors are semantic data, not promises about physical register width.
 
 For example:
 
@@ -195,686 +179,215 @@ DERIVE Y = X + C
 DERIVE Z = SQRT Y
 ```
 
-may be represented as:
+may lower into a dependency graph that a legal backend can fuse into an equivalent target implementation.
 
-```text
-A ─┐
-   MUL ── ADD ── SQRT ── Z
-B ─┘      ↑
-          C
-```
+QSOL-MORPH may later map the same vector/dataflow semantics onto:
 
-A suitable backend may fuse this pipeline into a single execution kernel without changing its defined result.
+- scalar loops;
+- CPU SIMD;
+- AVX-family instructions;
+- LLVM vectors;
+- CUDA threads/warps;
+- other accelerators.
 
----
+Source code should not need to encode one machine's physical vector width unless it explicitly opts into a target-specific extension.
 
-## RISC
+## Determinism and numeric contracts
 
-QSOL-MORPH follows a reduced-semantic-complexity philosophy.
-
-Rich research constructs should lower into a deliberately small and regular computational core.
+Result determinism and randomness are separate facets.
 
 Conceptually:
 
 ```text
-LOAD
-STORE
-MOVE
+RESULT DETERMINISM
+    STRICT
+    NUMERIC
+    DECLARED-NONDETERMINISTIC
 
-ADD
-SUB
-MUL
-DIV
-MOD
-
-AND
-OR
-XOR
-NOT
-
-CMP
-JUMP
-CALL
-RET
+RANDOMNESS
+    NONE
+    SEEDED
+    EXTERNAL-ENTROPY
+    DECLARED-NONDETERMINISTIC
 ```
 
-The final instruction set is not yet frozen.
+`SEEDED` does not replace a result-determinism contract.
 
-The design objective is.
+A `NUMERIC` result contract must bind the numeric rules that define legal variation. A seeded run must record enough information to reproduce its stream, including RNG algorithm, version, seed, stream identity, and parallel partitioning where applicable.
 
-> Prefer a small orthogonal core over an expanding collection of special cases.
+Traces must distinguish requested from effective determinism whenever an explicitly authorized downgrade occurs.
 
----
+## Failure semantics
 
-## Bell Labs and Unix
+Failure is observable behavior and therefore part of the language architecture.
 
-Programs should compose.
-
-QSOL workflows should be capable of representing operations resembling:
+The candidate default is fail-stop:
 
 ```text
-LOAD observations
-| FILTER temperature > 300 K
-| MODEL thermal
-| TEST error < 0.01
-| TRACE
-| SAVE results
+SUCCESS(value?)
+FAILURE(record)
 ```
 
-Unlike traditional untyped text pipelines, QSOL streams may carry structured and typed semantic records.
+An unhandled failure stops the DECK. Pure failures commit no semantic state. Effects already observable before a later failure are not retroactively erased.
 
----
-
-## Apollo Guidance Computer
-
-The Apollo Guidance Computer and DSKY demonstrated the usefulness of compact, memorable operational vocabularies.
-
-QSOL explores a similarly constrained semantic model using concepts such as:
+Effectful failure must distinguish states such as:
 
 ```text
-VERB
-NOUN
-CARD
-DECK
-JOB
+NOT_STARTED
+COMPLETED
+PARTIAL
+UNKNOWN
 ```
 
-A potential canonical operation might resemble:
+This prevents C, LLVM, CUDA, POSIX adapters, or future backends from inventing mutually incompatible error behavior.
+
+See [Failure and Partial-Effect Semantics](docs/FAILURE-AND-PARTIAL-EFFECTS.md).
+
+## Capabilities and extensions
+
+Extension availability and runtime permission are separate concerns.
+
+For example:
 
 ```text
-OBSERVE TEMPERATURE 294.3 K
+USE QX-NET
+DENY NETWORK
 ```
 
-where:
+may mean that the language/profile is understood while runtime network access is forbidden.
+
+Candidate profiles include:
 
 ```text
-VERB  = OBSERVE
-NOUN  = TEMPERATURE
-VALUE = 294.3
-UNIT  = K
+QX-VEC
+QX-MATH
+QX-POSIX
+QX-GPU
+QX-CUDA
+QX-AI
+QX-PROVE
+QX-MIDI
+QX-NET
 ```
 
----
+Optional machinery should not silently expand or redefine QSOL-CORE.
 
-## Mainframe and Punch-Card Systems
+## CUDA without ordinary plumbing
 
-QSOL borrows the conceptual discipline of jobs, decks, and records without reproducing fixed-column programming.
-
-The proposed hierarchy is:
-
-```text
-JOB
- └── DECK
-      ├── CARD
-      ├── CARD
-      └── CARD
-```
-
-A CARD represents an atomic semantic operation.
-
-A DECK represents an executable semantic workflow.
-
-A JOB coordinates one or more decks.
-
----
-
-# Example
-
-A future QSOL research deck might resemble:
-
-```text
-DECK NBODY-001
-
-AIM SIMULATE NBODY
-
-USE QX-VEC
-USE QX-GPU
-
-SET DT 0.001 s
-SET STEPS 1_000_000
-
-VECTOR POSITION f64[3, N]
-VECTOR VELOCITY f64[3, N]
-VECTOR MASS     f64[N]
-
-RUN NBODY ON GPU
-
-TEST CONSERVATION
-
-TRACE EXECUTION
-TRACE NUMERICS
-
-SAVE POSITION
-LOCK RESULT
-
-END
-```
-
-QSOL-MORPH could inspect this program and determine that:
-
-* the primary workload is vectorisable;
-* operations are suitable for accelerator execution;
-* intermediate arrays can remain device-resident;
-* multiple operations can be fused;
-* the selected execution environment must be recorded for reproducibility.
-
----
-
-# CUDA Without the Plumbing
-
-One objective of QSOL-MORPH is to make accelerator access proportional to the scientific complexity of the task rather than the complexity of the accelerator API.
-
-A user may eventually write:
+A long-term target experience is:
 
 ```text
 RUN GRAVITY ON CUDA
 ```
 
-rather than manually implementing ordinary infrastructure such as:
+while QSOL-MORPH handles ordinary target mechanics such as allocation, transfer, launch geometry, synchronization, and generated-kernel structure.
+
+Material choices remain inspectable and provenance-bound.
+
+Expert target-specific controls may exist behind explicit profiles such as `QX-CUDA`.
+
+## Trace and provenance
+
+Executable research results should be bound to enough context to explain and reproduce the run.
+
+Potential trace material includes:
 
 ```text
-device allocation
-host/device copies
-launch geometry
-kernel boilerplate
-synchronisation
-cleanup
+source hash
+semantic IR hash
+specification version
+MORPH/compiler identity
+backend / target identity
+requested and effective result determinism
+numeric contract
+RNG algorithm + version + seed + stream + partitioning
+capabilities
+extensions
+inputs / output hashes
+optimization decisions
+failure / partial-effect state
 ```
 
-QSOL-MORPH may generate those mechanisms.
+A cached result is not evidence that a cold reconstruction still works. A benchmark from one machine is not automatically a target claim for another machine.
 
-The generated implementation should remain inspectable.
+## Optimization rule
 
-For example:
+> **A faster semantics-breaking change is not an optimization.**
+
+QSOL-MORPH optimization is subordinate to:
+
+- semantic preservation;
+- determinism and numeric contracts;
+- effect/failure ordering;
+- provenance;
+- epistemic boundaries;
+- declared resource constraints.
+
+## Documentation
+
+Start with [docs/README.md](docs/README.md).
+
+Key documents:
+
+- [Specification Status](docs/SPECIFICATION-STATUS.md)
+- [Design Principles](docs/DESIGN-PRINCIPLES.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Human–AI Language Model](docs/LANGUAGE-MODEL.md)
+- [Candidate Semantic IR](docs/SEMANTIC-IR.md)
+- [Vector and Dataflow](docs/VECTOR-AND-DATAFLOW.md)
+- [Backends and Morphing](docs/BACKENDS-AND-MORPHING.md)
+- [Extensions and Capabilities](docs/EXTENSIONS-AND-CAPABILITIES.md)
+- [Determinism and Reproducibility](docs/DETERMINISM-AND-REPRODUCIBILITY.md)
+- [Failure and Partial Effects](docs/FAILURE-AND-PARTIAL-EFFECTS.md)
+- [Trace and Provenance](docs/TRACE-AND-PROVENANCE.md)
+- [Optimization and CI](docs/OPTIMIZATION-AND-CI.md)
+- [Roadmap](ROADMAP.md)
+- [AI / Agent Guidance](AGENTS.md)
+
+## Development sequence
+
+The project is deliberately staged:
 
 ```text
-qsol morph gravity.qsl --to=cuda
-qsol morph gravity.qsl --show-ir
+PR #1  Documentation Foundation
+PR #2  Lock in Core Invariants
+PR #3  Canonical Data Model
+PR #4  Canonical Serialization
+PR #5  Trace, Failure, and Provenance Foundation
+PR #6  QSOL-CORE Reference Machine
+PR #7  Reference MORPH to C
+...    Vector/Dataflow, optimization, POSIX profile, LLVM, GPU, CUDA
 ```
 
-Explicit low-level tuning should remain possible when required.
+The roadmap is intentionally designed so executable research code does not precede the contracts needed to interpret and audit its behavior.
 
-Example conceptual syntax:
+## Design influences
 
-```text
-RUN GRAVITY ON CUDA WITH:
-    blocks 256
-    threads 128
-    shared 48 KiB
-```
+QSOL-MORPH borrows architectural lessons rather than reproducing historical systems:
 
-The simple path should remain simple.
+- **Transmeta:** stable semantics above replaceable machinery;
+- **Cray:** vector-first data movement and chaining;
+- **RISC:** small orthogonal cores;
+- **Bell Labs / Unix:** composition and explicit streams;
+- **Apollo:** compact memorable operational vocabulary;
+- **mainframe record systems:** JOB / DECK / CARD discipline.
 
-The advanced path should remain available.
+## Non-goals
+
+QSOL-MORPH does not initially aim to:
+
+- replace every compiler;
+- replace CUDA, LLVM, Fortran, or POSIX;
+- hide all machine characteristics;
+- guarantee identical floating-point behavior across every target without an explicit contract;
+- become a universal kitchen-sink language.
+
+The project should reuse mature machinery whenever that machinery already solves the lower-level problem well.
+
+## License
+
+QSOL-MORPH is released under the **Apache License 2.0** unless otherwise noted. See [LICENSE](LICENSE).
 
 ---
 
-# Abstract Vector Machine
-
-QSOL-MORPH may define a target-independent vector intermediate representation.
-
-Conceptually:
-
-```text
-VLOAD A      -> V0
-VLOAD B      -> V1
-VMUL V0 V1   -> V2
-VADD V2 4.0  -> V3
-VSTORE V3    -> C
-```
-
-These operations do not necessarily correspond directly to physical registers.
-
-They describe computation.
-
-QSOL-MORPH may lower them into:
-
-```text
-scalar loops
-CPU SIMD
-AVX
-LLVM vectors
-CUDA kernels
-GPU warps
-accelerator-specific operations
-```
-
-without requiring the research source to encode a fixed hardware width.
-
----
-
-# Kernel Fusion
-
-Consider:
-
-```text
-DERIVE X = A * B
-DERIVE Y = X + C
-DERIVE Z = SQRT Y
-```
-
-A naïve implementation may allocate and materialise both `X` and `Y`.
-
-QSOL-MORPH may instead generate an equivalent fused computation:
-
-```text
-Z[i] = sqrt(A[i] * B[i] + C[i])
-```
-
-Possible advantages include:
-
-* reduced temporary allocation;
-* reduced memory traffic;
-* improved cache locality;
-* reduced GPU global-memory traffic;
-* fewer kernel launches.
-
-Optimisation must not silently alter defined semantics.
-
----
-
-# Determinism
-
-QSOL-MORPH is intended for research computing.
-
-Reproducibility therefore has priority over opaque optimisation.
-
-Execution choices affecting reproducibility should be discoverable.
-
-A trace may eventually contain information resembling:
-
-```text
-EXECUTION
-
-backend      CUDA
-device       NVIDIA GPU
-precision    f64
-compiler     QSOL-MORPH x.y.z
-kernel_hash  sha256:...
-source_hash  sha256:...
-seed         18437
-```
-
-No significant source of nondeterminism should be silently introduced by a backend.
-
-When deterministic execution cannot be guaranteed, that fact should be explicitly represented.
-
----
-
-# No Hidden Machinery
-
-QSOL-MORPH should prefer explicit computational effects.
-
-Operations involving significant external effects should be visible at the semantic level.
-
-For example:
-
-```text
-FETCH DATASET
-SPAWN MODEL
-ASK AI
-ALLOCATE MATRIX
-WRITE RESULT
-```
-
-A simple assignment should not unexpectedly:
-
-* access a network;
-* launch an AI model;
-* create threads;
-* perform filesystem mutation;
-* allocate enormous storage;
-* modify unrelated state.
-
-The source should remain an honest description of the computation.
-
----
-
-# Semantic Stability
-
-QSOL-MORPH separates stable semantics from evolving implementation strategies.
-
-A QSOL program written against a frozen semantic specification should not require redesign merely because execution hardware changes.
-
-Conceptually:
-
-```text
-QSOL DECK
-    ↓
-QSOL IR
-    ↓
-QSOL-MORPH
-    ├── 2026 CPU
-    ├── 2026 GPU
-    ├── future accelerator
-    └── future architecture
-```
-
-The backend may change.
-
-The program's declared meaning should not.
-
----
-
-# Extension Profiles
-
-The QSOL computational core should remain deliberately small.
-
-Additional capabilities may be introduced through extension profiles.
-
-Possible examples:
-
-```text
-QX-VEC      vector operations
-QX-MATH     scientific numerics
-QX-POSIX    POSIX processes and streams
-QX-GPU      accelerator execution
-QX-CUDA     CUDA-specific control
-QX-AI       model interaction
-QX-PROVE    formal verification
-QX-MIDI     MIDI 2.0 integration
-QX-NET      network capabilities
-```
-
-A program may explicitly declare its requirements:
-
-```text
-USE QX-VEC
-USE QX-MATH
-USE QX-GPU
-
-DENY QX-NET
-```
-
-This enables execution environments to determine required capabilities before running a deck.
-
----
-
-# Human–AI Collaboration
-
-QSOL-MORPH is part of a broader experiment in programming-language design for joint human and AI work.
-
-The objective is not merely to make source code easy for an AI to generate.
-
-The objective is for humans and AI to reason about the **same operational semantics**.
-
-This encourages:
-
-* canonical syntax;
-* small vocabularies;
-* explicit intent;
-* deterministic behaviour;
-* typed research concepts;
-* minimal syntactic ambiguity;
-* inspectable compilation;
-* reproducible transformations.
-
-An AI should ideally propose semantic operations rather than arbitrary textual mutations.
-
-For example:
-
-```text
-ADD CARD AFTER @018:
-    SEED RNG 18437
-```
-
-or:
-
-```text
-FUSE @042 @043
-```
-
-The resulting transformation can then be validated against the same semantic model understood by the compiler and human researcher.
-
----
-
-# Research Semantics
-
-QSOL distinguishes between different kinds of scientific statements.
-
-For example:
-
-```text
-OBSERVE
-ASSUME
-DERIVE
-MODEL
-TEST
-PROVE
-```
-
-These concepts are intentionally not interchangeable.
-
-In particular:
-
-```text
-OBSERVATION
-    ≠
-ASSUMPTION
-    ≠
-SIMULATION
-    ≠
-DERIVATION
-    ≠
-VALIDATION
-    ≠
-PROOF
-```
-
-QSOL-MORPH must preserve those distinctions when translating computation.
-
-Optimisation may change machinery.
-
-It must not upgrade epistemic status.
-
----
-
-# Potential Command-Line Interface
-
-The following interface is illustrative and not yet stable:
-
-```text
-qsol morph experiment.qsl
-qsol morph experiment.qsl --to=c
-qsol morph experiment.qsl --to=llvm
-qsol morph experiment.qsl --to=fortran
-qsol morph experiment.qsl --to=cuda
-
-qsol morph experiment.qsl --show-ir
-qsol morph experiment.qsl --show-vector-ir
-qsol morph experiment.qsl --explain
-
-qsol run experiment.qsl
-qsol trace experiment.qsl
-qsol verify experiment.qsl
-```
-
-A possible automatic target:
-
-```text
-qsol morph experiment.qsl --to=host
-```
-
-may select a suitable backend for the current execution environment while recording the exact choice in the execution trace.
-
----
-
-# Proposed Invariants
-
-Early architectural invariants may include:
-
-### MORPH-INV-001
-
-**Semantic preservation**
-
-A valid morph transformation MUST preserve all semantics defined as invariant by the source program and active QSOL specification.
-
-### MORPH-INV-002
-
-**Explicit nondeterminism**
-
-A backend MUST NOT silently introduce nondeterministic behaviour where deterministic execution is required.
-
-### MORPH-INV-003
-
-**Inspectable transformation**
-
-Generated intermediate representations and target code SHOULD be inspectable using standard QSOL tooling.
-
-### MORPH-INV-004
-
-**No epistemic promotion**
-
-Translation and optimisation MUST NOT change the epistemic classification of research statements.
-
-### MORPH-INV-005
-
-**Backend independence**
-
-Programs MUST NOT require target-specific constructs unless they explicitly request a target-specific extension.
-
-### MORPH-INV-006
-
-**Traceability**
-
-Material execution decisions SHOULD be recordable in a deterministic execution manifest.
-
-### MORPH-INV-007
-
-**Small core**
-
-Backend-specific functionality MUST NOT expand QSOL-CORE when the behaviour can be represented through an extension profile.
-
-### MORPH-INV-008
-
-**Meaning before machinery**
-
-Hardware optimisation MUST remain subordinate to declared program semantics.
-
----
-
-# Initial Development Direction
-
-A conservative implementation roadmap may begin with:
-
-## Phase 0: Specification
-
-* define terminology;
-* define CARD / DECK / JOB model;
-* define initial semantic IR;
-* define transformation invariants;
-* define determinism requirements;
-* define canonical serialisation;
-* define test vectors.
-
-## Phase 1: Reference MORPH
-
-Implement a minimal reference transformer capable of:
-
-```text
-QSOL IR
-    ↓
-C
-```
-
-C provides a conservative first backend with broad compiler availability and portability.
-
-## Phase 2: Vector IR
-
-Introduce:
-
-* typed vectors;
-* masks;
-* reductions;
-* dependency graphs;
-* simple fusion;
-* deterministic numerical rules.
-
-## Phase 3: LLVM
-
-Add LLVM lowering while retaining the reference C backend as an independently understandable implementation path.
-
-## Phase 4: GPU
-
-Introduce accelerator lowering.
-
-Initial targets may include:
-
-```text
-CUDA
-```
-
-followed by additional GPU backends where useful.
-
-## Phase 5: Formalisation
-
-Formalise selected transformation rules and core invariants using Lean 4 or another appropriate proof environment.
-
----
-
-# Non-Goals
-
-QSOL-MORPH does **not** initially aim to:
-
-* replace every compiler;
-* replace CUDA;
-* replace LLVM;
-* replace Fortran;
-* replace POSIX;
-* invent a new operating system;
-* hide all hardware characteristics;
-* guarantee identical floating-point behaviour across fundamentally different machines without an explicit numerical contract;
-* optimise arbitrary programs perfectly;
-* become a universal programming-language kitchen sink.
-
-QSOL-MORPH should reuse mature machinery whenever mature machinery already solves the lower-level problem well.
-
-The wheel does not require reinvention.
-
-It requires reliable bearings.
-
----
-
-# Philosophy
-
-QSOL-MORPH follows several guiding principles:
-
-> **Describe meaning once.**
-
-> **Keep the semantic core small.**
-
-> **Make expensive behaviour visible.**
-
-> **Move data as little as possible.**
-
-> **Exploit vectors where vectors exist.**
-
-> **Expose machinery when requested, not by default.**
-
-> **Optimise without changing claims.**
-
-> **Record enough information to reproduce what happened.**
-
-> **Let old source survive new hardware.**
-
-And above all:
-
-> **QSOL describes intent. QSOL-CORE defines meaning. QSOL-MORPH chooses machinery.**
-
----
-
-# License
-
-Unless otherwise noted, QSOL-MORPH is intended to be released under the **Apache License 2.0**.
-
-See `LICENSE` for the complete license text.
-
----
-
-# Project
-
-**QSOL-MORPH**
-
-QSOL-IMC Research Architecture
-
-Experimental research software for deterministic, human–AI collaborative scientific computing.
+**QSOL-IMC Research Architecture**
