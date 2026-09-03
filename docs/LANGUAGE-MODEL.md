@@ -127,18 +127,36 @@ CARD = (
     verb,
     noun,
     operands,
+    result_binding,
     value,
     type,
     unit,
     qualifiers,
     semantic_class,
-    effects,
+    effect_requirements[],
+    result_determinism,
+    numeric_contract,
+    randomness_contract,
+    failure_behavior,
     dependencies,
+    sequencing_constraints,
     source_location
+)
+
+EFFECT_REQUIREMENT = (
+    effect_id,
+    effect_kind,
+    required_capabilities[]
 )
 ```
 
 Not every field is required for every card.
+
+`effect_requirements[]` is the canonical effect structure. A protected effect has a stable declared effect identity, its effect kind, and the complete capability set that must be authorized before that specific effect begins. A CARD-level union of capabilities may be derived for preflight, but it is not a substitute for this per-effect association.
+
+`result_binding` names the value produced by the CARD when it produces one. It is distinct from the produced value itself because dependent CARDs and provenance edges may refer to that binding identity.
+
+The result-determinism, numeric, randomness, failure, dependency, and sequencing fields are included here to keep this human–AI conceptual shape aligned with the canonical Semantic IR. This document does not freeze their final syntax.
 
 Examples:
 
