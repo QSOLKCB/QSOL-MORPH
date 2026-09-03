@@ -48,27 +48,30 @@ When proposing changes:
 6. treat determinism, numeric contracts, randomness, and provenance as first-class requirements;
 7. do not call performance improvement an optimization unless the required semantics remain valid;
 8. do not promote simulation/test/AI output into stronger evidence classes without an explicit rule;
-9. do not silently weaken CARD, DECK, or JOB failure behavior;
-10. require successful authorization of **every** capability required by a protected external effect before that effect begins;
-11. preserve the explicit effect → complete capability-set association; do not replace it with an ambiguous CARD-level union;
-12. preserve result bindings used by dependent CARDs across canonicalization, serialization, and lowering;
-13. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
-14. do not dead-eliminate a potentially failing operation merely because its result is unused;
-15. preserve all canonical semantic/enforcement fields, including `result`, `qualifiers{}` and explicit `failure_behavior`, across any serialization claiming semantic losslessness;
-16. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
-17. distinguish extension availability/functionality from runtime capability authorization; activating an extension never grants permission;
-18. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
-19. preserve execution-relevant qualifiers through Semantic→Core lowering unless a frozen rule explicitly consumes them and records the resulting decision;
-20. preserve the complete QSOL-CORE control/effect/contract surface through the mandatory Vector/Dataflow IR;
-21. record both mandatory lowering identities/hashes in provenance: Semantic→Core and Core→Vector/Dataflow;
-22. record scoped numeric contract/mode provenance when different CARDs, regions, or kernels can use different legal numeric behavior;
-23. record automatic-backend selection policy/tuning identity and identified per-effect-attempt states when relevant to provenance;
-24. record the complete required-capability set for each effect attempt;
-25. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
-26. define effect-attempt completion independently from the enclosing CARD outcome;
-27. apply completion-state precedence so known `COMPLETED` cannot also be `UNKNOWN`;
-28. distinguish a cleanly aborted begun effect from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
-29. prefer small, inspectable transformations.
+9. bind epistemic class and status to each identified output rather than one execution-wide result label;
+10. do not silently weaken CARD, DECK, or JOB failure behavior;
+11. require successful authorization of **every** capability required by a protected external effect before that effect begins;
+12. preserve the explicit effect → complete capability-set association; do not replace it with an ambiguous CARD-level union;
+13. preserve result bindings used by dependent CARDs across canonicalization, serialization, and lowering;
+14. trace deterministic result-binding preservation/renaming at **both** mandatory lowering boundaries;
+15. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
+16. do not dead-eliminate a potentially failing operation merely because its result is unused;
+17. preserve all canonical semantic/enforcement fields, including `result`, `qualifiers{}` and explicit `failure_behavior`, across any serialization claiming semantic losslessness;
+18. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
+19. distinguish extension availability/functionality from runtime capability authorization; activating an extension never grants permission;
+20. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
+21. preserve execution-relevant qualifiers through Semantic→Core lowering unless a frozen rule explicitly consumes them and records the resulting decision;
+22. preserve the complete QSOL-CORE control/effect/contract surface through the mandatory Vector/Dataflow IR;
+23. record both mandatory lowering identities/hashes **and their result-binding maps** in provenance: Semantic→Core and Core→Vector/Dataflow;
+24. record result-determinism provenance at the CARD/region/kernel or other frozen scope where the requirement is actually valid; do not invent one execution-wide pair unless a frozen normalization proves it represents every source requirement;
+25. record scoped numeric contract/mode provenance when different CARDs, regions, or kernels can use different legal numeric behavior;
+26. record automatic-backend selection policy/tuning identity and identified per-effect-attempt states when relevant to provenance;
+27. record the complete required-capability set for each effect attempt;
+28. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
+29. define effect-attempt completion independently from the enclosing CARD outcome;
+30. apply completion-state precedence so known `COMPLETED` cannot also be `UNKNOWN`;
+31. distinguish a cleanly aborted begun effect from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
+32. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -81,6 +84,9 @@ CARD
 VERB
 NOUN
 result binding
+result binding map
+identified output
+result-determinism scope
 QSOL-CORE
 Semantic IR
 Semantic-to-Core Lowering
@@ -124,10 +130,12 @@ A legal lowering must preserve or explicitly validate before erasure:
 - execution-relevant qualifiers;
 - `effect_requirements[]` and each effect's stable `effect_id` plus complete `required_capabilities[]`;
 - explicit `failure_behavior`;
-- result-determinism, scoped numeric, and randomness contracts;
+- scoped result-determinism, scoped numeric, and randomness contracts;
 - extension identities/versions;
 - source, effect, and failure ordering;
 - CARD / DECK / JOB provenance.
+
+If the lowering preserves or renames result bindings, its provenance must carry an explicit `result_binding_map[]` or use a frozen rule that deterministically reconstructs an identity mapping. Do not expect IR hashes alone to explain name correspondence.
 
 Unsupported semantic constructs or qualifiers fail explicitly. Do not silently drop them, no-op them, default them, or defer their meaning to a backend.
 
@@ -146,12 +154,32 @@ Because every backend path traverses this IR, it must represent or preserve the 
 - explicit failure behavior carried from earlier stages where still material;
 - failure/totality classification;
 - source/effect/failure ordering;
-- determinism, scoped numeric, randomness, and extension contracts;
+- scoped result-determinism, scoped numeric, randomness, and extension contracts;
 - provenance and per-effect-attempt identity.
 
 A non-vectorizable QSOL-CORE operation is not permission to bypass the IR. Use a defined scalar/control/effect/pass-through construct or fail conformance until the IR has one.
 
-The Core→Vector/Dataflow stage is independently provenance-bearing. Trace at least the Core IR hash, Vector/Dataflow specification identity, lowering implementation identity, and resulting Vector/Dataflow IR hash when material.
+The Core→Vector/Dataflow stage is independently provenance-bearing. Trace at least the Core IR hash, Vector/Dataflow specification identity, lowering implementation identity, resulting Vector/Dataflow IR hash, and result-binding map when bindings are preserved or transformed.
+
+## Result-determinism provenance work
+
+Do not assume one requested/effective result-determinism pair governs an entire execution.
+
+When requirements can differ by CARD, region, kernel, or another frozen scope, use scoped entries carrying at least:
+
+```text
+scope_kind
+scope_id
+source_card_ids[]
+requested_result_determinism
+effective_result_determinism
+transition_authorized_by?
+backend_unit_id?
+```
+
+A single execution-wide result-determinism scope is valid only when a frozen normalization rule proves that one requested/effective pair faithfully represents every source requirement.
+
+A recorded downgrade is evidence, not authorization. If a scope cannot satisfy its requested guarantee and no pre-execution rule authorizes a weaker guarantee, fail closed.
 
 ## Numeric provenance work
 
@@ -170,6 +198,26 @@ backend_unit_id?
 ```
 
 A single execution-wide numeric scope is valid only when a frozen normalization rule proves that one contract/mode pair governs the whole execution.
+
+## Result provenance work
+
+Do not represent several outputs as plural hashes plus one shared epistemic class or status.
+
+Each output should be independently identified and bind its own provenance, conceptually including:
+
+```text
+output_id
+result_binding?
+artifact_hash
+artifact_location?
+semantic_class
+status
+producer_card_ids[]
+result_determinism_scope_ids[]
+numeric_scope_ids[]
+```
+
+TEST, VALIDATION, and PROOF status must remain attached only to the output whose explicit semantic transition supports that status. One validated output must not promote another simulation/test output produced by the same JOB.
 
 ## Optimization work
 
@@ -250,7 +298,7 @@ A format claiming semantic losslessness must round-trip all execution- and depen
 - qualifiers;
 - effect requirements and complete per-effect required-capability sets;
 - explicit failure behavior;
-- result-determinism and numeric contracts;
+- scoped result-determinism and numeric contracts;
 - randomness contracts;
 - extension/profile identities and versions;
 - data, effect, and failure-order constraints.
@@ -285,13 +333,16 @@ For every substantive change, ask:
 
 - Did meaning change?
 - Did a result binding disappear or change identity?
+- Did either lowering lose the result-binding map needed to relate names across IRs?
 - Did an effect become implicit?
 - Did an effect lose its explicit capability-set association?
 - Did a runtime attempt lose its link to the canonical declared effect ID?
 - Did authorization move until after an effect began?
 - Did an effect attempt omit one of several required capabilities?
-- Did determinism, numeric, or randomness guarantees weaken?
+- Did result determinism, numeric, or randomness guarantees weaken?
+- Did scoped result-determinism provenance get collapsed into one false global requested/effective pair?
 - Did scoped numeric provenance get collapsed into one false global contract/mode?
+- Did several outputs get collapsed under one semantic class or evidence status?
 - Did provenance weaken or skip one of the mandatory lowering stages?
 - Did an extension get mistaken for a capability grant?
 - Did an extension leak into core?
@@ -301,7 +352,7 @@ For every substantive change, ask:
 - Did dead-result elimination erase a possible failure?
 - Did a backend or implementation invent semantics not yet frozen?
 - Did Semantic IR → QSOL-CORE lowering lose a result binding, qualifier, contract, effect binding, failure behavior, or provenance edge?
-- Did Core→Vector/Dataflow lowering lose a contract or provenance edge?
+- Did Core→Vector/Dataflow lowering lose a contract, binding map, or provenance edge?
 - Did Vector/Dataflow IR drop or bypass control, calls, effects, capabilities, contracts, or scalar semantics?
 - Did a trace collapse several effect attempts into one ambiguous state?
 - Could the same known-completed attempt be labeled both `COMPLETED` and `UNKNOWN`?
