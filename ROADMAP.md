@@ -69,11 +69,17 @@ Planned scope:
 - typed operands;
 - values and units;
 - semantic classes;
-- dependencies;
+- declared effects;
+- required capabilities;
+- result-determinism requirements;
+- randomness/reproducibility requirements;
+- dependencies and effect-order constraints;
 - extension declarations;
 - deterministic canonical ordering;
 - schema validation;
 - reference fixtures.
+
+The canonical model must carry enough information for later executable phases to enforce capability and determinism rules fail-closed. These fields are part of the semantic input to execution, not backend annotations added after the fact.
 
 ## PR #4 — Canonical Serialization
 
@@ -88,9 +94,28 @@ Initial targets:
 
 A MIDI 2.0 mapping remains an extension profile and must not affect the language core.
 
-## PR #5 — QSOL-CORE Reference Machine
+## PR #5 — Minimal Trace and Provenance Foundation
 
-Implement the first executable reduced semantic machine.
+Implement the minimum provenance model required before any QSOL phase is permitted to execute research programs.
+
+The initial trace contract should bind, where applicable:
+
+- source identity/hash;
+- canonical semantic IR identity/hash;
+- active specification version;
+- implementation/MORPH version;
+- execution target or reference-machine identity;
+- result-determinism contract;
+- randomness source, algorithm, stream identity, and seed where used;
+- declared/used capabilities;
+- inputs and output hashes;
+- active extension profiles.
+
+This phase is a gate for PR #6 and every later executable backend. No executable QSOL path should emit a research result without enough provenance to bind that result to the program and execution contract that produced it.
+
+## PR #6 — QSOL-CORE Reference Machine
+
+Implement the first executable reduced semantic machine on top of the minimal trace/provenance foundation.
 
 Candidate families include:
 
@@ -104,7 +129,9 @@ Candidate families include:
 
 The final instruction set is determined by the frozen specification, not by this roadmap.
 
-## PR #6 — Reference MORPH to C
+Every reference-machine execution must emit the required minimal trace from PR #5 and must fail closed when capability or determinism requirements cannot be satisfied.
+
+## PR #7 — Reference MORPH to C
 
 Build the first deliberately boring backend:
 
@@ -123,24 +150,10 @@ Goals:
 - semantic clarity;
 - inspectable generated output;
 - deterministic fixtures;
-- no optimizer cleverness required for correctness.
+- no optimizer cleverness required for correctness;
+- provenance-bound generated artifacts and results.
 
-## PR #7 — Trace and Reproducibility
-
-Implement execution manifests and provenance records.
-
-Record, where relevant:
-
-- source hash;
-- canonical IR hash;
-- morph/compiler version;
-- backend;
-- target architecture;
-- numeric mode;
-- randomness source and seed;
-- inputs and output hashes;
-- active extension profiles;
-- material optimization decisions.
+The C backend inherits the PR #5 trace gate and must record backend/compiler identity and generated target hashes where material.
 
 ## PR #8 — Vector/Dataflow IR
 
@@ -183,7 +196,7 @@ Implement POSIX-oriented execution and composition:
 - signals where appropriate;
 - typed stream adapters.
 
-External effects remain explicit capabilities.
+External effects remain explicit capabilities. POSIX is a composable execution profile, not a mutually exclusive compiler backend: a C-, LLVM-, or other generated program may use the QX-POSIX contract when explicitly enabled.
 
 ## PR #11 — LLVM Backend
 
