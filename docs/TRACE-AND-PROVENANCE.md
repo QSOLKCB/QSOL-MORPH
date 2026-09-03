@@ -16,7 +16,7 @@ The goal is not merely to say that a program ran. The goal is to make it possibl
 - what identified outputs were produced and what semantic class/status belongs to each one;
 - what result determinism was requested and actually provided for each governed scope;
 - what numeric contract and material numeric mode governed each relevant execution scope;
-- what randomness was requested and actually used;
+- what randomness contract, RNG identity, and effective random stream governed each relevant execution scope;
 - what extension versions/contracts were active;
 - which declared effects produced which runtime attempts, which capability set governed each attempt, and what completion state each reached;
 - whether execution failed and what effects were already observable.
@@ -59,7 +59,7 @@ epistemic_classes
 extension_requirements[]
 result_determinism_bindings[]
 numeric_contract_bindings[]
-requested_randomness_contract
+randomness_contract_bindings[]
 required_capabilities[]
 ```
 
@@ -75,6 +75,8 @@ requested_result_determinism
 A trace must not collapse several distinct source result requirements into one execution-wide value unless a frozen normalization rule proves that the normalization preserves every source requirement.
 
 `numeric_contract_bindings[]` similarly represents the canonical scopes in which numeric contracts are attached. A trace must not collapse several distinct source numeric contracts into one global identifier unless a frozen normalization rule proves that the collapse preserves meaning.
+
+`randomness_contract_bindings[]` represents the canonical scopes in which randomness contracts are attached. Separate CARDs may require distinct seeded streams, RNG versions, entropy modes, or stream identities, so those source requirements must not be collapsed into one global randomness declaration unless a frozen normalization rule proves the collapse is lossless.
 
 ### Semantic-to-Core trace
 
@@ -92,6 +94,7 @@ resolved_extensions[]
 qualifier_lowering_decisions[]
 result_determinism_lowering_decisions[]
 numeric_contract_lowering_decisions[]
+randomness_lowering_decisions[]
 lowering_diagnostics[]
 ```
 
@@ -125,7 +128,7 @@ vector_dataflow_lowering_diagnostics[]
 
 This stage's `result_binding_map[]` links QSOL-CORE result bindings to their Vector/Dataflow identities when the lower IR preserves, splits, fuses, or renames bindings under a frozen rule. Both lowering boundaries therefore retain explicit name provenance rather than relying on consumers to reverse-engineer identity from graph structure.
 
-If the Vector/Dataflow lowering implementation, specification, graph structure, control representation, effect ordering, capability metadata, result-binding mapping, or numeric structure changes, the trace must be able to identify the exact lower IR that MORPH received.
+If the Vector/Dataflow lowering implementation, specification, graph structure, control representation, effect ordering, capability metadata, result-binding mapping, or numeric/randomness structure changes, the trace must be able to identify the exact lower IR that MORPH received.
 
 ### Morph trace
 
@@ -145,6 +148,7 @@ fusion decisions
 memory-placement decisions
 result_determinism_scopes[]
 numeric_execution_scopes[]
+randomness_execution_scopes[]
 ```
 
 `backend_selection_policy_*` and tuning identity are material when selection is automatic, such as `ON BEST`. Recording only the backend says what ran but may not explain or reproduce why that machinery was chosen.
@@ -190,6 +194,36 @@ backend_unit_id?
 
 A single execution-wide numeric scope is valid only when a frozen rule establishes that one contract and one material mode govern the whole execution. If separate CARDs, regions, or kernels use different contracts or contract-permitted modes, those must remain distinct entries.
 
+## Scoped randomness provenance
+
+Randomness requirements may also differ within one DECK or JOB because `randomness_contract` may be attached at CARD or another frozen scope.
+
+A DECK can legally contain two seeded computations using different RNG algorithms, versions, seeds, streams, or parallel partitioning rules. A trace therefore must not represent randomness as one execution-wide singleton unless a frozen normalization rule proves that one entry faithfully represents every governed computation.
+
+Conceptually:
+
+```text
+randomness_execution_scopes[]:
+    scope_kind              # EXECUTION / CARD / REGION / KERNEL / frozen equivalent
+    scope_id
+    source_card_ids[]
+    requested_randomness_mode
+    effective_randomness_mode
+    transition_authorized_by?
+    rng_algorithm?
+    rng_version?
+    seed?
+    stream_id?
+    parallel_partitioning?
+    backend_unit_id?
+```
+
+Seeded replay requires more than a seed. When applicable, the RNG algorithm, version, seed, stream identity, and parallel partitioning/stream mapping are material inputs for the particular scope they govern.
+
+If one CARD requires `SEEDED` with one stream and another CARD requires a distinct seeded stream, those remain separate scope entries. If a source requirement is weakened under an explicit pre-execution rule, the requested and effective modes plus the authorizing rule remain attached to that scope.
+
+A transition record is evidence, not permission. A backend must fail closed if a scoped randomness requirement cannot be satisfied and no pre-execution rule authorizes a different mode.
+
 ### Execution trace
 
 Potential fields:
@@ -200,14 +234,7 @@ device
 runtime/compiler versions
 result_determinism_scopes[]
 numeric_execution_scopes[]
-requested_randomness_mode
-effective_randomness_mode
-randomness_transition_authorized_by
-rng_algorithm
-rng_version
-seed
-stream_id
-parallel_partitioning
+randomness_execution_scopes[]
 required_capabilities[]
 granted_capabilities[]
 denied_capabilities[]
@@ -224,17 +251,7 @@ Each `numeric_execution_scopes[]` entry records the active numeric contract plus
 
 Each `result_determinism_scopes[]` entry records the requested and effective guarantee for the computation it governs. A DECK containing both `STRICT` and `NUMERIC` CARDs therefore retains those distinctions rather than weakening the strict CARD or overstating the numeric CARD.
 
-Randomness uses a separate requested/effective separation. If source requests `SEEDED` and an explicit policy permits another mode, the trace must retain:
-
-```text
-requested_randomness_mode
-effective_randomness_mode
-randomness_transition_authorized_by
-```
-
-A policy-authorized transition is still a semantic event and must not be reconstructed from the effective mode alone.
-
-Seeded replay requires more than a seed. The RNG algorithm, version, stream identity, and parallel partitioning/stream mapping are material reproducibility inputs when applicable.
+Each `randomness_execution_scopes[]` entry records the requested/effective randomness contract and every replay-relevant RNG input for the computation it governs. Separate seeded computations must retain separate scope identities when their streams or RNG configuration differ.
 
 Capability provenance must distinguish requirement, authorization, and use. A failed execution denied `NETWORK` should be able to show:
 
@@ -335,6 +352,7 @@ outputs[]:
     producer_card_ids[]
     result_determinism_scope_ids[]
     numeric_scope_ids[]
+    randomness_scope_ids[]
     test_status?
     validation_status?       # only for explicit VALIDATION semantics
     proof_status?            # only for explicit PROOF semantics
@@ -342,7 +360,7 @@ outputs[]:
 
 Each output record binds the artifact/result identity to **its own** epistemic `semantic_class` and execution/status information. A JOB that emits both a simulation artifact and a separately validated artifact therefore cannot serialize both under one shared class.
 
-`result_binding` links the output to the canonical or mapped binding that produced it where applicable. `producer_card_ids[]` preserves the semantic provenance edge back to its producer(s), while the determinism/numeric scope references identify the execution contracts that governed that particular output.
+`result_binding` links the output to the canonical or mapped binding that produced it where applicable. `producer_card_ids[]` preserves the semantic provenance edge back to its producer(s), while the determinism/numeric/randomness scope references identify the execution contracts that governed that particular output.
 
 An output must not acquire `VALIDATION` or `PROOF` status merely because another output in the same JOB has that status.
 
@@ -425,9 +443,9 @@ If a TEST compares against a file, external instrument, network service, benchma
 
 A successful TEST against external evidence still does not silently become VALIDATION or PROOF.
 
-## Cache provenance
+## Cache provenance and legality
 
-A cached result may be valid reuse without proving that a cold reconstruction still succeeds.
+A cached result may be valid reuse without proving that a cold reconstruction still succeeds, but cache provenance alone does **not** authorize semantic substitution.
 
 A trace should distinguish at least conceptually between:
 
@@ -439,7 +457,26 @@ UNVERIFIED CACHE HIT
 
 The exact categories are not frozen.
 
-Cache provenance should bind the material cache identity, including specification/compiler/backend/target/determinism/numeric/randomness/extension and lower-IR inputs required to justify reuse. Where result determinism or numeric behavior is scoped, the cache identity must bind the relevant scoped entries rather than ambiguous global singletons.
+Ordinary result/value substitution from cache is legal only for computations proven safe for reuse under the active contract. In the conservative default, that means the reused computation is effect-free and substitution preserves result determinism, numeric behavior, randomness/replay requirements, failure behavior, ordering, epistemic class, dependencies, and output provenance.
+
+An effectful CARD must **not** be satisfied merely by returning a prior cached value if doing so skips a declared external effect. A cached file write, process launch, network request, AI call, clock read, or other protected effect cannot silently stand in for a new required effect attempt, because that would bypass capability authorization, effect ordering, failure behavior, and per-attempt provenance.
+
+Effectful reuse requires an explicit frozen cache/replay semantic that defines what is being replayed or reused and proves preservation of every affected contract, including:
+
+- the declared effect identity and whether the effect must execute again;
+- the complete capability authorization boundary;
+- source/effect/failure ordering;
+- effect-attempt identity and completion-state provenance;
+- externally observable artifacts/state;
+- randomness/external-input replay rules;
+- failure behavior and JOB/DECK propagation;
+- per-output semantic class/status and execution-scope links.
+
+Absent such a frozen rule, the implementation must execute the effect normally or fail closed; it must not relabel skipped work as `VERIFIED CACHE REUSE`.
+
+A cached artifact may still be used as an explicit declared input, reference fixture, or optimization artifact when the semantic contract says so. That is different from silently replacing an effectful CARD evaluation.
+
+Cache provenance should bind the material cache identity, including specification/compiler/backend/target/determinism/numeric/randomness/extension and lower-IR inputs required to justify reuse. Where result determinism, numeric behavior, or randomness is scoped, the cache identity must bind the relevant scoped entries rather than ambiguous global singletons.
 
 ## Optimization provenance
 
@@ -470,7 +507,7 @@ This distinction is intentionally aligned with the optimization discipline devel
 
 ## Trace policy
 
-Not every execution needs every field. The active specification, scoped result-determinism requirements, scoped numeric contracts, randomness contract, capability policy, extension set, semantic-to-core lowering contract, Vector/Dataflow lowering contract, and backend-selection policy should define the minimum trace required for a claim.
+Not every execution needs every field. The active specification, scoped result-determinism requirements, scoped numeric contracts, scoped randomness contracts, capability policy, extension set, semantic-to-core lowering contract, Vector/Dataflow lowering contract, backend-selection policy, and cache/replay legality rules should define the minimum trace required for a claim.
 
 The roadmap requires a trace/failure/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/execution-contract/policy binding.
 
