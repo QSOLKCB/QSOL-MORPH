@@ -16,7 +16,7 @@ The goal is not merely to say that a program ran. The goal is to make it possibl
 - what numeric contract and material numeric mode governed execution;
 - what randomness was requested and actually used;
 - what extension versions/contracts were active;
-- which external effect attempts occurred and what completion state each reached;
+- which external effect attempts occurred, which capability set governed each attempt, and what completion state each reached;
 - whether execution failed and what effects were already observable.
 
 ## Trace layers
@@ -162,6 +162,8 @@ capabilities_used = []
 
 This records why the protected effect did not begin rather than merely showing that it was never used.
 
+Global capability sets are not sufficient on their own when an individual effect attempt requires multiple permissions. The attempt itself must bind the full capability set that governed authorization for that external action.
+
 Extensions are independently versionable. `resolved_extensions[]` should therefore bind, where material:
 
 ```text
@@ -175,7 +177,7 @@ A profile name alone is insufficient provenance if different versions can change
 
 ## Per-effect-attempt provenance
 
-Every protected external effect attempt should have its own identity and completion state.
+Every protected external effect attempt should have its own identity, complete required-capability set, and completion state.
 
 A conceptual entry may contain:
 
@@ -183,14 +185,18 @@ A conceptual entry may contain:
 effect_attempt_id
 card_id
 effect_kind
-required_capability?
+required_capabilities[]
 sequence_index
 completion_state
 backend_detail?
 observable_artifacts[]
 ```
 
-where `completion_state` is one of:
+where `required_capabilities[]` contains **every** capability that must be authorized before that attempt begins. For example, an AI-backed network request might require both `AI_MODEL` and `NETWORK`; recording only one would be insufficient to prove that the complete authorization boundary was satisfied.
+
+The attempt must not begin unless every required capability in that set has been granted under the active capability policy. The global `granted_capabilities[]` / `denied_capabilities[]` fields describe the execution-wide decision space, while the per-attempt set identifies which permissions governed this specific effect.
+
+`completion_state` is one of:
 
 ```text
 NOT_STARTED
