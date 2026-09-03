@@ -10,11 +10,11 @@ QSOL source carries information that a conventional machine-oriented IR often do
 
 - research intent;
 - epistemic class;
-- values, types, and units;
+- values, result bindings, types, and units;
 - execution-relevant qualifiers;
-- effects and their complete required-capability sets;
+- effects, stable declared effect IDs, and their complete required-capability sets;
 - result-determinism requirements;
-- numeric contracts;
+- scoped numeric contracts;
 - randomness contracts;
 - extension requirements;
 - source, data, effect, and failure ordering;
@@ -37,6 +37,8 @@ Semantic-to-Core Lowering
     ↓
 QSOL-CORE
     ↓
+Core-to-Vector/Dataflow Lowering
+    ↓
 Vector/Dataflow IR
     ↓
 MORPH
@@ -55,10 +57,12 @@ A lowering may produce conceptually:
 ```text
 LoweredCard {
     source_card_id
+    result_binding?
     core_operations[]
     preserved_qualifiers{}
     preserved_metadata
     effect_requirements[]
+    numeric_contract_binding?
     ordering_constraints
     failure_contract
     provenance_edges
@@ -69,7 +73,25 @@ Some semantic CARDs may lower to multiple core operations.
 
 Some semantic CARDs may establish metadata, evidence boundaries, orchestration, trace requirements, target-selection constraints, or adapter/tuning requirements rather than ordinary arithmetic instructions.
 
-A CARD or execution-relevant qualifier must never disappear merely because a backend does not understand its semantic role.
+A CARD, its dependency-visible result binding, or an execution-relevant qualifier must never disappear merely because a backend does not understand its semantic role.
+
+## Result-binding preservation
+
+A Semantic-IR `Card.result?` names the value produced for later dependency/reference use. It is not interchangeable with the value itself.
+
+Lowering must preserve the identity relation:
+
+```text
+source CARD
+    ↓ produces
+result binding
+    ↓ consumed by
+dependent CARD(s)
+```
+
+A lower representation may rename a binding only under a deterministic mapping that is preserved in provenance and dependency edges. It must not discard the source binding and leave later stages to reconstruct dependencies from position, value equality, or backend-local naming.
+
+Conformance fixtures must include multiple producer/consumer chains and detect missing, duplicated, or incorrectly rebound result identities.
 
 ## Qualifier preservation
 
@@ -141,6 +163,8 @@ effect_kind = AI_MODEL
 required_capabilities = [AI_MODEL, NETWORK]
 ```
 
+The canonical `effect_id` must remain identifiable through lowering. Runtime attempts later acquire distinct `effect_attempt_id` values; a backend or runtime must not replace the declared identity with only the attempt identity.
+
 Capability authorization must complete successfully for **every capability in the set** before that protected effect begins.
 
 A lowering may not collapse multiple effect-specific requirement sets into an ambiguous CARD-level union if doing so loses which permissions govern which attempt.
@@ -155,10 +179,12 @@ Material contracts include, where applicable:
 
 ```text
 requested_result_determinism
-numeric_contract
+numeric_contract binding + scope
 requested_randomness_contract
 RNG identity / stream requirements
 ```
+
+Numeric contracts may be attached to individual CARDs or another frozen scope. Lowering must preserve the scope-to-contract association. It may normalize multiple contracts into one lower/global contract only under a frozen rule that proves the normalization preserves each source contract and records the mapping.
 
 A transformation that changes the legal numeric behavior or randomness requirements is not merely a representation change.
 
@@ -191,9 +217,9 @@ If a semantic construct or execution-relevant qualifier has no legal QSOL-CORE l
 
 It must not:
 
-- drop the construct or qualifier;
+- drop the construct, result binding, or qualifier;
 - replace it with a no-op without a frozen rule;
-- silently weaken an execution contract;
+- silently weaken an execution or scoped numeric contract;
 - translate an unknown epistemic class into ordinary data;
 - defer semantic invention to a backend.
 
@@ -214,14 +240,15 @@ The future normative lowering specification should publish fixtures pairing cano
 Fixtures should cover at least:
 
 - scalar data and arithmetic;
+- producer/consumer result bindings and dependency identity;
 - XOR and other logic;
 - units/types;
 - observations and assumptions;
 - TEST / VALIDATION / PROOF boundaries;
 - execution-relevant qualifiers, including target/adapter/tuning/extension-control qualifiers;
-- single and multiple effects with distinct complete capability sets;
+- single and multiple effects with distinct stable effect IDs and complete capability sets;
 - seeded randomness;
-- numeric contracts;
+- multiple scoped numeric contracts and legal normalization/rejection cases;
 - explicit failure behavior and ordering constraints;
 - extension-owned constructs and qualifiers;
 - unsupported construct/qualifier rejection.
@@ -239,8 +266,10 @@ semantic_ir_hash
 lowering_spec_version
 lowering_implementation_version
 core_ir_hash
+result_binding_map[]
 resolved_extensions[]
 qualifier_lowering_decisions[]
+numeric_contract_lowering_decisions[]
 lowering_diagnostics[]
 ```
 
