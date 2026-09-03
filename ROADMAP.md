@@ -120,27 +120,21 @@ The initial trace contract should bind, where applicable:
 - active specification version;
 - implementation/MORPH version;
 - execution target or reference-machine identity;
-- requested result-determinism contract;
-- effective result-determinism contract;
-- the rule/policy identity authorizing any permitted determinism transition;
-- `numeric_execution_scopes[]`, each binding scope identity, source CARD identity where applicable, numeric contract identity/hash, material numeric mode, and backend execution-unit identity where useful;
-- requested randomness contract/mode;
-- effective randomness contract/mode;
-- the rule/policy identity authorizing any permitted randomness transition;
-- RNG algorithm and version;
-- RNG stream identity and seed;
-- parallel RNG partitioning/stream mapping where applicable;
+- `result_determinism_scopes[]`, each binding scope identity, source CARD IDs, requested guarantee, effective guarantee, any pre-execution transition authority, and backend execution-unit identity where useful;
+- `numeric_execution_scopes[]`, each binding scope identity, source CARD IDs where applicable, numeric contract identity/hash, material numeric mode, and backend execution-unit identity where useful;
+- `randomness_execution_scopes[]`, each binding scope identity, source CARD IDs, requested/effective randomness mode, any pre-execution transition authority, and replay-relevant RNG algorithm/version/seed/stream/partitioning plus backend execution-unit identity where useful;
 - required capabilities;
 - capabilities granted and denied for this execution;
 - capability-policy identity/version responsible for authorization decisions;
 - capabilities actually used;
-- inputs and output hashes;
+- declared `inputs[]`;
+- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, and governing result-determinism/numeric/randomness scope IDs;
 - active extension profiles plus resolved extension versions/content identities;
 - identified effect attempts, each carrying a runtime attempt identity, its canonical declared `effect_id`, complete required-capability set, and individual completion state;
 - structured execution-failure records where applicable;
 - fields for backend-selection policy/version and tuning-state identity when automatic target selection is later used.
 
-A single execution-wide numeric scope is valid only when a frozen normalization rule proves that one contract and one material numeric mode govern the whole execution. CARD-, region-, or kernel-scoped contracts/modes must not be collapsed into a false global singleton.
+A single execution-wide result-determinism, numeric, or randomness scope is valid only when a frozen normalization rule proves that one entry faithfully represents every governed source requirement. CARD-, region-, or kernel-scoped contracts/modes/streams must not be collapsed into false global singletons.
 
 Before PR #7 may execute a program, this phase must also define the reference failure contract:
 
@@ -160,7 +154,7 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
 - failure traces identify the CARD, DECK/JOB outcome, failure class/stage, per-attempt declared/runtime identities and states, and whether any output artifact became observable.
 
-This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind that result to the program, execution policy, scoped numeric contract/mode, reproducibility contract, extension set, authorization decisions, and execution/failure context that produced it.
+This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the program, epistemic class/status, execution policy, scoped determinism/numeric/randomness contracts, extension set, authorization decisions, and execution/failure context that produced it.
 
 ## PR #6 — Normative QSOL-CORE Operational Specification
 
@@ -212,6 +206,7 @@ Planned work:
 - define lowering of explicit `effect_requirements[]`, stable declared `effect_id`, and each effect's complete required-capability set;
 - define preservation of explicit `failure_behavior`;
 - define preservation of result-determinism, scoped numeric, randomness, extension, source-order, effect-order, and failure-order contracts;
+- define deterministic result-binding preservation/renaming rules and the provenance mapping required when lower identities differ;
 - define unsupported-construct/qualifier failure behavior;
 - define extension-owned lowering hooks behind resolved versioned contracts;
 - publish Semantic IR → QSOL-CORE conformance fixtures and rejection fixtures.
@@ -227,7 +222,7 @@ The reference lowering must:
 - consume canonical Semantic IR rather than hand-built QSOL-CORE only;
 - produce QSOL-CORE plus preserved result bindings, qualifiers, scoped contracts, effect bindings/IDs, failure behavior, metadata, and provenance required by later stages;
 - fail closed for unsupported or contract-breaking semantic constructs/qualifiers;
-- bind semantic IR identity, lowering-spec identity, lowering implementation identity, resolved extension identities, and resulting QSOL-CORE identity;
+- bind semantic IR identity, lowering-spec identity, lowering implementation identity, resolved extension identities, resulting QSOL-CORE identity, and `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
 - pass all frozen lowering conformance and rejection fixtures.
 
 No MORPH backend should be considered end-to-end conforming until this first lowering stage is present.
@@ -252,6 +247,7 @@ Planned concepts:
 - source-order, effect-order, and failure-order constraints;
 - per-effect-attempt identity/provenance hooks distinct from declared effect identity;
 - result-determinism, scoped numeric, randomness, extension, qualifier, and failure-behavior preservation;
+- deterministic lower result-binding mapping rules;
 - fusion legality;
 - alias rules;
 - parallel partitioning;
@@ -274,7 +270,7 @@ The reference lowering must:
 - emit the full semantics-preserving Vector/Dataflow IR;
 - preserve result bindings, control, calls, scalar operations, declared effect IDs, per-effect capability sets, qualifiers, failure behavior, ordering, determinism, scoped numeric contracts/modes, randomness, extensions, and provenance;
 - fail closed when a supported QSOL-CORE operation lacks a legal Vector/Dataflow representation;
-- bind `core_ir_hash`, Vector/Dataflow specification identity, lowering implementation identity, and `vector_dataflow_ir_hash` in provenance;
+- bind `core_ir_hash`, Vector/Dataflow specification identity, lowering implementation identity, `vector_dataflow_ir_hash`, and `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
 - pass scalar-only, result/dependency, control-flow, call, effect/capability, mixed vector/scalar, failure-order, and contract-preservation fixtures.
 
 A backend may not bypass this stage for branches, calls, effects, or other non-vector operations merely because they are not optimization candidates.
@@ -310,7 +306,7 @@ Goals:
 - end-to-end comparison from canonical Semantic IR through the reference machine and C result path;
 - no backend bypass of the mandatory lower IR for control, calls, effects, or scalar operations.
 
-The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity, scoped numeric modes, and generated target hashes where material.
+The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity, scoped determinism/numeric/randomness execution information, and generated target hashes where material.
 
 ## PR #13 — Morph Optimization Passes
 
@@ -321,11 +317,14 @@ Introduce semantics-preserving transformations such as:
 - vectorization;
 - dataflow fusion;
 - temporary-elision;
-- legal operation reordering under explicit totality, failure-order, and numeric contracts.
+- legal operation reordering under explicit totality, failure-order, and numeric contracts;
+- cache/result reuse only under an explicit legality rule that preserves the active semantic and execution contracts.
 
 No optimization may erase or move an observable failure merely because a computed value is unused. Under fail-stop semantics, an unused potentially failing operation remains observable because its failure can prevent later effects or results.
 
-Every optimization must be testable against the invariant set, both lowering fixture sets, full-IR fixtures, and QSOL-CORE reference semantics.
+Ordinary cached result substitution is permitted only for computations proven safe for reuse, conservatively effect-free by default. An effectful CARD may not be satisfied by returning a prior cached value if that would skip a declared effect, capability authorization, effect/failure ordering, or effect-attempt provenance. Effectful reuse requires a separately frozen replay/cache semantic that defines and preserves those boundaries; otherwise the effect executes normally or reuse fails closed.
+
+Every optimization must be testable against the invariant set, both lowering fixture sets, full-IR fixtures, QSOL-CORE reference semantics, and cache/replay legality rules where reuse is involved.
 
 ## PR #14 — Normative QX-POSIX Contract
 
@@ -381,7 +380,7 @@ Planned concepts:
 - kernel inspection;
 - accelerator capability/effect boundaries;
 - failure and effect-attempt completion semantics;
-- provenance requirements for device, kernel, launch, and **scoped** numeric modes;
+- provenance requirements for device, kernel, launch, and **scoped** determinism/numeric/randomness behavior;
 - conformance/rejection fixtures.
 
 This PR is normative specification work. Vendor backends implement this contract rather than defining generic GPU meaning themselves.
@@ -413,7 +412,7 @@ Planned work:
 - define interaction with generic GPU semantics and target-selection qualifiers;
 - define determinism/numeric restrictions for vendor controls;
 - define failure and unsupported-control behavior;
-- define provenance required for each material control, including scoped numeric-mode consequences where applicable;
+- define provenance required for each material control, including scoped determinism/numeric/randomness consequences where applicable;
 - publish conformance and rejection fixtures.
 
 `QX-CUDA` remains an optional source/control extension. Activating the profile does not itself grant GPU or other runtime capabilities.
@@ -450,7 +449,10 @@ Targets may include:
 - invariant consistency;
 - epistemic-class preservation;
 - canonical serialization properties including result-binding preservation;
-- scoped numeric-contract/mode provenance properties;
+- scoped result-determinism, numeric-contract/mode, and randomness provenance properties;
+- per-output epistemic/status binding properties;
+- result-binding-map preservation across both mandatory lowering boundaries;
+- cache/replay legality for a defined effect-free subset;
 - QX-POSIX contract properties for a defined subset;
 - generic GPU / QX-CUDA contract properties for a defined subset;
 - failure-state, JOB propagation, authorization, declared-effect/attempt identity, and ordering properties for a defined subset.
