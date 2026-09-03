@@ -64,7 +64,7 @@ B ─┘      ↑
 
 This representation makes transformation opportunities explicit.
 
-Source order remains semantically relevant for observable effects even when pure vector operations are scheduled from data dependencies. A vector/dataflow lowering must preserve effect-order constraints carried by the Semantic IR.
+Source order remains semantically relevant for observable effects and for potentially failing operations under fail-stop execution. Only CARDs proven **pure and total** under the active contract may be freely scheduled from data dependencies. A vector/dataflow lowering must preserve effect-order and failure-order constraints carried by the Semantic IR.
 
 ## Chaining and fusion
 
