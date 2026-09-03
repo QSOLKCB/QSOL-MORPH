@@ -119,7 +119,7 @@ The initial trace contract should bind, where applicable:
 - canonical semantic IR identity/hash;
 - active specification version;
 - implementation/MORPH version;
-- execution target or reference-machine identity;
+- `backend_selection_scopes[]`, each binding scope identity, source CARD IDs, backend-unit identity, requested target/qualifier, selected backend/version, target architecture/device, and automatic-selection policy/tuning identity where applicable; reference-machine-only execution may use an equivalent frozen execution-target scope;
 - `result_determinism_scopes[]`, each binding scope identity, source CARD IDs, requested guarantee, effective guarantee, any pre-execution transition authority, and backend execution-unit identity where useful;
 - `numeric_execution_scopes[]`, each binding scope identity, source CARD IDs where applicable, numeric contract identity/hash, material numeric mode, and backend execution-unit identity where useful;
 - `randomness_execution_scopes[]`, each binding scope identity, source CARD IDs, requested/effective randomness mode, any pre-execution transition authority, and replay-relevant RNG algorithm/version/seed/stream/partitioning plus backend execution-unit identity where useful;
@@ -128,15 +128,14 @@ The initial trace contract should bind, where applicable:
 - capability-policy identity/version responsible for authorization decisions;
 - capabilities actually used;
 - identified `inputs[]`, each binding a stable `input_id` to the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed, with any location/schema/media metadata needed for retrieval or interpretation;
-- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, and governing result-determinism/numeric/randomness scope IDs;
+- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, and governing backend-selection/result-determinism/numeric/randomness scope IDs;
 - active extension profiles plus resolved extension versions/content identities;
 - identified effect attempts, each carrying a runtime attempt identity, its canonical declared `effect_id`, complete required-capability set, and individual completion state;
-- structured execution-failure records where applicable;
-- fields for backend-selection policy/version and tuning-state identity when automatic target selection is later used.
+- structured execution-failure records where applicable.
 
 A mutable input locator such as a path, URL, dataset name, or model name is retrieval context, not sufficient provenance by itself. Every material input must have a stable input identity plus an immutable value/content/artifact identity that distinguishes exactly what was consumed; otherwise replay and audit fail closed rather than guessing from the locator.
 
-A single execution-wide result-determinism, numeric, or randomness scope is valid only when a frozen normalization rule proves that one entry faithfully represents every governed source requirement. CARD-, region-, or kernel-scoped contracts/modes/streams must not be collapsed into false global singletons.
+A single execution-wide backend-selection, result-determinism, numeric, or randomness scope is valid only when a frozen normalization rule proves that one entry faithfully represents every governed source decision or requirement. CARD-, region-, kernel-, or generated-unit-scoped machinery/contracts/modes/streams must not be collapsed into false global singletons.
 
 Before PR #7 may execute a program, this phase must also define the reference failure contract:
 
@@ -156,7 +155,7 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
 - failure traces identify the CARD, DECK/JOB outcome, failure class/stage, per-attempt declared/runtime identities and states, and whether any output artifact became observable.
 
-This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the program, immutable material inputs, epistemic class/status, execution policy, scoped determinism/numeric/randomness contracts, extension set, authorization decisions, and execution/failure context that produced it.
+This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the program, immutable material inputs, epistemic class/status, scoped backend-selection/determinism/numeric/randomness execution context, extension set, authorization decisions, and execution/failure context that produced it.
 
 ## PR #6 — Normative QSOL-CORE Operational Specification
 
@@ -452,8 +451,8 @@ Targets may include:
 - epistemic-class preservation;
 - canonical serialization properties including stable JOB/DECK/CARD and result-binding preservation;
 - immutable input-provenance binding properties for a defined subset;
-- scoped result-determinism, numeric-contract/mode, and randomness provenance properties;
-- per-output epistemic/status binding properties;
+- scoped backend-selection, result-determinism, numeric-contract/mode, and randomness provenance properties;
+- per-output epistemic/status and execution-scope binding properties;
 - result-binding-map preservation across both mandatory lowering boundaries;
 - cache/replay legality for a defined effect-free subset;
 - QX-POSIX contract properties for a defined subset;
