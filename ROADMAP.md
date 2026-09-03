@@ -144,7 +144,7 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - capability authorization is completed successfully **before every protected external effect begins**;
 - other static/precondition checks should occur before an external effect where practical;
 - effects already externally observable before a later failure are not retroactively erased;
-- an effect that begins and fails must be traceable as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents);
+- every effect attempt must be traceable as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents); `NOT_STARTED` is valid only when the protected effect never began, while an effect that began and then failed must be `PARTIAL` or `UNKNOWN` unless it completed before a later failure;
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
 - failure traces identify the CARD, DECK/JOB outcome, failure class/stage, prior committed effects, partial-effect state, and whether any output artifact became observable.
 
@@ -266,7 +266,7 @@ Implement POSIX-oriented execution and composition:
 - signals where appropriate;
 - typed stream adapters.
 
-External effects remain explicit capabilities. POSIX is a composable execution profile, not a mutually exclusive compiler backend: a C-, LLVM-, or other generated program may use the QX-POSIX contract when explicitly enabled and authorized.
+External effects remain explicit and require their corresponding capabilities. POSIX is a composable execution profile, not a mutually exclusive compiler backend: a C-, LLVM-, or other generated program may use the QX-POSIX contract when explicitly enabled and authorized.
 
 ## PR #12 — LLVM Backend
 
