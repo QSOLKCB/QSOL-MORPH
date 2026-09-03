@@ -87,7 +87,15 @@ effective_result_determinism
 determinism_transition_authorized_by
 ```
 
-A recorded downgrade is evidence of what happened. It is not itself authorization to weaken a source requirement.
+The same distinction applies independently to randomness:
+
+```text
+requested_randomness_mode
+effective_randomness_mode
+randomness_transition_authorized_by
+```
+
+A recorded transition is evidence of what happened. It is not itself authorization to weaken a source requirement.
 
 ## Sources of nondeterminism
 
@@ -124,7 +132,9 @@ RUN MONTE_CARLO
 A reproducible trace may need to record:
 
 ```text
-rng_mode
+requested_randomness_mode
+effective_randomness_mode
+randomness_transition_authorized_by
 rng_algorithm
 rng_version
 seed
@@ -215,7 +225,9 @@ numeric_contract_hash
 requested_result_determinism
 effective_result_determinism
 determinism_transition_authorized_by
-randomness_mode
+requested_randomness_mode
+effective_randomness_mode
+randomness_transition_authorized_by
 rng_algorithm
 rng_version
 seed
