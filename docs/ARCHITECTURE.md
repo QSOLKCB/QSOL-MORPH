@@ -79,9 +79,9 @@ These terms are intended to carry recognizable meaning for both humans and langu
 The proposed structural hierarchy is:
 
 ```text
-JOB
- └── DECK
-      └── CARD
+JOB [JOB ID]
+ └── DECK [DECK ID]
+      └── CARD [CARD ID]
            ├── VERB
            ├── NOUN
            ├── OPERANDS
@@ -97,8 +97,10 @@ JOB
            ├── NUMERIC CONTRACT
            ├── EXTENSION REQUIREMENTS[]
            ├── FAILURE BEHAVIOR
-           └── DEPENDENCIES / EFFECT ORDER
+           └── DEPENDENCIES / EFFECT ORDER / FAILURE ORDER
 ```
+
+`JOB ID`, `DECK ID`, and `CARD ID` are stable canonical identities, not serializer- or trace-generated labels. They must survive canonicalization, lossless transport, lowering provenance, and execution tracing.
 
 A `CARD` is intended to be the smallest independently addressable semantic statement.
 
@@ -110,9 +112,13 @@ The `RESULT BINDING` identifies the value produced by a CARD when one is named. 
 
 `EXTENSION REQUIREMENTS[]` identifies any versioned profile/contract needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. Extension availability remains separate from runtime capability authorization.
 
+`FAILURE ORDER` represents explicit or derived sequencing edges needed to preserve fail-stop observability. Effect-to-effect ordering alone is insufficient: for `WRITE A; DIV X 0; WRITE B`, the pure but failing division must remain ordered between the two writes even though it has no external effect of its own.
+
 A `DECK` is a source-ordered collection of cards with explicit/derived dependency constraints representing one executable research workflow.
 
 Only CARDs proven **pure and total** under the active contract may be freely scheduled from dependency edges. A pure CARD that may fail is still ordering-relevant under fail-stop semantics, because moving it across an observable effect can change which effects commit before failure. Effectful CARDs are source-ordered by default: the canonical model should derive sequencing constraints between observable effects so that two writes, external calls, process launches, or similar effects cannot be reordered merely because they lack a data dependency.
+
+Failure-order constraints must likewise preserve the relative position of potentially failing CARDs wherever reordering could change whether prior or later observable effects occur. A scheduler or lower IR may not reconstruct these edges from guesswork after the canonical model has discarded them.
 
 A future explicit construct may permit parallel or commutative effects, but only under frozen rules that define when the relaxation is semantically legal and what ordering remains observable.
 
@@ -200,7 +206,7 @@ MORPH is not allowed to silently redefine the source program's scientific meanin
 
 ## 7. Backend layer
 
-Backends translate validated intermediate representations into executable or consumable targets.
+Backends translate validated intermediate representations into executable or consumable machinery targets.
 
 Possible backend families include:
 
@@ -212,11 +218,11 @@ Possible backend families include:
 - WebAssembly;
 - Vulkan Compute;
 - OpenCL;
-- a native QSOL VM;
-- formal-verification adapters;
-- MIDI 2.0 adapters.
+- a native QSOL VM.
 
 POSIX process, stream, filesystem, environment, and signal semantics are modeled as the composable `QX-POSIX` profile rather than a mutually exclusive backend. A C-, LLVM-, Fortran-, or other generated program may use that profile when explicitly enabled and authorized.
+
+Likewise, MIDI 2.0 mappings and formal-tool integrations are adapter/extension concerns rather than compiler backends. They belong behind versioned extension contracts such as `QX-MIDI` and `QX-PROVE`, respectively.
 
 A backend may expose additional target-specific control through an explicit extension profile. For example, CUDA is a backend choice while `QX-CUDA` is an optional control profile. Backend-specific features should not leak into the core by default.
 
