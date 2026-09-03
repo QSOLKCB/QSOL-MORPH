@@ -56,8 +56,10 @@ DEPENDENCIES
 EFFECT_ORDER_CONSTRAINTS
 FAILURE_ORDER_CONSTRAINTS
 FAILURE_BEHAVIOR
-EXTENSION_DECLARATIONS
-EXTENSION_VERSION_REQUIREMENTS
+EXTENSION_REQUIREMENTS[]
+  PROFILE_NAME
+  REQUIRED_VERSION_OR_RANGE
+  CONTRACT_ID_OR_HASH?
 SOURCE_IDENTITY / LOCATIONS
 SCHEMA / SPECIFICATION VERSION
 ```
@@ -70,11 +72,13 @@ SCHEMA / SPECIFICATION VERSION
 
 `EFFECT_REQUIREMENTS[]` preserves the canonical association between each protected effect and the complete capability set required for that effect. A serializer must not flatten several effect-specific capability sets into one ambiguous CARD-level union.
 
+`EXTENSION_REQUIREMENTS[]` preserves each required profile together with the exact version/range and contract identity needed to interpret that profile's syntax, qualifiers, effects, or lowering hooks. Separate parallel lists of extension names and version requirements are not lossless because they can lose which requirement belongs to which profile.
+
 `FAILURE_BEHAVIOR` preserves any explicit CARD/DECK/JOB recovery, continuation, fail-stop, compensation, or other frozen failure policy present in the semantic model. It must not disappear and silently revert to a default during transport.
 
 A serializer must not invent meaning that does not exist in the semantic model, and a lossless serializer must not discard enforcement fields that determine whether or how a program may execute.
 
-In particular, round-tripping a JOB/DECK must not silently lose stable JOB/DECK/CARD identities, result bindings, qualifiers, effect-to-capability bindings, failure behavior, permissions, determinism requirements, numeric tolerances, randomness requirements, extension identities, target/control modifiers, or sequencing constraints.
+In particular, round-tripping a JOB/DECK must not silently lose stable JOB/DECK/CARD identities, result bindings, qualifiers, effect-to-capability bindings, failure behavior, permissions, determinism requirements, numeric tolerances, randomness requirements, extension-profile/version/contract associations, target/control modifiers, or sequencing constraints.
 
 ## Human form
 
@@ -137,7 +141,7 @@ If used for hashing, canonical JSON requires strict rules for:
 - deterministic ordering of each `required_capabilities[]` set;
 - canonical failure-behavior representation;
 - canonical contract identifiers;
-- deterministic representation of unordered extension sets.
+- deterministic representation and ordering of `extension_requirements[]`, including each profile's bound version/range and contract identity.
 
 A normal pretty-printed JSON document should not be assumed canonical merely because it parses.
 
@@ -154,7 +158,7 @@ Illustrative card:
 </card>
 ```
 
-This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including stable JOB/DECK/CARD identities, result bindings, qualifiers, effect/capability bindings, failure behavior, enforcement fields, and scoped JOB/DECK contracts.
+This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including stable JOB/DECK/CARD identities, result bindings, qualifiers, effect/capability bindings, failure behavior, enforcement fields, extension-profile/version/contract associations, and scoped JOB/DECK contracts.
 
 XML is an interchange profile, not the preferred human authoring syntax.
 
@@ -162,7 +166,7 @@ XML is an interchange profile, not the preferred human authoring syntax.
 
 A binary representation may eventually improve startup time, storage efficiency, or direct runtime loading.
 
-A binary form should include enough schema, specification, stable JOB/DECK/CARD identity, extension, result-binding, qualifier, effect-binding, failure-behavior, and contract identity to avoid interpreting bytes under the wrong semantic, dependency, target-control, failure, authorization, or provenance model.
+A binary form should include enough schema, specification, stable JOB/DECK/CARD identity, extension requirement/profile/version/contract association, result-binding, qualifier, effect-binding, failure-behavior, and contract identity to avoid interpreting bytes under the wrong semantic, dependency, target-control, failure, authorization, or provenance model.
 
 ## Round-trip requirement
 
@@ -178,7 +182,7 @@ semantic object'
 semantic object == semantic object'
 ```
 
-Equality here includes execution-relevant, dependency-relevant, and reference-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any stable JOB/DECK/CARD identity, result binding, qualifier, effect requirement, per-effect capability set, failure behavior, determinism, numeric, randomness, extension/version, dependency, effect-order, or failure-order contract.
+Equality here includes execution-relevant, dependency-relevant, and reference-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any stable JOB/DECK/CARD identity, result binding, qualifier, effect requirement, per-effect capability set, failure behavior, determinism, numeric, randomness, extension requirement/profile-version-contract association, dependency, effect-order, or failure-order contract.
 
 Formatting metadata need not round-trip unless explicitly included in the representation contract.
 
@@ -188,7 +192,7 @@ Hashes should be computed over a defined canonical representation or semantic ca
 
 Do not hash incidental whitespace and then call the digest a semantic identity unless source-text identity is specifically the object being bound.
 
-Stable JOB/DECK/CARD identities, result bindings, qualifiers, effect requirements, per-effect capability sets, explicit failure behavior, contract identities, and extension identities that affect execution, dependency, or provenance meaning must contribute to semantic identity according to the frozen canonicalization rules.
+Stable JOB/DECK/CARD identities, result bindings, qualifiers, effect requirements, per-effect capability sets, explicit failure behavior, contract identities, and extension requirement/profile-version-contract associations that affect execution, dependency, or provenance meaning must contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Versioning
 
@@ -216,9 +220,9 @@ A migration tool should ideally report changed cards/fields and distinguish:
 - failure-behavior changes;
 - permission/capability changes;
 - determinism/numeric/randomness contract changes;
-- extension-version changes.
+- extension requirement/version/contract changes.
 
-A migration must not silently manufacture, discard, or renumber a stable JOB/DECK/CARD identity, result binding, execution authorization, failure policy, target-control qualifier, or scientific contract merely to make an old deck parse.
+A migration must not silently manufacture, discard, detach, or renumber a stable JOB/DECK/CARD identity, result binding, extension requirement, execution authorization, failure policy, target-control qualifier, or scientific contract merely to make an old deck parse.
 
 ## Principle
 
