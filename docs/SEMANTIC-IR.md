@@ -32,9 +32,25 @@ Program
            └── Card[]
 ```
 
-A minimal conceptual `Card` shape is:
+The hierarchy itself carries stable identity. A conceptual shape is:
 
 ```text
+Program {
+    jobs[]
+}
+
+Job {
+    id
+    decks[]
+    source_location?
+}
+
+Deck {
+    id
+    cards[]
+    source_location?
+}
+
 Card {
     id
     verb
@@ -64,6 +80,8 @@ EffectRequirement {
 }
 ```
 
+`Job.id`, `Deck.id`, and `Card.id` are canonical identities, not serialization-only labels. They must survive canonicalization, lossless transport, lowering provenance, and trace production without being synthesized or renumbered merely because a representation changes.
+
 `effect_requirements[]` is the canonical association between a protected effect and the complete capability set that must authorize that specific effect. A CARD may have zero, one, or multiple effect requirements. Separate unassociated `effects[]` and `capabilities[]` arrays are insufficient once one CARD can initiate multiple effects with different authorization requirements.
 
 A derived CARD-level union of required capabilities may be useful for static preflight or summaries, but that union does not replace the per-effect mapping.
@@ -74,9 +92,9 @@ A `NUMERIC` result-determinism request is incomplete without the numeric contrac
 
 ## Stable identity
 
-Cards should be independently addressable.
+Jobs, decks, and cards should be independently addressable.
 
-A source-level identifier such as:
+A source-level card identifier such as:
 
 ```text
 @019 RUN PROJECTILE
@@ -90,7 +108,9 @@ may allow:
 - localized diagnostics;
 - deterministic diffs.
 
-Whether identifiers are user-visible, generated, or both is not yet frozen.
+Stable JOB and DECK identities similarly allow multi-job/multi-deck workflows, failure propagation, output provenance, and cross-deck dependencies to refer to the same semantic objects before and after serialization or lowering.
+
+Whether identifiers are user-visible, generated, or both is not yet frozen. What is not optional for a lossless canonical model is that once an identity exists, representation changes must not silently replace or renumber it.
 
 ## Typed values and units
 
@@ -258,6 +278,7 @@ The semantic model should support a deterministic canonical representation.
 Canonicalization may include:
 
 - stable field order;
+- stable JOB / DECK / CARD identities;
 - normalized numeric forms;
 - normalized unit identifiers;
 - normalized keyword case;
@@ -283,7 +304,7 @@ Potential uses:
 - transformation verification;
 - backend comparison.
 
-Hash identity must be defined over canonical semantic content rather than incidental formatting if source formatting is not itself part of the semantic contract. Execution-relevant qualifiers, effect requirements, per-effect capability sets, and explicit failure behavior contribute to semantic identity.
+Hash identity must be defined over canonical semantic content rather than incidental formatting if source formatting is not itself part of the semantic contract. Stable hierarchy IDs, execution-relevant qualifiers, effect requirements, per-effect capability sets, and explicit failure behavior contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Lowering
 
