@@ -36,6 +36,7 @@ CARD
 VERB
 NOUN
 OPERANDS
+RESULT_BINDING
 VALUES
 TYPES
 UNITS
@@ -58,6 +59,8 @@ SOURCE_IDENTITY / LOCATIONS
 SCHEMA / SPECIFICATION VERSION
 ```
 
+`RESULT_BINDING` is the canonical `Card.result?` identity naming the value produced by a CARD when that field is present. It is distinct from the produced value itself: a lossless serializer must preserve both the data and the identity that dependent CARDs reference.
+
 `QUALIFIERS` includes canonical CARD modifiers that affect execution or lowering, such as explicit target-selection, adapter, tuning, or extension-control qualifiers. Lossless formats must retain them exactly according to the frozen canonical model.
 
 `EFFECT_REQUIREMENTS[]` preserves the canonical association between each protected effect and the complete capability set required for that effect. A serializer must not flatten several effect-specific capability sets into one ambiguous CARD-level union.
@@ -66,7 +69,7 @@ SCHEMA / SPECIFICATION VERSION
 
 A serializer must not invent meaning that does not exist in the semantic model, and a lossless serializer must not discard enforcement fields that determine whether or how a program may execute.
 
-In particular, round-tripping a DECK must not silently lose qualifiers, effect-to-capability bindings, failure behavior, permissions, determinism requirements, numeric tolerances, randomness requirements, extension identities, target/control modifiers, or sequencing constraints.
+In particular, round-tripping a DECK must not silently lose result bindings, qualifiers, effect-to-capability bindings, failure behavior, permissions, determinism requirements, numeric tolerances, randomness requirements, extension identities, target/control modifiers, or sequencing constraints.
 
 ## Human form
 
@@ -85,7 +88,7 @@ The human form should optimize readability and semantic regularity.
 
 This syntax is **not** an implementation target for the initial canonical-serialization phase. A future normative QSOL text-profile specification must freeze lexical/grammar rules, shorthand/default reconstruction, source-to-Semantic-IR mapping, diagnostics, and canonical text rendering before `.qsl` parsing/serialization is implemented.
 
-Human-readable shorthand may omit fields only when the parser can reconstruct them unambiguously from that active frozen text-profile specification. Canonical serialization must retain the resolved semantic values.
+Human-readable shorthand may omit fields only when the parser can reconstruct them unambiguously from that active frozen text-profile specification. Canonical serialization must retain the resolved semantic values and result bindings.
 
 ## JSONL form
 
@@ -108,7 +111,7 @@ JSONL is attractive for:
 - line-addressable transformations;
 - append-oriented traces.
 
-If JSONL claims semantic losslessness, contract and enforcement metadata must be represented either on the relevant CARD records or through explicitly linked JOB/DECK metadata records whose scope and identity are deterministic.
+If JSONL claims semantic losslessness, result bindings, contract metadata, and enforcement metadata must be represented either on the relevant CARD records or through explicitly linked JOB/DECK metadata records whose scope and identity are deterministic.
 
 ## JSON form
 
@@ -121,6 +124,7 @@ If used for hashing, canonical JSON requires strict rules for:
 - Unicode handling;
 - escaping;
 - omitted versus null fields;
+- result-binding representation;
 - map ordering;
 - canonical qualifier maps;
 - deterministic effect-requirement ordering;
@@ -144,7 +148,7 @@ Illustrative card:
 </card>
 ```
 
-This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including qualifiers, effect/capability bindings, failure behavior, enforcement fields, and scoped JOB/DECK contracts.
+This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including result bindings, qualifiers, effect/capability bindings, failure behavior, enforcement fields, and scoped JOB/DECK contracts.
 
 XML is an interchange profile, not the preferred human authoring syntax.
 
@@ -152,7 +156,7 @@ XML is an interchange profile, not the preferred human authoring syntax.
 
 A binary representation may eventually improve startup time, storage efficiency, or direct runtime loading.
 
-A binary form should include enough schema, specification, extension, qualifier, effect-binding, failure-behavior, and contract identity to avoid interpreting bytes under the wrong semantic, target-control, failure, or authorization model.
+A binary form should include enough schema, specification, extension, result-binding, qualifier, effect-binding, failure-behavior, and contract identity to avoid interpreting bytes under the wrong semantic, dependency, target-control, failure, or authorization model.
 
 ## Round-trip requirement
 
@@ -168,7 +172,7 @@ semantic object'
 semantic object == semantic object'
 ```
 
-Equality here includes execution-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any qualifier, effect requirement, per-effect capability set, failure behavior, determinism, numeric, randomness, extension/version, dependency, effect-order, or failure-order contract.
+Equality here includes execution-relevant and dependency-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any result binding, qualifier, effect requirement, per-effect capability set, failure behavior, determinism, numeric, randomness, extension/version, dependency, effect-order, or failure-order contract.
 
 Formatting metadata need not round-trip unless explicitly included in the representation contract.
 
@@ -178,7 +182,7 @@ Hashes should be computed over a defined canonical representation or semantic ca
 
 Do not hash incidental whitespace and then call the digest a semantic identity unless source-text identity is specifically the object being bound.
 
-Qualifiers, effect requirements, per-effect capability sets, explicit failure behavior, contract identities, and extension identities that affect execution must contribute to semantic identity according to the frozen canonicalization rules.
+Result bindings, qualifiers, effect requirements, per-effect capability sets, explicit failure behavior, contract identities, and extension identities that affect execution or dependency meaning must contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Versioning
 
@@ -199,6 +203,7 @@ A migration tool should ideally report changed cards/fields and distinguish:
 
 - pure representation updates;
 - semantic changes requiring human review;
+- result-binding/dependency changes;
 - qualifier/target-control changes;
 - effect/capability-binding changes;
 - failure-behavior changes;
@@ -206,7 +211,7 @@ A migration tool should ideally report changed cards/fields and distinguish:
 - determinism/numeric/randomness contract changes;
 - extension-version changes.
 
-A migration must not silently manufacture a new execution authorization, failure policy, target-control qualifier, or weaker scientific contract merely to make an old deck parse.
+A migration must not silently manufacture or discard a result binding, execution authorization, failure policy, target-control qualifier, or scientific contract merely to make an old deck parse.
 
 ## Principle
 
