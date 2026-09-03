@@ -102,13 +102,7 @@ then that scope's trace entry must retain both values and the rule/policy author
 
 A recorded transition is evidence of what happened. It is not itself authorization to weaken a source requirement.
 
-The same requested/effective distinction applies independently to randomness:
-
-```text
-requested_randomness_mode
-effective_randomness_mode
-randomness_transition_authorized_by
-```
+The same requested/effective distinction applies independently to randomness, but randomness is also scoped to the CARD/region/kernel or other frozen scope it governs rather than being represented by one execution-wide singleton.
 
 ## Sources of nondeterminism
 
@@ -142,22 +136,39 @@ SEED RNG 18437
 RUN MONTE_CARLO
 ```
 
-A reproducible trace may need to record:
-
-```text
-requested_randomness_mode
-effective_randomness_mode
-randomness_transition_authorized_by
-rng_algorithm
-rng_version
-seed
-stream_id
-parallel_partitioning
-```
+A seeded RNG declaration establishes the randomness facet. It does not by itself establish the result-determinism facet.
 
 Using the same integer seed is insufficient if the generator version or parallel stream mapping changes.
 
-A seeded RNG declaration establishes the randomness facet. It does not by itself establish the result-determinism facet.
+## Scoped randomness provenance
+
+Randomness contracts may differ within one DECK or JOB because the canonical model permits CARD-scoped randomness requirements.
+
+For example, separate computations may use different RNG algorithms, versions, seeds, streams, or partitioning rules. Reproducibility therefore uses scoped entries rather than one execution-wide RNG tuple.
+
+Conceptually:
+
+```text
+randomness_execution_scopes[]:
+    scope_kind
+    scope_id
+    source_card_ids[]
+    requested_randomness_mode
+    effective_randomness_mode
+    transition_authorized_by?
+    rng_algorithm?
+    rng_version?
+    seed?
+    stream_id?
+    parallel_partitioning?
+    backend_unit_id?
+```
+
+A single execution-wide randomness entry is legal only when a frozen lossless normalization rule proves that one randomness contract and replay configuration faithfully govern every affected source computation.
+
+If a scoped source requirement requests `SEEDED` and an execution policy explicitly permits another mode, that scope's record retains both requested and effective modes plus the pre-execution rule authorizing the transition.
+
+Seeded replay requires the algorithm, algorithm version, seed, stream identity, and parallel partitioning/stream mapping wherever those inputs can affect the generated sequence.
 
 ## Time
 
@@ -229,7 +240,7 @@ A deterministic parallel backend may require:
 
 When those requirements cannot be met for a governed scope, the backend must reject that scope's requested result-determinism contract unless the source or execution policy explicitly permits a weaker result contract. Merely reporting a downgrade after execution is not sufficient permission.
 
-For seeded parallel execution, the partitioning/stream-mapping scheme is part of the reproducibility input and must be recorded when it can change the generated sequence.
+For seeded parallel execution, the partitioning/stream-mapping scheme is part of the scoped reproducibility input and must be recorded when it can change the generated sequence.
 
 ## Backend selection
 
@@ -293,12 +304,35 @@ status
 producer_card_ids[]
 result_determinism_scope_ids[]
 numeric_scope_ids[]
+randomness_scope_ids[]
 test_status?
 validation_status?
 proof_status?
 ```
 
 A simulation output and a separately validated output remain distinct records. The validation status of one output must not promote another output merely because both were produced in the same JOB.
+
+`randomness_scope_ids[]` identifies the exact randomness contracts/streams that governed an output when randomness contributed to that result.
+
+## Input provenance
+
+Declared runtime inputs must be bound to the actual immutable value or content consumed, not merely to a mutable path, URL, dataset name, model name, or other locator.
+
+A conceptual material input record may include:
+
+```text
+input_id
+input_kind
+canonical_value?          # for inline scalar/record inputs
+content_hash?             # required for material external byte/artifact inputs
+artifact_id_or_version?
+location?
+media_or_schema_type?
+```
+
+Every material input requires a stable `input_id` plus either its canonical value or an immutable content/artifact identity sufficient to distinguish the exact input consumed. For a file, dataset, model, downloaded object, or other mutable external resource, a location alone is not reproducibility evidence; the consumed bytes or immutable artifact/version must be hash-bound.
+
+A location remains useful retrieval context, but replay and audit must not infer content identity from a mutable locator.
 
 ## Reproducibility manifest
 
@@ -327,14 +361,7 @@ backend_selection_tuning_id
 backend_selection_tuning_hash
 result_determinism_scopes[]
 numeric_execution_scopes[]
-requested_randomness_mode
-effective_randomness_mode
-randomness_transition_authorized_by
-rng_algorithm
-rng_version
-seed
-stream_id
-parallel_partitioning
+randomness_execution_scopes[]
 inputs[]
 outputs[]
 resolved_extensions[]
@@ -353,9 +380,13 @@ Each `result_determinism_scopes[]` entry binds the scope identity, source CARD p
 
 Each `numeric_execution_scopes[]` entry binds the scope identity, source CARD provenance where applicable, numeric-contract identity/hash, effective material numeric mode, and backend execution-unit identity when useful.
 
-Each `outputs[]` entry binds its artifact/result identity to its own semantic class, status, producer provenance, and governing determinism/numeric scopes.
+Each `randomness_execution_scopes[]` entry binds the scope identity, source CARD provenance, requested/effective randomness mode, transition authority, and replay-relevant RNG algorithm/version/seed/stream/partitioning plus backend execution-unit identity where useful.
 
-Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; seeded RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; binding maps are material when result identities are transformed; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation; scoped determinism/numeric entries are material whenever their contracts affect legal results.
+Each `inputs[]` entry binds the declared material input to a stable input ID and the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed.
+
+Each `outputs[]` entry binds its artifact/result identity to its own semantic class, status, producer provenance, and governing determinism/numeric/randomness scopes.
+
+Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; scoped seeded-RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; binding maps are material when result identities are transformed; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation; scoped determinism/numeric/randomness entries are material whenever their contracts affect legal results; immutable input identity is material whenever an external or mutable input contributes to a result.
 
 The manifest should represent independent reproducibility facets independently rather than collapsing them into ambiguous labels or false execution-wide singletons.
 
