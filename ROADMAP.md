@@ -6,7 +6,7 @@ QSOL-MORPH is being developed specification-first. The project deliberately sepa
 
 > Meaning is frozen before machinery is optimized.
 
-No phase may silently weaken an invariant established by an earlier frozen phase. Backend-specific convenience does not override semantic preservation, determinism requirements, epistemic distinctions, or traceability.
+No phase may silently weaken an invariant established by an earlier frozen phase. Backend-specific convenience does not override semantic preservation, determinism requirements, epistemic distinctions, numeric contracts, failure semantics, or traceability.
 
 ## PR #1 — Documentation Foundation
 
@@ -24,6 +24,7 @@ Deliverables:
 - vector and dataflow model;
 - deterministic execution model;
 - provenance and trace model;
+- failure and partial-effect model;
 - backend and code-morphing model;
 - extension-profile model;
 - capability/effect model;
@@ -43,11 +44,13 @@ Planned work:
 - define MUST / MUST NOT / SHOULD interpretation;
 - freeze semantic-preservation rules;
 - freeze nondeterminism disclosure requirements;
+- freeze numeric-contract preservation requirements;
 - freeze epistemic non-promotion requirements;
 - freeze backend-independence boundaries;
 - freeze inspectability and traceability requirements;
 - freeze the small-core / extension boundary;
 - freeze capability and hidden-effect rules;
+- freeze failure, fail-stop, and partial-effect disclosure rules;
 - add machine-readable invariant registry;
 - add validation that documentation and registry agree;
 - define invariant change-control procedure.
@@ -72,6 +75,7 @@ Planned scope:
 - declared effects;
 - required capabilities;
 - result-determinism requirements;
+- numeric contract identity and parameters required to interpret `NUMERIC` execution;
 - randomness/reproducibility requirements;
 - dependencies and effect-order constraints;
 - extension declarations;
@@ -79,7 +83,7 @@ Planned scope:
 - schema validation;
 - reference fixtures.
 
-The canonical model must carry enough information for later executable phases to enforce capability and determinism rules fail-closed. These fields are part of the semantic input to execution, not backend annotations added after the fact.
+The canonical model must carry enough information for later executable phases to enforce capability, numeric, and determinism rules fail-closed. These fields are part of the semantic input to execution, not backend annotations added after the fact.
 
 ## PR #4 — Canonical Serialization
 
@@ -94,9 +98,9 @@ Initial targets:
 
 A MIDI 2.0 mapping remains an extension profile and must not affect the language core.
 
-## PR #5 — Minimal Trace and Provenance Foundation
+## PR #5 — Trace, Failure, and Provenance Foundation
 
-Implement the minimum provenance model required before any QSOL phase is permitted to execute research programs.
+Implement the minimum provenance and failure model required before any QSOL phase is permitted to execute research programs.
 
 The initial trace contract should bind, where applicable:
 
@@ -105,17 +109,35 @@ The initial trace contract should bind, where applicable:
 - active specification version;
 - implementation/MORPH version;
 - execution target or reference-machine identity;
-- result-determinism contract;
-- randomness source, algorithm, stream identity, and seed where used;
+- requested result-determinism contract;
+- effective result-determinism contract;
+- the rule/policy authorizing any permitted determinism transition;
+- numeric contract identity/hash and material numeric mode;
+- randomness mode/source;
+- RNG algorithm and version;
+- RNG stream identity and seed;
+- parallel RNG partitioning/stream mapping where applicable;
 - declared/used capabilities;
 - inputs and output hashes;
-- active extension profiles.
+- active extension profiles;
+- structured execution-failure records and partial-effect status where applicable.
 
-This phase is a gate for PR #6 and every later executable backend. No executable QSOL path should emit a research result without enough provenance to bind that result to the program and execution contract that produced it.
+Before PR #6 may execute a program, this phase must also define the reference failure contract:
+
+- evaluation yields a success or structured failure, never an implicit sentinel value;
+- an unhandled failure stops the DECK by default;
+- pure CARD failure commits no semantic state;
+- capability/precondition rejection occurs before an external effect begins where practical;
+- effects that were already externally observable before a later failure are not retroactively erased;
+- an effect that begins and fails must be traceable as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents);
+- division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
+- failure traces identify the CARD, failure class/stage, prior committed effects, partial-effect state, and whether any output artifact became observable.
+
+This phase is a gate for PR #6 and every later executable backend. No executable QSOL path should emit a research result without enough provenance to bind that result to the program, numeric contract, reproducibility contract, and execution/failure context that produced it.
 
 ## PR #6 — QSOL-CORE Reference Machine
 
-Implement the first executable reduced semantic machine on top of the minimal trace/provenance foundation.
+Implement the first executable reduced semantic machine on top of the PR #5 trace/failure/provenance foundation.
 
 Candidate families include:
 
@@ -129,7 +151,7 @@ Candidate families include:
 
 The final instruction set is determined by the frozen specification, not by this roadmap.
 
-Every reference-machine execution must emit the required minimal trace from PR #5 and must fail closed when capability or determinism requirements cannot be satisfied.
+Every reference-machine execution must emit the required PR #5 trace, obey the frozen success/failure and partial-effect contract, and fail closed when capability, numeric, or determinism requirements cannot be satisfied.
 
 ## PR #7 — Reference MORPH to C
 
@@ -151,9 +173,10 @@ Goals:
 - inspectable generated output;
 - deterministic fixtures;
 - no optimizer cleverness required for correctness;
-- provenance-bound generated artifacts and results.
+- provenance-bound generated artifacts and results;
+- failure behavior equivalent to the QSOL-CORE reference contract.
 
-The C backend inherits the PR #5 trace gate and must record backend/compiler identity and generated target hashes where material.
+The C backend inherits the PR #5 trace/failure gate and must record backend/compiler identity and generated target hashes where material.
 
 ## PR #8 — Vector/Dataflow IR
 
@@ -169,7 +192,8 @@ Planned concepts:
 - dependencies;
 - fusion legality;
 - alias rules;
-- deterministic numeric contracts.
+- parallel partitioning;
+- deterministic numeric-contract enforcement.
 
 ## PR #9 — Morph Optimization Passes
 
@@ -250,7 +274,8 @@ Targets may include:
 - semantic preservation for selected morph passes;
 - invariant consistency;
 - epistemic-class preservation;
-- canonical serialization properties.
+- canonical serialization properties;
+- failure-state and effect-order properties for a defined subset.
 
 ## Extension workstreams
 
