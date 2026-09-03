@@ -93,6 +93,7 @@ At minimum, each attempt should distinguish:
 ```text
 NOT_STARTED
 COMPLETED
+ABORTED_CLEAN
 PARTIAL
 UNKNOWN
 ```
@@ -123,6 +124,18 @@ Likewise, a complete file write may be `COMPLETED` even if a later validation st
 
 A CARD failure must not relabel an already completed effect attempt as `PARTIAL` merely because the CARD outcome is failure.
 
+### ABORTED_CLEAN
+
+The effect began, did **not** reach its defined completion boundary, and the implementation can establish that **no externally observable change occurred**.
+
+Examples may include:
+
+- a buffered operation that begins internally but discards its buffer before publication;
+- an atomic external operation that aborts before commit and can prove no external state changed;
+- a staged write whose temporary state is never made externally visible and is removed before failure is reported.
+
+`ABORTED_CLEAN` is distinct from `NOT_STARTED` because the protected operation did begin. It is distinct from `PARTIAL` because no portion became externally observable, and distinct from `UNKNOWN` because the absence of observable change is established rather than uncertain.
+
 ### PARTIAL
 
 The effect began, became externally observable in some incomplete form, and did **not** reach its defined completion boundary before failure.
@@ -145,11 +158,11 @@ The implementation cannot establish whether the effect reached its completion bo
 
 Capability authorization is a hard boundary, not a best-effort preflight.
 
-**Every protected external effect must have its required capability successfully authorized before that effect begins.**
+**Every protected external effect must have every capability in its complete required-capability set successfully authorized before that effect begins.**
 
-For example, an operation requiring `NETWORK` must not open a socket, resolve through a network-backed helper, transmit data, or otherwise begin the protected network effect unless `NETWORK` has been granted for that execution.
+For example, an operation requiring both `AI_MODEL` and `NETWORK` must not begin its remote model effect unless both capabilities have been granted for that execution.
 
-If authorization is denied or cannot be established, the attempt fails with state `NOT_STARTED`.
+If authorization is denied or cannot be established for any required capability, the attempt fails with state `NOT_STARTED`.
 
 This rule is unconditional for capability authorization. A backend may not downgrade it to "where practical" merely because preflight is inconvenient.
 
@@ -222,7 +235,7 @@ A failed execution should be traceable with enough information to answer:
 - which stable failure class applies;
 - which backend/runtime detail was reported;
 - which prior DECKs had completed;
-- which effect attempts existed, which CARD produced each one, and the completion state of each attempt;
+- which effect attempts existed, which CARD produced each one, the complete capability set governing each attempt, and the completion state of each attempt;
 - whether any output artifact became externally visible;
 - what determinism, numeric, randomness, capability, policy, and extension contracts were active.
 
@@ -247,7 +260,7 @@ Each `effect_attempts[]` entry should be independently identifiable and may carr
 attempt_id
 card_id
 effect_kind
-required_capability
+required_capabilities[]
 sequence_index
 completion_state
 backend_detail?
