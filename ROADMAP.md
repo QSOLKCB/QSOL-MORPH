@@ -103,7 +103,7 @@ Initial implementation targets:
 - canonical JSON representation;
 - XML interchange representation.
 
-Every lossless format must round-trip all canonical semantic and enforcement fields, including result bindings, qualifiers, effect requirements and per-effect capability sets, explicit failure behavior, determinism, scoped numeric contracts, randomness, extension/version, dependency, effect-order, and failure-order information.
+Every lossless format must round-trip all canonical semantic and enforcement fields, including stable JOB/DECK/CARD identifiers, result bindings, qualifiers, effect requirements and per-effect capability sets, explicit failure behavior, determinism, scoped numeric contracts, randomness, extension/version, dependency, effect-order, and failure-order information.
 
 The human-readable `.qsl` source profile is explicitly **deferred**. It may not be implemented until a separate normative QSOL text-profile specification freezes lexical grammar, syntax, shorthand/default reconstruction, diagnostics, canonical text rendering, and the source-to-Semantic-IR mapping. Until that freeze, examples of QSOL text remain illustrative only.
 
@@ -127,12 +127,14 @@ The initial trace contract should bind, where applicable:
 - capabilities granted and denied for this execution;
 - capability-policy identity/version responsible for authorization decisions;
 - capabilities actually used;
-- declared `inputs[]`;
+- identified `inputs[]`, each binding a stable `input_id` to the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed, with any location/schema/media metadata needed for retrieval or interpretation;
 - identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, and governing result-determinism/numeric/randomness scope IDs;
 - active extension profiles plus resolved extension versions/content identities;
 - identified effect attempts, each carrying a runtime attempt identity, its canonical declared `effect_id`, complete required-capability set, and individual completion state;
 - structured execution-failure records where applicable;
 - fields for backend-selection policy/version and tuning-state identity when automatic target selection is later used.
+
+A mutable input locator such as a path, URL, dataset name, or model name is retrieval context, not sufficient provenance by itself. Every material input must have a stable input identity plus an immutable value/content/artifact identity that distinguishes exactly what was consumed; otherwise replay and audit fail closed rather than guessing from the locator.
 
 A single execution-wide result-determinism, numeric, or randomness scope is valid only when a frozen normalization rule proves that one entry faithfully represents every governed source requirement. CARD-, region-, or kernel-scoped contracts/modes/streams must not be collapsed into false global singletons.
 
@@ -154,7 +156,7 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
 - failure traces identify the CARD, DECK/JOB outcome, failure class/stage, per-attempt declared/runtime identities and states, and whether any output artifact became observable.
 
-This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the program, epistemic class/status, execution policy, scoped determinism/numeric/randomness contracts, extension set, authorization decisions, and execution/failure context that produced it.
+This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the program, immutable material inputs, epistemic class/status, execution policy, scoped determinism/numeric/randomness contracts, extension set, authorization decisions, and execution/failure context that produced it.
 
 ## PR #6 — Normative QSOL-CORE Operational Specification
 
@@ -448,7 +450,8 @@ Targets may include:
 - semantic preservation for selected morph passes;
 - invariant consistency;
 - epistemic-class preservation;
-- canonical serialization properties including result-binding preservation;
+- canonical serialization properties including stable JOB/DECK/CARD and result-binding preservation;
+- immutable input-provenance binding properties for a defined subset;
 - scoped result-determinism, numeric-contract/mode, and randomness provenance properties;
 - per-output epistemic/status binding properties;
 - result-binding-map preservation across both mandatory lowering boundaries;
