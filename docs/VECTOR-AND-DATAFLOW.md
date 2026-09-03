@@ -6,6 +6,8 @@ The goal is to express bulk scientific computation once, then map it onto scalar
 
 Because this IR is part of the mandatory end-to-end backend pipeline, it is **not a vector-only filter**. It must also preserve the complete supported QSOL-CORE semantic surface for operations that are not vectorizable.
 
+The roadmap freezes a normative Vector/Dataflow IR specification before implementing the reference QSOL-CORE → Vector/Dataflow lowering. The reference lowering implements that contract; it does not define it.
+
 ## Role in the mandatory pipeline
 
 The documented pipeline is singular:
@@ -16,6 +18,8 @@ Canonical Semantic IR
 Semantic-to-QSOL-CORE Lowering
     ↓
 QSOL-CORE
+    ↓
+Core-to-Vector/Dataflow Lowering
     ↓
 Vector/Dataflow IR
     ↓
@@ -33,8 +37,10 @@ It must preserve, where applicable:
 - scalar and vector data operations;
 - branches and control-flow regions;
 - call/return boundaries and call state;
-- explicit effects;
-- required capabilities;
+- explicit effects and their stable identities;
+- complete required-capability sets for each protected effect;
+- execution-relevant qualifiers not already consumed under a frozen lowering rule;
+- explicit failure behavior not already lowered into core control semantics;
 - source/effect/failure ordering constraints;
 - result-determinism, numeric, and randomness contracts;
 - extension/profile identity required by execution;
@@ -106,7 +112,7 @@ This representation makes transformation opportunities explicit.
 
 Source order remains semantically relevant for observable effects and for potentially failing operations under fail-stop execution. Only operations proven **pure and total** under the active contract may be freely scheduled from data dependencies.
 
-A Vector/Dataflow lowering must preserve all control, call, effect-order, failure-order, capability, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
+A Vector/Dataflow lowering must preserve all control, call, effect-order, failure-order, capability, qualifier, failure-behavior, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
 
 ## Control flow and calls
 
@@ -133,15 +139,16 @@ Explicit effects remain explicit through this IR.
 Conceptually, effect nodes/regions must retain enough information to preserve:
 
 ```text
+effect identity
 effect kind
-required capability
+required_capabilities[]
 source/failure order
 effect attempt identity/provenance
 ```
 
 A file write, process launch, network action, clock access, AI call, or other effect must not disappear merely because the surrounding numeric work becomes a vector graph.
 
-Capability authorization remains an execution boundary and must occur before the corresponding protected effect begins.
+Capability authorization remains an execution boundary. Every capability in the complete required set for an effect must be granted before the corresponding protected effect begins.
 
 ## Chaining and fusion
 
@@ -271,6 +278,8 @@ An unused result does not make a potentially failing operation unobservable unde
 
 Only operations proven pure and total may be removed solely because their results are dead.
 
+Per-effect completion semantics must also remain representable, including a cleanly aborted begun effect that is proven to have produced no external change.
+
 ## Determinism
 
 Parallel execution can create nondeterminism through:
@@ -287,19 +296,36 @@ If the requested result-determinism contract cannot be satisfied, the backend mu
 
 Likewise, a backend must not replace a required seeded random stream with an unseeded or external-entropy source merely because it can report that change afterward.
 
+## Lowering provenance
+
+The QSOL-CORE → Vector/Dataflow transition is independently provenance-bearing.
+
+A conforming trace should bind, where material:
+
+```text
+core_ir_hash
+vector_dataflow_spec_version
+vector_dataflow_implementation_version
+vector_dataflow_ir_hash
+vector_dataflow_lowering_diagnostics[]
+```
+
+MORPH must receive a specific identifiable Vector/Dataflow IR. It must not be possible for a changed lower graph to hide behind the same Semantic IR/Core IR/MORPH identities.
+
 ## Conformance requirement
 
-Vector/Dataflow IR conformance should include fixtures covering more than arithmetic.
+Vector/Dataflow specification and reference-lowering conformance should include fixtures covering more than arithmetic.
 
 Representative tests should include:
 
 - scalar-only QSOL-CORE programs;
 - branches and calls;
-- effectful operations with capabilities;
+- effectful operations with single and multiple capability requirements;
+- execution-relevant qualifiers and explicit failure behavior;
 - failing pure operations ordered around effects;
 - mixed scalar/vector regions;
 - determinism/numeric/randomness contract preservation;
-- per-effect-attempt provenance identity;
+- per-effect-attempt provenance identity and completion states;
 - unsupported constructs failing closed rather than bypassing the IR.
 
 ## Performance principle
