@@ -36,7 +36,7 @@ The proposed reduced semantic machine beneath the research-facing language.
 
 ## Semantic IR
 
-The canonical typed representation that preserves research intent, units, effects, dependencies, and semantic class before lower machine-oriented transformations.
+The canonical typed representation that preserves research intent, units, effects, dependencies, numeric/reproducibility contracts, and semantic class before lower machine-oriented transformations.
 
 ## Vector/Dataflow IR
 
@@ -48,11 +48,15 @@ The transformation layer that maps stable QSOL semantics onto target-specific ma
 
 ## backend
 
-A concrete output/execution target such as C, LLVM, POSIX, Fortran, or CUDA.
+A concrete code-generation or execution target such as C, LLVM, Fortran, CUDA, HIP, WebAssembly, or a native QSOL VM.
 
 ## extension profile
 
-An optional capability surface such as QX-GPU or QX-NET that adds functionality without redefining core meaning.
+An optional capability or execution surface such as `QX-POSIX`, `QX-GPU`, or `QX-NET` that adds functionality without redefining core meaning.
+
+## QX-POSIX
+
+The composable POSIX process/stream/filesystem execution profile. It is not a mutually exclusive compiler backend; generated C, LLVM, Fortran, or other targets may use the profile when explicitly enabled and authorized.
 
 ## capability
 
@@ -66,17 +70,29 @@ An operation with externally observable or stateful behavior, such as file I/O, 
 
 Execution under a contract that constrains or eliminates relevant sources of nondeterminism.
 
+## result-determinism contract
+
+The requested or effective guarantee on observable results, such as strict byte identity, tolerance-bounded numeric equivalence, or explicitly declared nondeterminism.
+
+## randomness contract
+
+The independent contract describing whether randomness is absent, reproducibly seeded, externally entropic, or otherwise explicitly nondeterministic.
+
 ## numeric contract
 
 Rules describing which numeric transformations and result differences are legal for a program or operation.
 
 ## trace
 
-A structured record of semantic, transformation, execution, or result information used to explain and reproduce a run.
+A structured record of semantic, transformation, execution, failure, or result information used to explain and reproduce a run.
 
 ## provenance
 
-Evidence connecting a result to its source, inputs, transformations, execution context, and validation boundary.
+Evidence connecting a result or failure to its source, inputs, transformations, execution context, and validation boundary.
+
+## partial effect
+
+An externally observable effect that began but did not complete normally. Its existence and known/unknown extent must not be hidden by a later execution failure.
 
 ## canonical form
 
