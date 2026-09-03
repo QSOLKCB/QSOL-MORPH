@@ -16,6 +16,7 @@ The Semantic IR should preserve information that ordinary compiler IRs often dis
 - dependencies;
 - source provenance;
 - determinism requirements;
+- randomness/reproducibility requirements;
 - extension-profile membership.
 
 The IR should be precise enough for machines while remaining inspectable by humans.
@@ -45,10 +46,14 @@ Card {
     semantic_class?
     effects[]
     capabilities[]
+    result_determinism?
+    randomness_contract?
     dependencies[]
     source_location
 }
 ```
+
+These enforcement fields belong in the canonical semantic input. They must not be invented only after a backend has already chosen machinery.
 
 ## Stable identity
 
@@ -131,12 +136,13 @@ PROCESS
 CLOCK
 RANDOM
 AI_MODEL
-GPU
 EXTERNAL_TOOL
 MUTATION
 ```
 
 A card may be pure or effectful. A backend may not silently add an undeclared externally observable effect when the source contract forbids it.
+
+GPU selection is intentionally not a Semantic-IR effect. Choosing CPU, SIMD, GPU, CUDA, or another accelerator is machinery selection and belongs in MORPH/execution metadata. GPU access may still require an explicit extension/capability contract.
 
 ## Capabilities
 
@@ -145,12 +151,14 @@ Effects describe what an operation does. Capabilities describe what the executio
 Example:
 
 ```text
-DENY QX-NET
+DENY NETWORK
 ```
 
 should allow validation to reject any reachable card requiring network access.
 
-## Dependencies
+Extension availability is separate. A deck may `USE QX-NET` because it needs that profile while still denying the `NETWORK` capability at execution time.
+
+## Dependencies and effect ordering
 
 Dependencies should be explicit enough to support dataflow analysis and reproducibility.
 
@@ -171,6 +179,10 @@ A dependency graph can support:
 - provenance traversal;
 - AI review.
 
+Source order and dependency order are not interchangeable for effects. The candidate model treats effectful CARDs in a DECK as source-ordered by default: canonicalization should derive sequencing constraints between effectful cards so backends cannot reorder two writes, process launches, network calls, or other observable effects merely because no data edge exists between them.
+
+Independent pure cards may be scheduled according to dependencies. A future explicit parallel/commutative-effects construct may relax effect ordering only if the frozen specification defines its legality and observability rules.
+
 ## Canonical form
 
 The semantic model should support a deterministic canonical representation.
@@ -183,7 +195,8 @@ Canonicalization may include:
 - normalized keyword case;
 - deterministic ordering for unordered metadata;
 - explicit schema/specification version;
-- deterministic escaping and encoding.
+- deterministic escaping and encoding;
+- deterministic derivation of effect-order constraints.
 
 This enables stable hashing and reproducible comparison.
 
