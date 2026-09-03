@@ -46,7 +46,7 @@ QSOL-MORPH separates those layers.
 ┌──────────────────────────────────────────┐
 │ CANONICAL SEMANTIC MODEL                 │
 │ JOB → DECK → CARD → VERB / NOUN         │
-│ qualifiers • effects • contracts        │
+│ bindings • effects • contracts          │
 └────────────────────┬─────────────────────┘
                      │ semantic-to-core lowering
                      ▼
@@ -90,20 +90,24 @@ JOB
            ├── VERB
            ├── NOUN
            ├── OPERANDS
+           ├── RESULT BINDING
            ├── TYPE / UNIT
            ├── QUALIFIERS
            ├── SEMANTIC CLASS
            ├── EFFECT REQUIREMENTS[]
-           │    ├── EFFECT ID / KIND
+           │    ├── DECLARED EFFECT ID / KIND
            │    └── REQUIRED CAPABILITIES[]
            ├── FAILURE BEHAVIOR
-           ├── NUMERIC / REPRODUCIBILITY CONTRACTS
+           ├── DETERMINISM / RANDOMNESS CONTRACTS
+           ├── NUMERIC CONTRACT BINDING
            └── DEPENDENCIES / ORDERING
 ```
 
 A CARD is the smallest independently addressable semantic statement.
 
-Each protected effect binds its own complete capability set. A CARD-level capability union may be useful for static preflight, but it cannot replace the effect-to-capability association used for authorization and provenance.
+A result binding names the value produced by a CARD for later dependent CARDs. It is distinct from the value itself and must survive canonicalization, lossless serialization, and lowering.
+
+Each protected effect binds its own stable declared effect ID and complete capability set. A CARD-level capability union may be useful for static preflight, but it cannot replace the effect-to-capability association used for authorization and provenance.
 
 Illustrative examples:
 
@@ -190,12 +194,13 @@ QSOL-CORE + preserved metadata/provenance
 
 The lowering must preserve or explicitly validate before erasure:
 
+- result bindings and dependency identity;
 - epistemic class and evidence boundaries;
 - types and units;
 - execution-relevant qualifiers;
-- effect requirements and complete per-effect capability sets;
+- declared effect IDs, effect requirements, and complete per-effect capability sets;
 - explicit failure behavior;
-- determinism, numeric, and randomness contracts;
+- determinism, scoped numeric, and randomness contracts;
 - extension identities;
 - source/effect/failure ordering;
 - CARD / DECK / JOB provenance.
@@ -210,12 +215,13 @@ The mandatory Vector/Dataflow IR is not merely a vector optimizer input. It pres
 
 It therefore carries or represents:
 
+- result/data identities and dependency edges;
 - scalar and vector operations;
 - control flow and calls;
-- explicit effects and complete capability sets;
+- explicit effects with declared effect IDs and complete capability sets;
 - qualifiers and failure behavior where still material;
 - dependency/effect/failure ordering;
-- determinism, numeric, randomness, and extension contracts;
+- determinism, scoped numeric, randomness, and extension contracts;
 - provenance links to QSOL-CORE and originating semantic CARDs.
 
 The QSOL-CORE → Vector/Dataflow transformation has its own normative specification and reference lowering before the first MORPH code-generation backend.
@@ -232,7 +238,7 @@ may become a dependency graph that a legal backend can fuse into an equivalent t
 
 QSOL-MORPH may later map the same semantics onto scalar loops, CPU SIMD, AVX-family instructions, LLVM vectors, CUDA threads/warps, or other accelerators.
 
-## Determinism and numeric contracts
+## Determinism and scoped numeric contracts
 
 Result determinism and randomness are separate facets.
 
@@ -253,7 +259,21 @@ RANDOMNESS
 
 `SEEDED` does not replace a result-determinism contract.
 
-A `NUMERIC` result contract must bind the numeric rules that define legal variation. The trace also binds the material numeric mode actually used when permitted choices such as FMA, denormal handling, precision, or math-library mode can affect legal bytes.
+A `NUMERIC` result contract must bind the numeric rules that define legal variation for the computation it governs. Different CARDs, regions, reductions, or kernels may legitimately have different contracts or contract-permitted material numeric modes.
+
+Provenance therefore uses scoped numeric entries conceptually like:
+
+```text
+numeric_execution_scopes[]
+    scope_kind
+    scope_id
+    source_card_ids[]
+    numeric_contract_id / hash
+    material_numeric_mode
+    backend_unit_id?
+```
+
+A single execution-wide numeric entry is valid only when a frozen rule proves that one contract and one material mode govern the entire run.
 
 A seeded run must record enough information to reproduce its stream, including RNG algorithm, version, seed, stream identity, and parallel partitioning where applicable.
 
@@ -282,7 +302,23 @@ PARTIAL
 UNKNOWN
 ```
 
-where `ABORTED_CLEAN` means the effect began, did not complete, and is proven to have produced no externally observable change.
+The states are mutually exclusive. Classification uses this precedence:
+
+1. `NOT_STARTED` if the effect never began.
+2. `COMPLETED` if its completion boundary is known to have been reached.
+3. For a known-incomplete attempt, use `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN` according to whether no change, some incomplete change, or uncertain observability occurred.
+4. Use `UNKNOWN` when completion itself cannot be established.
+
+Known completion therefore takes precedence over uncertainty about broader consequences.
+
+Every runtime attempt also preserves two identities:
+
+```text
+declared_effect_id   # canonical semantic effect
+effect_attempt_id    # this concrete runtime attempt
+```
+
+This distinction lets provenance audit retries, missing or duplicate attempts, and multiple same-kind effects on one CARD.
 
 Completion belongs to the effect attempt, not the CARD outcome. A process may be `COMPLETED` yet cause its CARD to report `PROCESS_FAILED` because the completed process returned a non-success status.
 
@@ -339,6 +375,7 @@ Potential trace material includes:
 source hash
 semantic IR hash
 semantic-to-core spec + implementation identity
+result-binding maps where lowering renames values
 QSOL-CORE IR hash
 core-to-vector/dataflow spec + implementation identity
 Vector/Dataflow IR hash
@@ -346,11 +383,11 @@ MORPH/compiler identity
 backend / target identity
 backend-selection policy + tuning identity when automatic
 requested and effective result determinism
-numeric contract + material numeric mode
+scoped numeric contracts + material modes
 requested/effective randomness + RNG identity
 capability requirements + authorization policy
 resolved extension identities
-identified effect attempts + complete capability sets + completion states
+declared effect IDs + runtime effect-attempt IDs + complete capability sets + completion states
 inputs / output hashes
 optimization decisions
 failure records
@@ -365,7 +402,7 @@ A cached result is not evidence that a cold reconstruction still works. A benchm
 QSOL-MORPH optimization is subordinate to:
 
 - semantic preservation;
-- determinism and numeric contracts;
+- determinism and scoped numeric contracts;
 - effect/failure ordering;
 - provenance;
 - epistemic boundaries;
