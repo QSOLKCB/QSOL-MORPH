@@ -18,7 +18,8 @@ The Semantic IR should preserve information that ordinary compiler IRs often dis
 - result-determinism requirements;
 - numeric-contract requirements;
 - randomness/reproducibility requirements;
-- extension-profile membership.
+- extension-profile membership and version requirements;
+- ordering constraints induced by effects and failure behavior.
 
 The IR should be precise enough for machines while remaining inspectable by humans.
 
@@ -50,7 +51,10 @@ Card {
     result_determinism?
     numeric_contract?
     randomness_contract?
+    extensions[]
     dependencies[]
+    sequencing_constraints[]
+    failure_behavior?
     source_location
 }
 ```
@@ -162,7 +166,9 @@ should allow validation to reject any reachable card requiring network access.
 
 Extension availability is separate. A deck may `USE QX-NET` because it needs that profile while still denying the `NETWORK` capability at execution time.
 
-## Dependencies and effect ordering
+Capability authorization for a protected external effect must succeed before that effect begins. The canonical model must therefore preserve the required capability independently from later environment grant/deny decisions.
+
+## Dependencies and sequencing
 
 Dependencies should be explicit enough to support dataflow analysis and reproducibility.
 
@@ -183,9 +189,32 @@ A dependency graph can support:
 - provenance traversal;
 - AI review.
 
-Source order and dependency order are not interchangeable for effects. The candidate model treats effectful CARDs in a DECK as source-ordered by default: canonicalization should derive sequencing constraints between effectful cards so backends cannot reorder two writes, process launches, network calls, or other observable effects merely because no data edge exists between them.
+Data dependencies are not the only ordering constraints.
 
-Independent pure cards may be scheduled according to dependencies. A future explicit parallel/commutative-effects construct may relax effect ordering only if the frozen specification defines its legality and observability rules.
+Under fail-stop semantics, source order can be observable through both **effects** and **failure**. A pure CARD that may fail can determine whether an earlier or later external effect occurs. Therefore the candidate canonical model must derive or preserve sequencing constraints sufficient to keep this distinction.
+
+Example:
+
+```text
+@010 WRITE A
+@011 DIV X 0
+@012 WRITE B
+```
+
+The source-order meaning is:
+
+1. `WRITE A` may complete;
+2. `DIV X 0` fails;
+3. `WRITE B` does not start.
+
+A backend must not move `@011` before `@010` merely because the division is pure and data-independent.
+
+The default rule is therefore:
+
+- effectful CARDs preserve source order where observable;
+- potentially failing CARDs preserve source order relative to observable effects and other failure-observable boundaries where reordering could change the outcome;
+- only CARDs proven **pure and total** under the active contract may be freely scheduled by dependency edges alone;
+- a future explicit parallel/commutative/recovery construct may relax these constraints only if frozen semantics define its legality and observability.
 
 ## Failure boundary
 
@@ -195,7 +224,9 @@ The Semantic IR need not encode operating-system-specific error numbers in the c
 
 - failed evaluation must not manufacture an ordinary result value;
 - pure operations must not leave committed semantic state after failure;
-- effectful operations must preserve source effect order and expose whether an effect was not started, completed, partial, or of unknown completion state;
+- potentially failing pure operations remain ordering-relevant under fail-stop execution;
+- effectful operations must expose whether an effect was not started, completed, partial, or of unknown completion state;
+- an unhandled DECK failure propagates to the enclosing JOB by default unless an explicit frozen JOB-level handler says otherwise;
 - later backends must not choose incompatible trap/continue/rollback behavior for the same semantic program.
 
 Explicit recovery syntax, if introduced later, belongs in the semantic model rather than being an implicit backend policy.
@@ -213,8 +244,9 @@ Canonicalization may include:
 - deterministic ordering for unordered metadata;
 - explicit schema/specification version;
 - deterministic escaping and encoding;
-- deterministic derivation of effect-order constraints;
-- canonical identity for numeric/reproducibility contracts.
+- deterministic derivation of effect-order and failure-order constraints;
+- canonical identity for numeric/reproducibility contracts;
+- canonical extension/version requirements.
 
 This enables stable hashing and reproducible comparison.
 
@@ -250,7 +282,7 @@ Vector/Dataflow IR
 Backend IR
 ```
 
-Not every semantic card must lower directly into one core instruction. Some cards are metadata, orchestration, validation, or provenance boundaries.
+Not every semantic card must lower directly into one core instruction. Some cards are metadata, orchestration, validation, provenance, authorization, or failure boundaries.
 
 ## Example
 
