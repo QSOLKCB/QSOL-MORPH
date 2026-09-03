@@ -64,10 +64,12 @@ LoweredCard {
     effect_requirements[]
     numeric_contract_binding?
     ordering_constraints
-    failure_contract
+    failure_behavior
     provenance_edges
 }
 ```
+
+`failure_behavior` retains the canonical Semantic-IR field name. If a future normative specification introduces a differently named lower representation, that conversion must itself be frozen and provenance-visible rather than being implied by an undocumented alias.
 
 Some semantic CARDs may lower to multiple core operations.
 
@@ -186,6 +188,8 @@ RNG identity / stream requirements
 
 Numeric contracts may be attached to individual CARDs or another frozen scope. Lowering must preserve the scope-to-contract association. It may normalize multiple contracts into one lower/global contract only under a frozen rule that proves the normalization preserves each source contract and records the mapping.
 
+The same rule applies independently to result determinism and randomness. If lowering groups source CARDs into a Core scope, changes scope identity, or applies a frozen normalization, the transformation must preserve which source requirements govern the resulting Core contract and record the decision in provenance.
+
 A transformation that changes the legal numeric behavior or randomness requirements is not merely a representation change.
 
 ## Units and types
@@ -269,9 +273,13 @@ core_ir_hash
 result_binding_map[]
 resolved_extensions[]
 qualifier_lowering_decisions[]
+result_determinism_lowering_decisions[]
 numeric_contract_lowering_decisions[]
+randomness_lowering_decisions[]
 lowering_diagnostics[]
 ```
+
+`result_determinism_lowering_decisions[]` and `randomness_lowering_decisions[]` record scope preservation, grouping, identity changes, frozen normalizations, and any permitted requested-to-effective transition mapping needed to explain how source requirements became Core contracts. IR hashes alone cannot establish that correspondence.
 
 This allows a result to be traced through the first representational change rather than beginning provenance only after QSOL-CORE already exists.
 
