@@ -26,6 +26,8 @@ PR #2 is reserved for locking core invariants.
 
 QSOL-CORE implementation must not precede its normative operational specification.
 
+Semantic IR → QSOL-CORE lowering must not be invented inside a backend. Its normative lowering specification and reference implementation must exist before MORPH code-generation backends are treated as end-to-end conforming.
+
 ## Semantic rules for agents
 
 When proposing changes:
@@ -43,7 +45,9 @@ When proposing changes:
 11. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
 12. preserve all canonical enforcement fields across any serialization claiming semantic losslessness;
 13. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
-14. prefer small, inspectable transformations.
+14. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
+15. record material numeric mode, automatic-backend selection policy/tuning identity, and identified per-effect-attempt states when relevant to provenance;
+16. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -57,6 +61,7 @@ VERB
 NOUN
 QSOL-CORE
 Semantic IR
+Semantic-to-Core Lowering
 Vector/Dataflow IR
 MORPH
 backend
@@ -65,6 +70,7 @@ capability
 effect
 numeric contract
 randomness contract
+effect attempt
 trace
 provenance
 ```
@@ -76,6 +82,22 @@ See `docs/GLOSSARY.md`.
 Until a grammar is frozen, examples are architectural sketches.
 
 Do not infer implementation support from examples in documentation.
+
+## Semantic lowering work
+
+Read `docs/SEMANTIC-TO-CORE-LOWERING.md` before changing the Semantic IR → QSOL-CORE boundary.
+
+A legal lowering must preserve or explicitly validate before erasure:
+
+- epistemic class and evidence boundaries;
+- types and units;
+- effects and required capabilities;
+- result-determinism, numeric, and randomness contracts;
+- extension identities/versions;
+- source, effect, and failure ordering;
+- CARD / DECK / JOB provenance.
+
+Unsupported semantic constructs fail explicitly. Do not silently drop them, no-op them, or defer their meaning to a backend.
 
 ## Optimization work
 
@@ -94,6 +116,8 @@ Backend-specific behavior belongs behind explicit backend or extension boundarie
 Generated target code should remain inspectable where practical.
 
 A backend implements frozen semantics. It does not define them.
+
+A backend must consume the established lower pipeline; it must not become a second Semantic IR → QSOL-CORE compiler with private semantics.
 
 Automatic backend selection must trace the selection policy and material tuning identity when those affect the choice.
 
@@ -118,8 +142,9 @@ Read in this order when context is limited:
 3. `docs/ARCHITECTURE.md`
 4. `docs/LANGUAGE-MODEL.md`
 5. `docs/SEMANTIC-IR.md`
-6. the domain-specific document relevant to the task
-7. `ROADMAP.md`
+6. `docs/SEMANTIC-TO-CORE-LOWERING.md`
+7. the domain-specific document relevant to the task
+8. `ROADMAP.md`
 
 ## Change discipline
 
@@ -140,6 +165,8 @@ For every substantive change, ask:
 - Did a serializer lose an enforcement field?
 - Did reordering change failure/effect observability?
 - Did a backend or implementation invent semantics not yet frozen?
+- Did Semantic IR → QSOL-CORE lowering lose a contract or provenance edge?
+- Did a trace collapse several effect attempts into one ambiguous state?
 - Did an optimization alter a result contract?
 - Did documentation claim functionality that does not exist?
 
