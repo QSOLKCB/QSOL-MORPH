@@ -82,7 +82,7 @@ Planned scope:
 - explicit `failure_behavior` where the frozen model permits non-default recovery/continuation behavior;
 - dependencies;
 - source-order, effect-order, and failure-order constraints;
-- extension declarations with required versions/contracts;
+- `extension_requirements[]` binding each profile to its required version/range and contract identity where applicable;
 - deterministic canonical ordering;
 - schema validation;
 - reference fixtures.
@@ -103,7 +103,7 @@ Initial implementation targets:
 - canonical JSON representation;
 - XML interchange representation.
 
-Every lossless format must round-trip all canonical semantic and enforcement fields, including stable JOB/DECK/CARD identifiers, result bindings, qualifiers, effect requirements and per-effect capability sets, explicit failure behavior, determinism, scoped numeric contracts, randomness, extension/version, dependency, effect-order, and failure-order information.
+Every lossless format must round-trip all canonical semantic and enforcement fields, including stable JOB/DECK/CARD identifiers, result bindings, qualifiers, effect requirements and per-effect capability sets, explicit failure behavior, determinism, scoped numeric contracts, randomness, `extension_requirements[]` with each profile bound to its required version/range and contract identity, dependency, effect-order, and failure-order information.
 
 The human-readable `.qsl` source profile is explicitly **deferred**. It may not be implemented until a separate normative QSOL text-profile specification freezes lexical grammar, syntax, shorthand/default reconstruction, diagnostics, canonical text rendering, and the source-to-Semantic-IR mapping. Until that freeze, examples of QSOL text remain illustrative only.
 
@@ -117,8 +117,11 @@ The initial trace contract should bind, where applicable:
 
 - source identity/hash;
 - canonical semantic IR identity/hash;
+- stable `job_id`, `deck_id`, and the `card_ids[]` referenced by this execution and its provenance records;
+- enclosing `execution_status`, `job_status`, and `deck_status`, plus `failure_card_id`, failure class, and failure stage when an enclosing failure occurs;
 - active specification version;
 - implementation/MORPH version;
+- canonical `effect_requirements[]`, each carrying source CARD ID, declared `effect_id`, effect kind, and the complete `required_capabilities[]` set for that declared protected effect;
 - `backend_selection_scopes[]`, each binding scope identity, source CARD IDs, backend-unit identity, requested target/qualifier, selected backend/version, target architecture/device, and automatic-selection policy/tuning identity where applicable; reference-machine-only execution may use an equivalent frozen execution-target scope;
 - `result_determinism_scopes[]`, each binding scope identity, source CARD IDs, requested guarantee, effective guarantee, any pre-execution transition authority, and backend execution-unit identity where useful;
 - `numeric_execution_scopes[]`, each binding scope identity, source CARD IDs where applicable, numeric contract identity/hash, material numeric mode, and backend execution-unit identity where useful;
@@ -128,14 +131,19 @@ The initial trace contract should bind, where applicable:
 - capability-policy identity/version responsible for authorization decisions;
 - capabilities actually used;
 - identified `inputs[]`, each binding a stable `input_id` to the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed, with any location/schema/media metadata needed for retrieval or interpretation;
-- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, and governing backend-selection/result-determinism/numeric/randomness scope IDs;
+- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, governing backend-selection/result-determinism/numeric/randomness scope IDs, and any `cache_reuse_record_ids[]` that contributed to that output;
+- identified `cache_reuse_records[]`, each distinguishing cold execution, verified reuse, unverified cache hit, or frozen equivalent and binding source CARD IDs, material cache identity, reused computation/artifact identity, cache-key/artifact hashes where applicable, legality rule, and verification evidence;
 - active extension profiles plus resolved extension versions/content identities;
 - identified effect attempts, each carrying a runtime attempt identity, its canonical declared `effect_id`, complete required-capability set, and individual completion state;
 - structured execution-failure records where applicable.
 
+Declared `effect_requirements[]` are required in addition to runtime `effect_attempts[]`. If a backend omits a declared effect entirely, the trace must still expose the missing declaration rather than relying on a nonexistent attempt or an ambiguous execution-wide capability union to reconstruct what should have happened.
+
 A mutable input locator such as a path, URL, dataset name, or model name is retrieval context, not sufficient provenance by itself. Every material input must have a stable input identity plus an immutable value/content/artifact identity that distinguishes exactly what was consumed; otherwise replay and audit fail closed rather than guessing from the locator.
 
 A single execution-wide backend-selection, result-determinism, numeric, or randomness scope is valid only when a frozen normalization rule proves that one entry faithfully represents every governed source decision or requirement. CARD-, region-, kernel-, or generated-unit-scoped machinery/contracts/modes/streams must not be collapsed into false global singletons.
+
+Cache reuse must remain provenance-visible even when substitution is legal and effect-free. Cold execution and cache substitution must not produce indistinguishable execution records merely because they yield identical bytes.
 
 Before PR #7 may execute a program, this phase must also define the reference failure contract:
 
@@ -155,7 +163,7 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
 - failure traces identify the CARD, DECK/JOB outcome, failure class/stage, per-attempt declared/runtime identities and states, and whether any output artifact became observable.
 
-This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the program, immutable material inputs, epistemic class/status, scoped backend-selection/determinism/numeric/randomness execution context, extension set, authorization decisions, and execution/failure context that produced it.
+This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the selected stable JOB/DECK/CARD execution, immutable material inputs, epistemic class/status, scoped backend-selection/determinism/numeric/randomness execution context, cache-reuse path where applicable, extension set, authorization decisions, and execution/failure context that produced it.
 
 ## PR #6 — Normative QSOL-CORE Operational Specification
 
@@ -224,6 +232,7 @@ The reference lowering must:
 - produce QSOL-CORE plus preserved result bindings, qualifiers, scoped contracts, effect bindings/IDs, failure behavior, metadata, and provenance required by later stages;
 - fail closed for unsupported or contract-breaking semantic constructs/qualifiers;
 - bind semantic IR identity, lowering-spec identity, lowering implementation identity, resolved extension identities, resulting QSOL-CORE identity, and `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
+- record `qualifier_lowering_decisions[]`, `result_determinism_lowering_decisions[]`, `numeric_contract_lowering_decisions[]`, and `randomness_lowering_decisions[]` whenever lowering consumes, groups, remaps, normalizes, or otherwise materially transforms those source requirements, including the frozen rule or transition authority responsible;
 - pass all frozen lowering conformance and rejection fixtures.
 
 No MORPH backend should be considered end-to-end conforming until this first lowering stage is present.
@@ -454,7 +463,8 @@ Targets may include:
 - scoped backend-selection, result-determinism, numeric-contract/mode, and randomness provenance properties;
 - per-output epistemic/status and execution-scope binding properties;
 - result-binding-map preservation across both mandatory lowering boundaries;
-- cache/replay legality for a defined effect-free subset;
+- cache/replay legality and cache-reuse provenance for a defined effect-free subset;
+- declared-effect completeness and declared-effect/runtime-attempt correspondence for a defined subset;
 - QX-POSIX contract properties for a defined subset;
 - generic GPU / QX-CUDA contract properties for a defined subset;
 - failure-state, JOB propagation, authorization, declared-effect/attempt identity, and ordering properties for a defined subset.
