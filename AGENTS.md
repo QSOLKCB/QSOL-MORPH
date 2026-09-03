@@ -56,7 +56,7 @@ When proposing changes:
 14. trace deterministic result-binding preservation/renaming at **both** mandatory lowering boundaries;
 15. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
 16. do not dead-eliminate a potentially failing operation merely because its result is unused;
-17. preserve all canonical semantic/enforcement fields, including `result`, `qualifiers{}` and explicit `failure_behavior`, across any serialization claiming semantic losslessness;
+17. preserve all canonical semantic/enforcement fields, including semantic class, `result`, `qualifiers{}`, extension requirements, and explicit `failure_behavior`, across any serialization claiming semantic losslessness;
 18. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
 19. distinguish extension availability/functionality from runtime capability authorization; activating an extension never grants permission;
 20. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
@@ -65,13 +65,15 @@ When proposing changes:
 23. record both mandatory lowering identities/hashes **and their result-binding maps** in provenance: Semantic→Core and Core→Vector/Dataflow;
 24. record result-determinism provenance at the CARD/region/kernel or other frozen scope where the requirement is actually valid; do not invent one execution-wide pair unless a frozen normalization proves it represents every source requirement;
 25. record scoped numeric contract/mode provenance when different CARDs, regions, or kernels can use different legal numeric behavior;
-26. record automatic-backend selection policy/tuning identity and identified per-effect-attempt states when relevant to provenance;
-27. record the complete required-capability set for each effect attempt;
-28. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
-29. define effect-attempt completion independently from the enclosing CARD outcome;
-30. apply completion-state precedence so known `COMPLETED` cannot also be `UNKNOWN`;
-31. distinguish a cleanly aborted begun effect from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
-32. prefer small, inspectable transformations.
+26. record scoped randomness provenance when different CARDs, regions, or kernels can use different randomness modes, RNG identities, seeds, streams, or partitioning;
+27. record automatic-backend selection policy/tuning identity and identified per-effect-attempt states when relevant to provenance;
+28. record the complete required-capability set for each effect attempt;
+29. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
+30. define effect-attempt completion independently from the enclosing CARD outcome;
+31. apply completion-state precedence so known `COMPLETED` cannot also be `UNKNOWN`;
+32. distinguish a cleanly aborted begun effect from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
+33. do not satisfy an effectful CARD from cached prior output if that skips a declared effect or its authorization/ordering/failure/provenance boundary; effectful reuse requires an explicit frozen replay/cache semantic;
+34. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -95,6 +97,7 @@ Core-to-Vector/Dataflow Lowering
 MORPH
 backend
 extension profile
+extension requirement
 capability
 effect
 effect requirement
@@ -103,6 +106,7 @@ effect attempt ID
 numeric contract
 numeric execution scope
 randomness contract
+randomness execution scope
 effect attempt
 trace
 provenance
@@ -130,7 +134,7 @@ A legal lowering must preserve or explicitly validate before erasure:
 - execution-relevant qualifiers;
 - `effect_requirements[]` and each effect's stable `effect_id` plus complete `required_capabilities[]`;
 - explicit `failure_behavior`;
-- scoped result-determinism, scoped numeric, and randomness contracts;
+- scoped result-determinism, scoped numeric, and scoped randomness contracts;
 - extension identities/versions;
 - source, effect, and failure ordering;
 - CARD / DECK / JOB provenance.
@@ -154,7 +158,7 @@ Because every backend path traverses this IR, it must represent or preserve the 
 - explicit failure behavior carried from earlier stages where still material;
 - failure/totality classification;
 - source/effect/failure ordering;
-- scoped result-determinism, scoped numeric, randomness, and extension contracts;
+- scoped result-determinism, scoped numeric, scoped randomness, and extension contracts;
 - provenance and per-effect-attempt identity.
 
 A non-vectorizable QSOL-CORE operation is not permission to bypass the IR. Use a defined scalar/control/effect/pass-through construct or fail conformance until the IR has one.
@@ -199,6 +203,31 @@ backend_unit_id?
 
 A single execution-wide numeric scope is valid only when a frozen normalization rule proves that one contract/mode pair governs the whole execution.
 
+## Randomness provenance work
+
+Do not assume one randomness contract, RNG identity, seed, stream, or partitioning rule governs an entire execution.
+
+When randomness requirements can differ by CARD, region, kernel, or another frozen scope, use scoped entries carrying at least:
+
+```text
+scope_kind
+scope_id
+source_card_ids[]
+requested_randomness_mode
+effective_randomness_mode
+transition_authorized_by?
+rng_algorithm?
+rng_version?
+seed?
+stream_id?
+parallel_partitioning?
+backend_unit_id?
+```
+
+A single execution-wide randomness scope is valid only when a frozen normalization rule proves that one entry faithfully represents every source requirement. Separate seeded computations with different streams or RNG parameters remain separate scopes.
+
+A recorded randomness transition is evidence, not authorization. If a scope cannot satisfy its requested randomness contract and no pre-execution rule authorizes another mode, fail closed.
+
 ## Result provenance work
 
 Do not represent several outputs as plural hashes plus one shared epistemic class or status.
@@ -215,11 +244,12 @@ status
 producer_card_ids[]
 result_determinism_scope_ids[]
 numeric_scope_ids[]
+randomness_scope_ids[]
 ```
 
 TEST, VALIDATION, and PROOF status must remain attached only to the output whose explicit semantic transition supports that status. One validated output must not promote another simulation/test output produced by the same JOB.
 
-## Optimization work
+## Optimization and cache work
 
 Use the reference semantics first.
 
@@ -228,6 +258,12 @@ A valid optimization must preserve the active semantic/numeric/determinism/rando
 Only operations proven pure and total may be freely reordered solely from data dependencies. A pure operation that may fail can still change whether effects occur under fail-stop execution.
 
 Dead-result elimination is legal only for operations proven pure and total under the active contract, unless the original failure is explicitly preserved at the same observable point. An unused `DIV 1 0` is still observable because its failure can prevent later effects.
+
+Cached value/result substitution is legal only for computations proven safe for reuse under the active contract. Conservatively, ordinary substitution is effect-free by default.
+
+Do not replace an effectful CARD with prior cached output if doing so skips a file write, process launch, network/AI call, clock read, or other declared effect. That would bypass the capability authorization boundary, effect/failure ordering, and per-effect-attempt provenance. Effectful reuse requires an explicit frozen cache/replay semantic that preserves or explicitly defines all of those boundaries. Without such a rule, execute the effect normally or fail closed.
+
+A cached artifact may be used as an explicit declared input or reference when the semantic contract says so; that is not the same as silently satisfying an effectful CARD from cache.
 
 For CI and optimization evidence rules, read `docs/OPTIMIZATION-AND-CI.md` before changing performance-sensitive or validation-sensitive code.
 
@@ -295,6 +331,7 @@ CUDA backend implementation follows the frozen generic GPU contract. QX-CUDA ven
 A format claiming semantic losslessness must round-trip all execution- and dependency-relevant canonical fields, including:
 
 - result bindings;
+- semantic classes;
 - qualifiers;
 - effect requirements and complete per-effect required-capability sets;
 - explicit failure behavior;
@@ -332,6 +369,8 @@ If a task targets one phase, leave later-phase work in `ROADMAP.md` unless it is
 For every substantive change, ask:
 
 - Did meaning change?
+- Did a semantic class disappear or become detached from its CARD/output?
+- Did an extension requirement/version disappear before an extension-owned construct was interpreted?
 - Did a result binding disappear or change identity?
 - Did either lowering lose the result-binding map needed to relate names across IRs?
 - Did an effect become implicit?
@@ -342,14 +381,16 @@ For every substantive change, ask:
 - Did result determinism, numeric, or randomness guarantees weaken?
 - Did scoped result-determinism provenance get collapsed into one false global requested/effective pair?
 - Did scoped numeric provenance get collapsed into one false global contract/mode?
+- Did scoped randomness provenance get collapsed into one false global RNG/mode/stream?
 - Did several outputs get collapsed under one semantic class or evidence status?
 - Did provenance weaken or skip one of the mandatory lowering stages?
 - Did an extension get mistaken for a capability grant?
 - Did an extension leak into core?
-- Did a serializer lose `result`, `qualifiers{}`, `failure_behavior`, effect requirements, or another semantic/enforcement field?
+- Did a serializer lose `result`, semantic class, `qualifiers{}`, `failure_behavior`, extension requirements, effect requirements, or another semantic/enforcement field?
 - Did a human text implementation invent grammar before a normative text-profile freeze?
 - Did reordering change failure/effect observability?
 - Did dead-result elimination erase a possible failure?
+- Did cache reuse skip an effect, capability check, effect ordering edge, failure, or effect-attempt record?
 - Did a backend or implementation invent semantics not yet frozen?
 - Did Semantic IR → QSOL-CORE lowering lose a result binding, qualifier, contract, effect binding, failure behavior, or provenance edge?
 - Did Core→Vector/Dataflow lowering lose a contract, binding map, or provenance edge?
