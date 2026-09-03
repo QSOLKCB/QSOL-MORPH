@@ -10,7 +10,10 @@ The goal is not merely to say that a program ran. The goal is to make it possibl
 - what transformations were applied;
 - what inputs and capabilities were used;
 - what outputs were produced;
-- what level of determinism was promised and observed.
+- what result determinism was requested and actually provided;
+- what numeric contract governed legal result variation;
+- what randomness configuration generated any pseudorandom stream;
+- whether execution failed and what effects were already observable.
 
 ## Trace layers
 
@@ -46,6 +49,9 @@ card_ids
 dependency_graph_hash
 epistemic_classes
 extension_profiles
+requested_result_determinism
+numeric_contract_id
+randomness_contract
 ```
 
 ### Morph trace
@@ -59,7 +65,8 @@ selected_backend
 vectorization decisions
 fusion decisions
 memory-placement decisions
-numeric contract
+numeric_contract_id
+numeric_contract_hash
 ```
 
 ### Execution trace
@@ -70,13 +77,24 @@ Potential fields:
 target architecture
 device
 runtime/compiler versions
-result-determinism contract
-randomness contract
-seed and RNG identity where used
+requested_result_determinism
+effective_result_determinism
+determinism_transition_authorized_by
+numeric_contract_id
+randomness_mode
+rng_algorithm
+rng_version
+seed
+stream_id
+parallel_partitioning
 capabilities used
 external tool versions
 start/stop metadata where permitted
 ```
+
+`requested_result_determinism` and `effective_result_determinism` are intentionally distinct. If source requests `STRICT` but an execution policy explicitly permits `NUMERIC`, the trace must retain both contracts and the rule or policy that authorized the transition. Recording only the final class would erase the original requirement; recording only the requested class would misstate the guarantee actually delivered.
+
+Seeded replay requires more than a seed. The RNG algorithm, version, stream identity, and parallel partitioning/stream mapping are material reproducibility inputs when applicable.
 
 ### Result trace
 
@@ -89,7 +107,43 @@ validation status where an explicit VALIDATION transition occurred
 error/tolerance contract
 result semantic class
 artifact locations
+execution_status
+failure_card_id
+failure_class
+failure_stage
+partial_effect_state
 ```
+
+## Failure and partial-effect provenance
+
+A failed execution remains a provenance-bearing execution event.
+
+The trace should distinguish whether an effect was:
+
+```text
+NOT_STARTED
+COMPLETED
+PARTIAL
+UNKNOWN
+```
+
+or frozen semantic equivalents.
+
+A precondition or capability rejection should occur before the effect begins where practical and therefore record `NOT_STARTED`. If an external operation has already become observable before failing, the trace must not imply rollback that did not happen.
+
+Useful failure fields may include:
+
+```text
+card_id
+failure_class
+failure_stage
+backend_detail?
+prior_committed_effects[]
+partial_effect_state
+observable_artifacts[]
+```
+
+An unhandled execution failure should not silently emit an ordinary successful research result.
 
 ## Hashes
 
@@ -173,9 +227,9 @@ This distinction is intentionally aligned with the optimization discipline devel
 
 ## Trace policy
 
-Not every execution needs every field. The active specification, determinism profile, and extensions should define the minimum trace required for a claim.
+Not every execution needs every field. The active specification, determinism profile, numeric contract, randomness contract, and extensions should define the minimum trace required for a claim.
 
-The roadmap requires a minimal trace/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/execution-contract binding.
+The roadmap requires a minimal trace/failure/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/execution-contract binding.
 
 ## Principle
 
