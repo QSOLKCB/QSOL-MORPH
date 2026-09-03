@@ -51,7 +51,7 @@ Planned work:
 - freeze inspectability and traceability requirements;
 - freeze the small-core / extension boundary;
 - freeze capability and hidden-effect rules;
-- freeze failure, fail-stop, JOB propagation, and partial-effect disclosure rules;
+- freeze failure, fail-stop, JOB propagation, and effect-attempt disclosure rules;
 - add machine-readable invariant registry;
 - add validation that documentation and registry agree;
 - define invariant change-control procedure.
@@ -74,11 +74,11 @@ Planned scope:
 - values and units;
 - qualifiers;
 - semantic classes;
-- declared effects;
-- required capabilities;
+- `effect_requirements[]` with stable effect identity/kind and complete `required_capabilities[]` for each protected effect;
 - result-determinism requirements;
 - numeric contract identity and parameters required to interpret `NUMERIC` execution;
 - randomness/reproducibility requirements;
+- explicit `failure_behavior` where the frozen model permits non-default recovery/continuation behavior;
 - dependencies;
 - source-order, effect-order, and failure-order constraints;
 - extension declarations with required versions/contracts;
@@ -87,6 +87,8 @@ Planned scope:
 - reference fixtures.
 
 The canonical model must carry enough information for later executable phases to enforce capability, numeric, randomness, failure-order, and determinism rules fail-closed. These fields are part of the semantic input to execution, not backend annotations added after the fact.
+
+A CARD-level capability union may be derived for preflight, but it must not replace the effect-to-capability-set association needed to authorize and trace individual effects.
 
 Only CARDs proven **pure and total** under the active contract may be freely reordered when dependencies permit. A CARD that may fail is semantically observable under fail-stop execution and must preserve ordering against externally observable effects unless an explicit frozen construct permits otherwise.
 
@@ -100,7 +102,7 @@ Initial implementation targets:
 - canonical JSON representation;
 - XML interchange representation.
 
-Every lossless format must round-trip all canonical semantic and enforcement fields, including qualifiers, capabilities, determinism, numeric, randomness, extension/version, dependency, effect-order, and failure-order information.
+Every lossless format must round-trip all canonical semantic and enforcement fields, including qualifiers, effect requirements and per-effect capability sets, explicit failure behavior, determinism, numeric, randomness, extension/version, dependency, effect-order, and failure-order information.
 
 The human-readable `.qsl` source profile is explicitly **deferred**. It may not be implemented until a separate normative QSOL text-profile specification freezes lexical grammar, syntax, shorthand/default reconstruction, diagnostics, canonical text rendering, and the source-to-Semantic-IR mapping. Until that freeze, examples of QSOL text remain illustrative only.
 
@@ -149,10 +151,12 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - every capability required by that specific effect attempt must be granted before the attempt begins;
 - other static/precondition checks should occur before an external effect where practical;
 - effects already externally observable before a later failure are not retroactively erased;
-- every identified effect attempt must be traceable independently as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents);
+- every identified effect attempt must be traceable independently as `NOT_STARTED`, `COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents);
 - `NOT_STARTED` is valid only when that protected effect never began;
 - `COMPLETED` means the effect itself reached its defined external completion boundary, independently of whether the enclosing CARD later succeeds or fails;
-- an effect that began but did not reach its completion boundary before failure must be `PARTIAL` or `UNKNOWN` as appropriate;
+- `ABORTED_CLEAN` means the effect began, did not complete, and is proven to have produced no externally observable change;
+- `PARTIAL` means the effect began, did not complete, and some externally observable portion occurred;
+- `UNKNOWN` means completion or external observability cannot be established;
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
 - failure traces identify the CARD, DECK/JOB outcome, failure class/stage, per-attempt effect states, and whether any output artifact became observable.
 
@@ -171,7 +175,7 @@ Planned work:
 - define comparison semantics;
 - define branch/jump/call/return/stop behavior;
 - define stack/call-state behavior if present;
-- define explicit effect operations and capability requirements;
+- define explicit effect operations and per-effect capability requirements;
 - define success/failure propagation into DECK and JOB outcomes;
 - define which operations are pure, total, potentially failing, or effectful;
 - define sequencing and reordering observability;
@@ -202,9 +206,11 @@ Planned work:
 - define JOB / DECK / CARD identity preservation;
 - define preservation of epistemic classes and evidence boundaries;
 - define type/unit validation and the conditions under which higher-level metadata may be erased;
-- define lowering of explicit effects and required capabilities;
+- define preservation/consumption rules for execution-relevant `qualifiers{}`;
+- define lowering of explicit `effect_requirements[]` and each effect's complete required-capability set;
+- define preservation of explicit `failure_behavior`;
 - define preservation of result-determinism, numeric, randomness, extension, source-order, effect-order, and failure-order contracts;
-- define unsupported-construct failure behavior;
+- define unsupported-construct/qualifier failure behavior;
 - define extension-owned lowering hooks behind resolved versioned contracts;
 - publish Semantic IR → QSOL-CORE conformance fixtures and rejection fixtures.
 
@@ -217,16 +223,16 @@ Implement the PR #8 lowering specification as an independently testable referenc
 The reference lowering must:
 
 - consume canonical Semantic IR rather than hand-built QSOL-CORE only;
-- produce QSOL-CORE plus preserved metadata/provenance required by later stages;
-- fail closed for unsupported or contract-breaking semantic constructs;
+- produce QSOL-CORE plus preserved qualifiers, contracts, effect bindings, failure behavior, metadata, and provenance required by later stages;
+- fail closed for unsupported or contract-breaking semantic constructs/qualifiers;
 - bind semantic IR identity, lowering-spec identity, lowering implementation identity, resolved extension identities, and resulting QSOL-CORE identity;
 - pass all frozen lowering conformance and rejection fixtures.
 
 No MORPH backend should be considered end-to-end conforming until this first lowering stage is present.
 
-## PR #10 — Full Semantics-Preserving Vector/Dataflow IR
+## PR #10 — Normative Full Vector/Dataflow IR Specification
 
-Define and implement the target-independent lower computational IR used by **every** MORPH backend path.
+Freeze the target-independent lower computational IR used by **every** MORPH backend path before implementing its reference lowering.
 
 The name reflects its vector/dataflow optimization role, but the IR is not permitted to represent only vectorizable arithmetic. Because it is mandatory in the singular pipeline, it must preserve the full supported QSOL-CORE semantic and contract surface.
 
@@ -242,37 +248,37 @@ Planned concepts:
 - complete required-capability sets and authorization boundaries for each protected effect;
 - source-order, effect-order, and failure-order constraints;
 - per-effect-attempt identity/provenance hooks;
-- result-determinism, numeric, randomness, and extension-contract preservation;
+- result-determinism, numeric, randomness, extension, qualifier, and failure-behavior preservation;
 - fusion legality;
 - alias rules;
 - parallel partitioning;
 - totality/failure classification;
 - deterministic numeric-contract enforcement;
-- provenance links back to QSOL-CORE and originating semantic CARDs.
+- provenance links back to QSOL-CORE and originating semantic CARDs;
+- versioned Vector/Dataflow IR schema and conformance fixtures.
 
-Every supported QSOL-CORE operation must either lower to a defined IR construct or be preserved through a defined semantics-preserving scalar/control/effect/pass-through construct. Unsupported representation must fail closed. A backend may not bypass this IR for branches, calls, effects, or other non-vector operations merely because they are not optimization candidates.
+Every supported QSOL-CORE operation must either map to a defined IR construct or be preserved through a defined semantics-preserving scalar/control/effect/pass-through construct. Unsupported representation must fail closed.
 
-Conformance fixtures must include scalar-only programs, control flow, calls, explicit effects with single and multiple capability requirements, mixed vector/scalar regions, potentially failing operations ordered around effects, and full contract/provenance preservation.
+This PR is normative specification work. The reference lowering and later backends may not invent lower-IR meaning absent from this contract.
 
-This phase occurs before the first MORPH code-generation backend so the documented pipeline remains singular:
+## PR #11 — Reference QSOL-CORE-to-Vector/Dataflow Lowering
 
-```text
-Canonical Semantic IR
-    ↓
-Reference Semantic-to-Core Lowering
-    ↓
-QSOL-CORE
-    ↓
-Full Vector/Dataflow IR
-    ↓
-MORPH
-    ↓
-backend
-```
+Implement the PR #10 specification as an independently testable mandatory lowering stage.
 
-## PR #11 — Reference MORPH to C
+The reference lowering must:
 
-Build the first deliberately boring backend after both lowering stages exist:
+- consume conforming QSOL-CORE plus preserved metadata/contracts;
+- emit the full semantics-preserving Vector/Dataflow IR;
+- preserve control, calls, scalar operations, effects, per-effect capability sets, qualifiers, failure behavior, ordering, determinism, numeric, randomness, extensions, and provenance;
+- fail closed when a supported QSOL-CORE operation lacks a legal Vector/Dataflow representation;
+- bind `core_ir_hash`, Vector/Dataflow specification identity, lowering implementation identity, and `vector_dataflow_ir_hash` in provenance;
+- pass scalar-only, control-flow, call, effect/capability, mixed vector/scalar, failure-order, and contract-preservation fixtures.
+
+A backend may not bypass this stage for branches, calls, effects, or other non-vector operations merely because they are not optimization candidates.
+
+## PR #12 — Reference MORPH to C
+
+Build the first deliberately boring code-generation backend after both mandatory lowering stages exist:
 
 ```text
 Canonical Semantic IR
@@ -280,6 +286,8 @@ Canonical Semantic IR
 Semantic-to-Core Lowering
         ↓
 QSOL-CORE
+        ↓
+Core-to-Vector/Dataflow Lowering
         ↓
 Full Vector/Dataflow IR
         ↓
@@ -301,7 +309,7 @@ Goals:
 
 The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity and generated target hashes where material.
 
-## PR #12 — Morph Optimization Passes
+## PR #13 — Morph Optimization Passes
 
 Introduce semantics-preserving transformations such as:
 
@@ -314,9 +322,9 @@ Introduce semantics-preserving transformations such as:
 
 No optimization may erase or move an observable failure merely because a computed value is unused. Under fail-stop semantics, an unused potentially failing operation remains observable because its failure can prevent later effects or results.
 
-Every optimization must be testable against the invariant set, lowering fixtures, full-IR fixtures, and QSOL-CORE reference semantics.
+Every optimization must be testable against the invariant set, both lowering fixture sets, full-IR fixtures, and QSOL-CORE reference semantics.
 
-## PR #13 — Normative QX-POSIX Contract
+## PR #14 — Normative QX-POSIX Contract
 
 Freeze POSIX-profile semantics **before** implementing adapters or backend support.
 
@@ -329,16 +337,16 @@ Planned work:
 - define signal semantics where supported;
 - define typed-record ↔ byte/text stream conversion and encoding rules;
 - define explicit effects and the complete capability sets required for each operation;
-- define failure classes and per-effect-attempt completion semantics;
+- define failure classes and all effect-attempt completion states, including clean aborts;
 - define ordering, buffering, flushing, partial-write, and provenance requirements;
 - define unsupported-platform behavior;
 - publish normative conformance and rejection fixtures.
 
 This PR is specification work. No POSIX implementation may invent behavior absent from this contract.
 
-## PR #14 — QX-POSIX Reference Implementation
+## PR #15 — QX-POSIX Reference Implementation
 
-Implement POSIX-oriented execution and composition against the frozen PR #13 contract:
+Implement POSIX-oriented execution and composition against the frozen PR #14 contract:
 
 - stdin/stdout/stderr;
 - process execution;
@@ -352,13 +360,13 @@ External operations remain explicit effects and require authorization of **all**
 
 The reference implementation must pass the frozen QX-POSIX conformance/rejection fixtures and emit required per-effect-attempt provenance.
 
-## PR #15 — LLVM Backend
+## PR #16 — LLVM Backend
 
 Add LLVM lowering while retaining the C backend as an independently understandable reference path.
 
-## PR #16 — GPU Foundation
+## PR #17 — Normative Generic GPU Execution Contract
 
-Define the generic accelerator execution model before binding it to one vendor.
+Freeze the generic accelerator execution model before binding it to CUDA or another vendor.
 
 Planned concepts:
 
@@ -367,13 +375,17 @@ Planned concepts:
 - memory classes;
 - synchronization boundaries;
 - deterministic execution declarations;
-- kernel inspection.
+- kernel inspection;
+- accelerator capability/effect boundaries;
+- failure and effect-attempt completion semantics;
+- provenance requirements for device, kernel, launch, and numeric modes;
+- conformance/rejection fixtures.
 
-## PR #17 — CUDA Backend and QX-CUDA Control Profile
+This PR is normative specification work. Vendor backends implement this contract rather than defining generic GPU meaning themselves.
 
-Implement CUDA lowering through the generic GPU model.
+## PR #18 — CUDA Backend
 
-`CUDA` is a machinery/backend selection. `QX-CUDA` is the optional vendor-specific control profile for explicit launch, memory, or tuning controls. Selecting the CUDA backend does not by itself mean that source uses QX-CUDA-specific syntax.
+Implement CUDA lowering through the frozen generic GPU contract.
 
 Target user experience:
 
@@ -381,9 +393,35 @@ Target user experience:
 RUN GRAVITY ON CUDA
 ```
 
-without requiring ordinary CUDA plumbing in research source, while preserving an expert escape hatch through explicit QX-CUDA controls.
+without requiring ordinary CUDA plumbing in research source.
 
-## PR #18 — Additional Backends
+This phase implements the CUDA machinery/backend only. It does **not** invent or implement QX-CUDA vendor-control syntax unless the normative QX-CUDA contract is already frozen.
+
+## PR #19 — Normative QX-CUDA Control Contract
+
+Freeze the optional vendor-specific control profile before implementing explicit CUDA launch, memory, or tuning controls.
+
+Planned work:
+
+- version the QX-CUDA profile contract;
+- define allowed launch-geometry controls;
+- define memory/shared-memory placement controls;
+- define tuning-control semantics and validation;
+- define interaction with generic GPU semantics and target-selection qualifiers;
+- define determinism/numeric restrictions for vendor controls;
+- define failure and unsupported-control behavior;
+- define provenance required for each material control;
+- publish conformance and rejection fixtures.
+
+`QX-CUDA` remains an optional source/control extension. Activating the profile does not itself grant GPU or other runtime capabilities.
+
+## PR #20 — QX-CUDA Reference Control Implementation
+
+Implement the frozen PR #19 QX-CUDA control profile against the CUDA backend.
+
+Explicit controls may include launch, memory, and tuning options only as defined by the frozen contract. The implementation must validate controls, preserve determinism/failure/provenance requirements, and pass the normative conformance/rejection fixtures.
+
+## PR #21 — Additional Backends
 
 Candidates include:
 
@@ -396,7 +434,7 @@ Candidates include:
 
 Backends are added according to research value, not checklist pressure.
 
-## PR #19 — Formalization
+## PR #22 — Formalization
 
 Formalize selected QSOL-CORE and QSOL-MORPH properties, potentially using Lean 4.
 
@@ -404,12 +442,13 @@ Targets may include:
 
 - deterministic evaluation for a defined subset;
 - semantic preservation for selected Semantic IR → QSOL-CORE lowering rules;
-- semantic preservation through the mandatory full Vector/Dataflow IR;
+- semantic preservation for selected QSOL-CORE → Vector/Dataflow lowering rules;
 - semantic preservation for selected morph passes;
 - invariant consistency;
 - epistemic-class preservation;
 - canonical serialization properties;
 - QX-POSIX contract properties for a defined subset;
+- generic GPU / QX-CUDA contract properties for a defined subset;
 - failure-state, JOB propagation, authorization, effect-attempt, and ordering properties for a defined subset.
 
 ## Deferred normative workstream — QSOL text profile
