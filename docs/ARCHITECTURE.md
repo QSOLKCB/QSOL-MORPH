@@ -18,7 +18,7 @@ The project exists to let a researcher and an AI reason about one stable semanti
 │ JOB → DECK → CARD → VERB / NOUN         │
 │ typed • canonical • hashable            │
 └────────────────────┬─────────────────────┘
-                     │ lower
+                     │ semantic-to-core lowering
                      ▼
 ┌──────────────────────────────────────────┐
 │ QSOL-CORE / REDUCED SEMANTIC MACHINE    │
@@ -50,6 +50,8 @@ The project exists to let a researcher and an AI reason about one stable semanti
                                       │
                                    CUDA etc.
 ```
+
+Each arrow is a contract boundary. In particular, canonical Semantic IR → QSOL-CORE is specified and tested independently rather than being invented inside a backend.
 
 ## 1. Semantic source layer
 
@@ -103,7 +105,25 @@ A `JOB` coordinates one or more decks and their execution relationships.
 
 The model is inspired by record-oriented computing, but QSOL is not intended to reproduce historical fixed-column limitations.
 
-## 3. QSOL-CORE
+## 3. Semantic-to-QSOL-CORE lowering
+
+The first lowering stage maps rich Semantic IR into the reduced operational machine.
+
+This mapping is itself part of the language contract because Semantic IR contains information QSOL-CORE may represent more compactly or carry as preserved metadata:
+
+- epistemic classes and evidence boundaries;
+- units and types;
+- explicit effects and required capabilities;
+- determinism, numeric, and randomness contracts;
+- extension identities;
+- source/effect/failure ordering;
+- CARD / DECK / JOB provenance.
+
+The lowering must either encode a requirement into QSOL-CORE operations or preserve/validate it before safe metadata erasure. Unsupported semantic constructs fail explicitly rather than being silently dropped or delegated to a backend to reinterpret.
+
+See [Semantic-to-QSOL-CORE Lowering](SEMANTIC-TO-CORE-LOWERING.md).
+
+## 4. QSOL-CORE
 
 QSOL-CORE is the candidate reduced semantic machine beneath the research-facing language.
 
@@ -124,7 +144,7 @@ EFFECT     explicit external/stateful operations
 
 The exact instruction set is not frozen in the documentation phase.
 
-## 4. Vector and dataflow layer
+## 5. Vector and dataflow layer
 
 Scientific computation often contains bulk operations whose natural representation is not scalar source-code iteration.
 
@@ -142,7 +162,7 @@ may become a dependency graph that permits a backend to fuse operations while pr
 
 The vector IR is abstract. A vector operation need not correspond one-to-one with a physical register.
 
-## 5. MORPH layer
+## 6. MORPH layer
 
 QSOL-MORPH is where target-specific implementation decisions are made.
 
@@ -158,9 +178,9 @@ Responsibilities may include:
 - generation of inspectable target code;
 - recording material execution decisions.
 
-MORPH is not allowed to silently redefine the source program's scientific meaning or bypass source effect-order constraints.
+MORPH is not allowed to silently redefine the source program's scientific meaning, bypass the Semantic IR → QSOL-CORE lowering contract, or bypass source effect-order constraints.
 
-## 6. Backend layer
+## 7. Backend layer
 
 Backends translate validated intermediate representations into executable or consumable targets.
 
@@ -180,13 +200,17 @@ Possible backend families include:
 
 POSIX process, stream, filesystem, environment, and signal semantics are modeled as the composable `QX-POSIX` profile rather than a mutually exclusive backend. A C-, LLVM-, Fortran-, or other generated program may use that profile when explicitly enabled and authorized.
 
-A backend may expose additional target-specific control through an explicit extension profile. Backend-specific features should not leak into the core by default.
+A backend may expose additional target-specific control through an explicit extension profile. For example, CUDA is a backend choice while `QX-CUDA` is an optional control profile. Backend-specific features should not leak into the core by default.
 
 ## Architectural separations
 
 ### Meaning is not machinery
 
 `DERIVE C = A + B` describes a computation. It should not require the source to decide whether that addition occurs in a scalar loop, SIMD lane, GPU kernel, or future accelerator.
+
+### Lowering is not backend invention
+
+Semantic IR → QSOL-CORE is a defined transformation boundary. A backend consumes the result of that boundary; it does not decide how observations, assumptions, effects, units, contracts, or other semantic CARDs acquire lower-level meaning.
 
 ### Optimization is not epistemic promotion
 
@@ -198,7 +222,7 @@ QSOL-MORPH may automatically choose or optimize machinery, but material decision
 
 ### Extensions are not core growth
 
-Capabilities such as CUDA, networking, AI model calls, POSIX process behavior, or MIDI should be introduced through explicit profiles/capability boundaries unless a future core specification establishes otherwise.
+Networking, AI model calls, POSIX process behavior, MIDI, and vendor-specific control surfaces should be introduced through explicit profiles/capability boundaries unless a future core specification establishes otherwise.
 
 ## Example path
 
@@ -215,7 +239,9 @@ source cards
     ↓
 typed semantic nodes
     ↓
-reduced arithmetic/data operations
+semantic-to-core lowering
+    ↓
+QSOL-CORE operations + preserved metadata
     ↓
 dataflow graph
     ↓
