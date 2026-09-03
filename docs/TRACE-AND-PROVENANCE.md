@@ -7,6 +7,7 @@ The goal is not merely to say that a program ran. The goal is to make it possibl
 - what source was executed;
 - what semantic representation was produced;
 - how Semantic IR lowered into QSOL-CORE;
+- how QSOL-CORE lowered into the mandatory Vector/Dataflow IR;
 - what backend was selected;
 - why that backend was selected;
 - what transformations were applied;
@@ -26,7 +27,8 @@ A future trace may contain several layers:
 ```text
 SOURCE TRACE
 SEMANTIC TRACE
-LOWERING TRACE
+SEMANTIC-TO-CORE TRACE
+CORE-TO-VECTOR/DATAFLOW TRACE
 MORPH TRACE
 EXECUTION TRACE
 RESULT TRACE
@@ -60,7 +62,7 @@ requested_randomness_contract
 required_capabilities[]
 ```
 
-### Lowering trace
+### Semantic-to-Core trace
 
 The Semantic IR → QSOL-CORE transition is itself provenance-bearing.
 
@@ -72,16 +74,34 @@ semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
 resolved_extensions[]
+qualifier_lowering_decisions[]
 lowering_diagnostics[]
 ```
 
 A backend should never be the first component to decide how semantic CARDs lower into QSOL-CORE.
+
+### Core-to-Vector/Dataflow trace
+
+The mandatory QSOL-CORE → Vector/Dataflow IR transition is a separate provenance-bearing transformation and must not disappear into MORPH bookkeeping.
+
+Potential fields:
+
+```text
+core_ir_hash
+vector_dataflow_spec_version
+vector_dataflow_implementation_version
+vector_dataflow_ir_hash
+vector_dataflow_lowering_diagnostics[]
+```
+
+If the Vector/Dataflow lowering implementation, specification, graph structure, control representation, effect ordering, capability metadata, or numeric structure changes, the trace must be able to identify the exact lower IR that MORPH received.
 
 ### Morph trace
 
 Potential fields:
 
 ```text
+vector_dataflow_ir_hash
 morph_version
 optimization_profile
 selected_backend
@@ -201,11 +221,24 @@ The attempt must not begin unless every required capability in that set has been
 ```text
 NOT_STARTED
 COMPLETED
+ABORTED_CLEAN
 PARTIAL
 UNKNOWN
 ```
 
 or frozen equivalents.
+
+Candidate meanings:
+
+```text
+NOT_STARTED    = protected effect never began
+COMPLETED      = effect reached its defined external completion boundary
+ABORTED_CLEAN  = effect began, did not complete, and is proven to have produced no externally observable change
+PARTIAL        = effect began, did not complete, and some externally observable portion occurred
+UNKNOWN        = completion or external observability cannot be established
+```
+
+`ABORTED_CLEAN` prevents a cleanly aborted buffered/atomic operation from being falsely described as either `PARTIAL` or `UNKNOWN`. It is distinct from `NOT_STARTED` because the protected operation did begin.
 
 This is an array because a DECK may contain many effectful CARDs and a single CARD may eventually initiate more than one external effect. A single aggregate `partial_effect_state` cannot explain which write, process launch, network operation, or external tool invocation became observable.
 
@@ -235,7 +268,7 @@ effect_attempts[]
 
 A failed execution remains a provenance-bearing execution event.
 
-Capability denial must occur before the protected effect begins and therefore records that identified attempt as `NOT_STARTED`. Other precondition failures should occur before the effect where possible; if an external operation has already become observable before failing, the corresponding attempt must not be reported as `NOT_STARTED`.
+Capability denial must occur before the protected effect begins and therefore records that identified attempt as `NOT_STARTED`. Other precondition failures should occur before the effect where possible. If an operation began but is proven to have left no observable external change, it records `ABORTED_CLEAN`; if some incomplete portion became observable it records `PARTIAL`; if observability cannot be established it records `UNKNOWN`.
 
 Useful failure fields may include:
 
@@ -265,6 +298,7 @@ A trace should distinguish:
 - source-text identity;
 - canonical semantic identity;
 - lowered QSOL-CORE identity;
+- mandatory Vector/Dataflow IR identity;
 - generated target identity;
 - extension/contract identity;
 - result identity.
@@ -311,7 +345,7 @@ UNVERIFIED CACHE HIT
 
 The exact categories are not frozen.
 
-Cache provenance should bind the material cache identity, including specification/compiler/backend/target/numeric/randomness/extension inputs required to justify reuse.
+Cache provenance should bind the material cache identity, including specification/compiler/backend/target/numeric/randomness/extension and lower-IR inputs required to justify reuse.
 
 ## Optimization provenance
 
@@ -342,7 +376,7 @@ This distinction is intentionally aligned with the optimization discipline devel
 
 ## Trace policy
 
-Not every execution needs every field. The active specification, determinism profile, numeric contract, randomness contract, capability policy, extension set, semantic-to-core lowering contract, and backend-selection policy should define the minimum trace required for a claim.
+Not every execution needs every field. The active specification, determinism profile, numeric contract, randomness contract, capability policy, extension set, semantic-to-core lowering contract, Vector/Dataflow lowering contract, and backend-selection policy should define the minimum trace required for a claim.
 
 The roadmap requires a trace/failure/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/execution-contract/policy binding.
 
