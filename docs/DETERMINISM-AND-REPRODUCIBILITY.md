@@ -31,9 +31,11 @@ The same canonical program, declared inputs, implementation version, and require
 
 ### NUMERIC result determinism
 
-Results may differ at the bit level across legal implementations but remain within an explicitly declared numeric contract.
+Results may differ at the bit level across legal implementations but remain within explicitly declared numeric contracts.
 
-A `NUMERIC` declaration is incomplete without that numeric contract. The contract must identify enough information to judge legal variation, such as tolerance/error metric, domain, precision behavior, or a referenced frozen numeric profile.
+A `NUMERIC` declaration is incomplete without the numeric contract that governs the relevant computation. Contracts may be attached at CARD or other frozen scopes, so reproducibility must preserve those bindings rather than assume one global numeric contract exists for every execution.
+
+Each contract must identify enough information to judge legal variation, such as tolerance/error metric, domain, precision behavior, or a referenced frozen numeric profile.
 
 ### DECLARED-NONDETERMINISTIC result behavior
 
@@ -175,9 +177,32 @@ Floating-point reproducibility is especially sensitive to:
 
 QSOL-MORPH must not label a transformation semantically identical under a strict numeric contract merely because the real-number algebra looks equivalent.
 
-The active numeric contract determines which transformations are legal.
+The numeric contract governing a CARD, region, kernel, or other frozen scope determines which transformations are legal there.
 
-The execution trace should also bind the **material numeric mode** used within that contract when choices such as FMA behavior, denormal handling, effective precision, or math-library mode can change otherwise legal result bytes.
+The execution trace must also bind the **material numeric mode** used within each relevant scope when choices such as FMA behavior, denormal handling, effective precision, reduction strategy, or math-library mode can change otherwise legal result bytes.
+
+## Scoped numeric provenance
+
+Numeric contracts and effective numeric modes may differ within one execution.
+
+For example, two CARDs may bind different tolerance contracts, or a backend may legally choose different contract-permitted modes for separate kernels. A reproducibility record therefore uses scoped entries rather than one singular global contract/mode pair.
+
+Conceptually:
+
+```text
+numeric_execution_scopes[]:
+    scope_kind
+    scope_id
+    source_card_ids[]
+    numeric_contract_id
+    numeric_contract_hash
+    material_numeric_mode
+    backend_unit_id?
+```
+
+`scope_kind` may eventually distinguish execution, CARD, region, kernel, or another frozen scope.
+
+A single execution-wide entry is legal only when a frozen normalization rule proves that one numeric contract and one material numeric mode govern the whole execution. Otherwise the source and effective scopes remain distinct.
 
 ## Parallelism
 
@@ -258,9 +283,7 @@ backend_selection_policy_id
 backend_selection_policy_version
 backend_selection_tuning_id
 backend_selection_tuning_hash
-numeric_contract_id
-numeric_contract_hash
-material_numeric_mode
+numeric_execution_scopes[]
 requested_result_determinism
 effective_result_determinism
 determinism_transition_authorized_by
@@ -286,15 +309,17 @@ optimization_profile
 kernel_or_binary_hashes[]
 ```
 
-Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; seeded RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation.
+Each `numeric_execution_scopes[]` entry binds the scope identity, source CARD provenance where applicable, numeric-contract identity/hash, effective material numeric mode, and backend execution-unit identity when useful.
 
-The manifest should represent independent reproducibility facets independently rather than collapsing them into one ambiguous label.
+Not every field is required for every execution. Backend-selection policy/tuning fields are material when the backend was chosen automatically; seeded RNG fields are material when seeded randomness is used; effect-attempt entries are material whenever protected external effects are attempted; Vector/Dataflow identities are material whenever the mandatory lower IR participates in execution or code generation; scoped numeric entries are material whenever numeric contracts or modes affect legal results.
+
+The manifest should represent independent reproducibility facets independently rather than collapsing them into ambiguous labels or a false execution-wide singleton.
 
 ## Reproducibility versus portability
 
 Portable source does not imply bit-identical execution across every target.
 
-QSOL-MORPH should state the strongest reproducibility guarantee actually provided by a given source/backend/numeric-contract combination.
+QSOL-MORPH should state the strongest reproducibility guarantee actually provided by a given source/backend/numeric-contract combination, including the scopes to which that guarantee applies.
 
 ## Failure behavior
 
