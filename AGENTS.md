@@ -30,6 +30,10 @@ Semantic IR → QSOL-CORE lowering must not be invented inside a backend. Its no
 
 The mandatory Vector/Dataflow IR stage must preserve the complete supported QSOL-CORE surface. It is not permission to bypass control, calls, effects, scalar operations, capabilities, or contracts merely because they are not vectorizable.
 
+Human `.qsl` parsing/serialization must not be implemented from illustrative examples. A normative QSOL text profile must first freeze grammar and source-to-Semantic-IR mapping.
+
+QX-POSIX implementation must not precede its normative profile contract.
+
 ## Semantic rules for agents
 
 When proposing changes:
@@ -43,16 +47,18 @@ When proposing changes:
 7. do not call performance improvement an optimization unless the required semantics remain valid;
 8. do not promote simulation/test/AI output into stronger evidence classes without an explicit rule;
 9. do not silently weaken CARD, DECK, or JOB failure behavior;
-10. require successful capability authorization before every protected external effect begins;
+10. require successful authorization of **every** capability required by a protected external effect before that effect begins;
 11. treat a potentially failing pure operation as ordering-relevant under fail-stop semantics unless it is proven total;
 12. do not dead-eliminate a potentially failing operation merely because its result is unused;
-13. preserve all canonical enforcement fields across any serialization claiming semantic losslessness;
+13. preserve all canonical semantic/enforcement fields, including `qualifiers{}`, across any serialization claiming semantic losslessness;
 14. distinguish backend selection from optional vendor-control profiles (`CUDA` != `QX-CUDA`, POSIX execution != a compiler backend);
-15. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
-16. preserve the complete QSOL-CORE control/effect/contract surface through the mandatory Vector/Dataflow IR;
-17. record material numeric mode, automatic-backend selection policy/tuning identity, and identified per-effect-attempt states when relevant to provenance;
-18. define effect-attempt completion independently from the enclosing CARD outcome;
-19. prefer small, inspectable transformations.
+15. distinguish extension availability/functionality from runtime capability authorization; activating an extension never grants permission;
+16. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
+17. preserve the complete QSOL-CORE control/effect/contract surface through the mandatory Vector/Dataflow IR;
+18. record material numeric mode, automatic-backend selection policy/tuning identity, and identified per-effect-attempt states when relevant to provenance;
+19. record the complete required-capability set for each effect attempt;
+20. define effect-attempt completion independently from the enclosing CARD outcome;
+21. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -88,6 +94,8 @@ Until a grammar is frozen, examples are architectural sketches.
 
 Do not infer implementation support from examples in documentation.
 
+Do not implement `.qsl` parsing, formatting, or lossless text serialization until a normative QSOL text-profile specification freezes lexical grammar, syntax, shorthand/default reconstruction, canonical rendering, diagnostics, and source-to-Semantic-IR mapping.
+
 ## Semantic lowering work
 
 Read `docs/SEMANTIC-TO-CORE-LOWERING.md` before changing the Semantic IR → QSOL-CORE boundary.
@@ -96,7 +104,8 @@ A legal lowering must preserve or explicitly validate before erasure:
 
 - epistemic class and evidence boundaries;
 - types and units;
-- effects and required capabilities;
+- qualifiers;
+- effects and complete required-capability sets;
 - result-determinism, numeric, and randomness contracts;
 - extension identities/versions;
 - source, effect, and failure ordering;
@@ -114,7 +123,7 @@ Because every backend path traverses this IR, it must represent or preserve the 
 - control flow;
 - calls/returns and call state;
 - explicit effects;
-- required capabilities;
+- complete required-capability sets;
 - failure/totality classification;
 - source/effect/failure ordering;
 - determinism, numeric, randomness, and extension contracts;
@@ -149,7 +158,17 @@ UNKNOWN     = completion/observability cannot be established
 
 A completed process that exits with status `2` may have `completion_state = COMPLETED` while its enclosing CARD reports `PROCESS_FAILED`.
 
+Every effect attempt must record the full set of capabilities required for that attempt, not one representative capability. An attempt must not begin until all required capabilities are granted.
+
 Do not collapse multiple effect attempts into one aggregate partial-effect flag.
+
+## Extension and capability work
+
+An extension profile supplies optional versioned syntax, adapters, effects, or lowering hooks. It does not itself grant execution permission.
+
+For example, `USE QX-NET` and `ALLOW NETWORK`/`DENY NETWORK` operate at different boundaries. Likewise a remote QX-AI effect may require both `AI_MODEL` and `NETWORK` capabilities.
+
+Before implementing an extension with material operational semantics, follow the roadmap's freeze-before-implementation rule. QX-POSIX specifically requires a normative contract before its reference implementation.
 
 ## Backend work
 
@@ -167,13 +186,16 @@ Automatic backend selection must trace the selection policy and material tuning 
 
 A format claiming semantic losslessness must round-trip all execution-relevant canonical fields, including:
 
-- effects and required capabilities;
+- qualifiers;
+- effects and complete required-capability sets;
 - result-determinism and numeric contracts;
 - randomness contracts;
 - extension/profile identities and versions;
 - data, effect, and failure-order constraints.
 
-Do not silently default a missing enforcement field during transport.
+Do not silently default a missing semantic/enforcement field during transport.
+
+Machine-readable canonical interchange may proceed before the human QSOL grammar is frozen. Human `.qsl` parsing/serialization may not.
 
 ## Documentation hierarchy
 
@@ -202,10 +224,13 @@ For every substantive change, ask:
 - Did meaning change?
 - Did an effect become implicit?
 - Did authorization move until after an effect began?
+- Did an effect attempt omit one of several required capabilities?
 - Did determinism, numeric, or randomness guarantees weaken?
 - Did provenance weaken?
+- Did an extension get mistaken for a capability grant?
 - Did an extension leak into core?
-- Did a serializer lose an enforcement field?
+- Did a serializer lose `qualifiers{}` or another semantic/enforcement field?
+- Did a human text implementation invent grammar before a normative text-profile freeze?
 - Did reordering change failure/effect observability?
 - Did dead-result elimination erase a possible failure?
 - Did a backend or implementation invent semantics not yet frozen?
@@ -213,6 +238,7 @@ For every substantive change, ask:
 - Did Vector/Dataflow IR drop or bypass control, calls, effects, capabilities, contracts, or scalar semantics?
 - Did a trace collapse several effect attempts into one ambiguous state?
 - Was effect completion inferred incorrectly from CARD success/failure?
+- Did QX-POSIX implementation precede its normative contract?
 - Did an optimization alter a result contract?
 - Did documentation claim functionality that does not exist?
 
