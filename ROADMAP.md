@@ -72,6 +72,7 @@ Planned scope:
 - source locations;
 - typed operands;
 - values and units;
+- qualifiers;
 - semantic classes;
 - declared effects;
 - required capabilities;
@@ -89,18 +90,19 @@ The canonical model must carry enough information for later executable phases to
 
 Only CARDs proven **pure and total** under the active contract may be freely reordered when dependencies permit. A CARD that may fail is semantically observable under fail-stop execution and must preserve ordering against externally observable effects unless an explicit frozen construct permits otherwise.
 
-## PR #4 — Canonical Serialization
+## PR #4 — Canonical Machine-Readable Serialization
 
-Implement deterministic serialization for the complete canonical data model.
+Implement deterministic serialization for the complete canonical data model **without inventing the human QSOL grammar**.
 
-Initial targets:
+Initial implementation targets:
 
-- human-readable QSOL text profile;
 - JSONL streaming profile;
 - canonical JSON representation;
 - XML interchange representation.
 
-Every lossless format must round-trip all canonical enforcement fields, including capabilities, determinism, numeric, randomness, extension/version, dependency, effect-order, and failure-order information.
+Every lossless format must round-trip all canonical semantic and enforcement fields, including qualifiers, capabilities, determinism, numeric, randomness, extension/version, dependency, effect-order, and failure-order information.
+
+The human-readable `.qsl` source profile is explicitly **deferred**. It may not be implemented until a separate normative QSOL text-profile specification freezes lexical grammar, syntax, shorthand/default reconstruction, diagnostics, canonical text rendering, and the source-to-Semantic-IR mapping. Until that freeze, examples of QSOL text remain illustrative only.
 
 A MIDI 2.0 mapping remains an extension profile and must not affect the language core.
 
@@ -131,7 +133,7 @@ The initial trace contract should bind, where applicable:
 - capabilities actually used;
 - inputs and output hashes;
 - active extension profiles plus resolved extension versions/content identities;
-- identified effect attempts and their individual completion states;
+- identified effect attempts, each with its complete required-capability set and individual completion state;
 - structured execution-failure records where applicable;
 - fields for backend-selection policy/version and tuning-state identity when automatic target selection is later used.
 
@@ -144,6 +146,7 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - future continue/retry/recovery/parallel-JOB behavior requires explicit frozen JOB-level semantics;
 - pure CARD failure commits no semantic state;
 - capability authorization is completed successfully **before every protected external effect begins**;
+- every capability required by that specific effect attempt must be granted before the attempt begins;
 - other static/precondition checks should occur before an external effect where practical;
 - effects already externally observable before a later failure are not retroactively erased;
 - every identified effect attempt must be traceable independently as `NOT_STARTED`, `COMPLETED`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents);
@@ -185,7 +188,7 @@ The reference machine must:
 - implement the frozen instruction semantics rather than define them;
 - emit the required PR #5 trace;
 - obey frozen DECK/JOB failure propagation and per-effect-attempt behavior;
-- require successful capability authorization before each protected effect;
+- require successful authorization of every capability required by each protected effect before that effect begins;
 - fail closed when capability, numeric, randomness, or determinism requirements cannot be satisfied;
 - pass the frozen QSOL-CORE conformance fixtures.
 
@@ -236,7 +239,7 @@ Planned concepts:
 - explicit control-flow representation for branch/jump/stop semantics;
 - call/return boundaries and frozen call-state semantics;
 - explicit effect nodes/regions;
-- required capability metadata and authorization boundaries;
+- complete required-capability sets and authorization boundaries for each protected effect;
 - source-order, effect-order, and failure-order constraints;
 - per-effect-attempt identity/provenance hooks;
 - result-determinism, numeric, randomness, and extension-contract preservation;
@@ -249,7 +252,7 @@ Planned concepts:
 
 Every supported QSOL-CORE operation must either lower to a defined IR construct or be preserved through a defined semantics-preserving scalar/control/effect/pass-through construct. Unsupported representation must fail closed. A backend may not bypass this IR for branches, calls, effects, or other non-vector operations merely because they are not optimization candidates.
 
-Conformance fixtures must include scalar-only programs, control flow, calls, explicit effects/capabilities, mixed vector/scalar regions, potentially failing operations ordered around effects, and full contract/provenance preservation.
+Conformance fixtures must include scalar-only programs, control flow, calls, explicit effects with single and multiple capability requirements, mixed vector/scalar regions, potentially failing operations ordered around effects, and full contract/provenance preservation.
 
 This phase occurs before the first MORPH code-generation backend so the documented pipeline remains singular:
 
@@ -313,25 +316,47 @@ No optimization may erase or move an observable failure merely because a compute
 
 Every optimization must be testable against the invariant set, lowering fixtures, full-IR fixtures, and QSOL-CORE reference semantics.
 
-## PR #13 — POSIX Profile
+## PR #13 — Normative QX-POSIX Contract
 
-Implement POSIX-oriented execution and composition:
+Freeze POSIX-profile semantics **before** implementing adapters or backend support.
+
+Planned work:
+
+- define stdin/stdout/stderr byte and text boundaries;
+- define process launch, argument/environment, exit-status, and termination semantics;
+- define file open/read/write/append/truncate and observable completion boundaries;
+- define environment access and mutation rules;
+- define signal semantics where supported;
+- define typed-record ↔ byte/text stream conversion and encoding rules;
+- define explicit effects and the complete capability sets required for each operation;
+- define failure classes and per-effect-attempt completion semantics;
+- define ordering, buffering, flushing, partial-write, and provenance requirements;
+- define unsupported-platform behavior;
+- publish normative conformance and rejection fixtures.
+
+This PR is specification work. No POSIX implementation may invent behavior absent from this contract.
+
+## PR #14 — QX-POSIX Reference Implementation
+
+Implement POSIX-oriented execution and composition against the frozen PR #13 contract:
 
 - stdin/stdout/stderr;
 - process execution;
 - exit status;
 - files;
 - environment access;
-- signals where appropriate;
+- signals where supported;
 - typed stream adapters.
 
-External effects remain explicit and require their corresponding capabilities. POSIX is a composable execution profile, not a mutually exclusive compiler backend: a C-, LLVM-, or other generated program may use the QX-POSIX contract when explicitly enabled and authorized.
+External operations remain explicit effects and require authorization of **all** corresponding capabilities before each protected effect begins. POSIX is a composable execution profile, not a mutually exclusive compiler backend: a C-, LLVM-, or other generated program may use the QX-POSIX contract when explicitly enabled and authorized.
 
-## PR #14 — LLVM Backend
+The reference implementation must pass the frozen QX-POSIX conformance/rejection fixtures and emit required per-effect-attempt provenance.
+
+## PR #15 — LLVM Backend
 
 Add LLVM lowering while retaining the C backend as an independently understandable reference path.
 
-## PR #15 — GPU Foundation
+## PR #16 — GPU Foundation
 
 Define the generic accelerator execution model before binding it to one vendor.
 
@@ -344,7 +369,7 @@ Planned concepts:
 - deterministic execution declarations;
 - kernel inspection.
 
-## PR #16 — CUDA Backend and QX-CUDA Control Profile
+## PR #17 — CUDA Backend and QX-CUDA Control Profile
 
 Implement CUDA lowering through the generic GPU model.
 
@@ -358,7 +383,7 @@ RUN GRAVITY ON CUDA
 
 without requiring ordinary CUDA plumbing in research source, while preserving an expert escape hatch through explicit QX-CUDA controls.
 
-## PR #17 — Additional Backends
+## PR #18 — Additional Backends
 
 Candidates include:
 
@@ -371,7 +396,7 @@ Candidates include:
 
 Backends are added according to research value, not checklist pressure.
 
-## PR #18 — Formalization
+## PR #19 — Formalization
 
 Formalize selected QSOL-CORE and QSOL-MORPH properties, potentially using Lean 4.
 
@@ -384,7 +409,25 @@ Targets may include:
 - invariant consistency;
 - epistemic-class preservation;
 - canonical serialization properties;
+- QX-POSIX contract properties for a defined subset;
 - failure-state, JOB propagation, authorization, effect-attempt, and ordering properties for a defined subset.
+
+## Deferred normative workstream — QSOL text profile
+
+The human `.qsl` authoring language is intentionally not implemented by PR #4.
+
+Before source parsing or canonical QSOL-text serialization is implemented, a dedicated normative phase must freeze:
+
+- lexical grammar and tokenization;
+- source grammar;
+- canonical formatting;
+- source shorthand/default rules;
+- source-to-Semantic-IR mapping;
+- diagnostics and unsupported syntax behavior;
+- versioning/migration rules;
+- conformance and rejection fixtures.
+
+Only after that specification is frozen may a reference parser/formatter/serializer be implemented. Machine-readable canonical interchange can proceed independently using the PR #3 semantic model and PR #4 schemas.
 
 ## Extension workstreams
 
@@ -402,7 +445,7 @@ QX-MIDI
 QX-NET
 ```
 
-An extension may add capability. It may not silently redefine frozen core meaning.
+An extension may define new syntax, adapters, effects, or capability **requirements** under its versioned contract. Activating an extension never grants a runtime capability by itself, and an extension may not silently redefine frozen core meaning.
 
 ## Release philosophy
 
