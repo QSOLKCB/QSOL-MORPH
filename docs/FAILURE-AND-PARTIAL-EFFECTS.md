@@ -65,7 +65,7 @@ A failed pure evaluation must not leave behind a partially assigned result.
 
 Pure does **not** imply unobservable under fail-stop execution. A pure CARD that may fail can change whether later effects occur. Therefore a potentially failing pure CARD cannot be freely moved across observable effects unless an explicit ordering/commit rule proves the transformation preserves failure behavior.
 
-Only operations proven pure **and total** under the active contract are candidates for unconstrained dependency-based reordering.
+Only operations proven pure **and total** under the active contract are candidates for unconstrained dependency-based reordering or dead-result elimination.
 
 ## Arithmetic failures
 
@@ -82,11 +82,13 @@ Integer overflow, floating-point exceptional values, transcendental domain error
 
 Undefined target behavior is not a valid QSOL semantic contract.
 
-## Effectful CARD failure
+## Effect attempts
 
 Effects complicate failure because the external world may already have changed.
 
-QSOL-MORPH should distinguish at least:
+Every protected external effect is modeled as an **identified effect attempt** with its own completion state. A CARD may produce zero, one, or multiple effect attempts, and a DECK/JOB may accumulate many attempts across multiple CARDs.
+
+At minimum, each attempt should distinguish:
 
 ```text
 NOT_STARTED
@@ -95,11 +97,11 @@ PARTIAL
 UNKNOWN
 ```
 
-These names are provisional, but the distinction is important.
+These names are provisional, but the distinctions are semantic.
 
 ### NOT_STARTED
 
-The operation failed before any externally observable effect began.
+The protected effect never began.
 
 Examples may include:
 
@@ -107,27 +109,37 @@ Examples may include:
 - invalid path rejected before opening a file;
 - process launch rejected before a child exists.
 
+`NOT_STARTED` is invalid once the protected effect has actually begun.
+
 ### COMPLETED
 
-The effect completed, but a later operation failed.
+The **effect itself reached its defined external completion boundary**.
 
-A later failure must not erase the fact that the completed effect occurred.
+Completion is independent of whether the enclosing CARD later reports success or failure.
+
+For example, a process may run to completion and return exit status `2`. The process effect attempt is still `COMPLETED`, while the enclosing CARD may produce `FAILURE(PROCESS_FAILED)` because that completed process returned a non-success status under the active contract.
+
+Likewise, a complete file write may be `COMPLETED` even if a later validation step in the same CARD causes the CARD to fail.
+
+A CARD failure must not relabel an already completed effect attempt as `PARTIAL` merely because the CARD outcome is failure.
 
 ### PARTIAL
 
-The effect began and some externally observable portion occurred before failure.
+The effect began, became externally observable in some incomplete form, and did **not** reach its defined completion boundary before failure.
 
 Examples may include:
 
 - a file write that wrote a prefix before storage failure;
 - a streamed network write that transmitted some records before disconnect;
-- an external process that started and changed state before returning failure.
+- an external process launch/interaction that changed state but did not reach the operation's defined completion boundary.
+
+`PARTIAL` describes the effect attempt, not merely the fact that its enclosing CARD failed.
 
 ### UNKNOWN
 
-The implementation cannot establish whether or how much of the external effect became observable.
+The implementation cannot establish whether the effect reached its completion boundary or how much became externally observable.
 
-`UNKNOWN` is preferable to inventing a clean rollback claim without evidence.
+`UNKNOWN` is preferable to inventing either a clean rollback or a completed-effect claim without evidence.
 
 ## Capability authorization and preconditions
 
@@ -137,11 +149,11 @@ Capability authorization is a hard boundary, not a best-effort preflight.
 
 For example, an operation requiring `NETWORK` must not open a socket, resolve through a network-backed helper, transmit data, or otherwise begin the protected network effect unless `NETWORK` has been granted for that execution.
 
-If authorization is denied or cannot be established, the operation fails with the effect state `NOT_STARTED`.
+If authorization is denied or cannot be established, the attempt fails with state `NOT_STARTED`.
 
 This rule is unconditional for capability authorization. A backend may not downgrade it to "where practical" merely because preflight is inconvenient.
 
-Other non-authorization checks, such as static validation or external-system preconditions that cannot always be known in advance, should occur before an effect begins where practical. Failure of those checks after an effect begins must use the partial-effect model rather than pretending the effect never happened.
+Other non-authorization checks, such as static validation or external-system preconditions that cannot always be known in advance, should occur before an effect begins where practical. Failure of those checks after an effect begins must use the per-attempt effect model rather than pretending the effect never happened.
 
 ## Prior effects and ordering
 
@@ -165,7 +177,7 @@ Similarly, if:
 @012 FAIL
 ```
 
-and `@010` and `@011` completed before `@012` failed, both writes remain observable and must remain in the trace.
+and the first two write attempts completed before `@012` failed, both remain observable and must remain individually represented in the trace.
 
 A backend must not pretend that the DECK or JOB was transactional unless the source explicitly requested a transaction-like construct whose semantics are frozen and supported.
 
@@ -181,11 +193,13 @@ card_id = @042
 backend_detail.exit_status = 2
 ```
 
+If the process itself ran to its defined completion boundary, its effect attempt is `COMPLETED` even though the CARD outcome is `PROCESS_FAILED`.
+
 The target-specific detail enriches the record but does not replace the stable semantic failure class.
 
 ## File and network failures
 
-Filesystem and network operations should similarly preserve a stable semantic class while retaining implementation detail where useful.
+Filesystem and network operations should similarly preserve a stable semantic failure class while retaining per-attempt completion detail and implementation detail where useful.
 
 Examples:
 
@@ -207,8 +221,8 @@ A failed execution should be traceable with enough information to answer:
 - at what stage the failure occurred;
 - which stable failure class applies;
 - which backend/runtime detail was reported;
-- which prior effects and DECKs had completed;
-- whether the failed effect was `NOT_STARTED`, `PARTIAL`, or `UNKNOWN`;
+- which prior DECKs had completed;
+- which effect attempts existed, which CARD produced each one, and the completion state of each attempt;
 - whether any output artifact became externally visible;
 - what determinism, numeric, randomness, capability, policy, and extension contracts were active.
 
@@ -222,11 +236,25 @@ failure_card_id
 failure_class
 failure_stage
 backend_detail?
-prior_committed_effects[]
 completed_decks[]
-partial_effect_state
+effect_attempts[]
 observable_artifacts[]
 ```
+
+Each `effect_attempts[]` entry should be independently identifiable and may carry fields such as:
+
+```text
+attempt_id
+card_id
+effect_kind
+required_capability
+sequence_index
+completion_state
+backend_detail?
+observable_artifacts[]
+```
+
+The trace must not collapse multiple external actions into one aggregate `partial_effect_state`.
 
 ## Determinism and failure
 
@@ -256,8 +284,8 @@ Backends may translate failure into native mechanisms such as return codes, tagg
 
 Those are implementation choices.
 
-They must map back to the same QSOL CARD/DECK/JOB success/failure and partial-effect semantics.
+They must map back to the same QSOL CARD/DECK/JOB success/failure semantics and the same per-effect-attempt completion semantics.
 
 ## Principle
 
-> Failure is observable behavior. Authorization happens before the effect. Do not leave either to backend folklore.
+> Failure is observable behavior. Effect completion belongs to the effect attempt, not the CARD outcome. Authorization happens before the effect. Do not leave any of these to backend folklore.
