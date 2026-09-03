@@ -40,7 +40,7 @@ The canonical typed representation that preserves research intent, units, effect
 
 ## Vector/Dataflow IR
 
-A target-independent representation for vectors, masks, reductions, dependency graphs, and legal fusion opportunities.
+The mandatory target-independent lower IR that preserves the complete supported QSOL-CORE surface while exposing vector and dataflow structure where applicable. It must represent or preserve scalar operations, vector operations, control flow, calls/returns, explicit effects, required capabilities, dependency/effect/failure ordering, determinism/numeric/randomness contracts, extension bindings, and provenance. Backends must not bypass this IR for non-vectorizable core operations.
 
 ## MORPH
 
@@ -52,15 +52,15 @@ A concrete code-generation or execution target such as C, LLVM, Fortran, CUDA, H
 
 ## extension profile
 
-An optional capability or execution surface such as `QX-POSIX`, `QX-GPU`, or `QX-NET` that adds functionality without redefining core meaning.
+An optional, versioned syntax/adapter/execution surface such as `QX-POSIX`, `QX-GPU`, or `QX-NET` that adds functionality without redefining core meaning. Loading or using an extension profile does **not** grant runtime permission for protected effects; authorization remains a separate capability decision.
 
 ## QX-POSIX
 
-The composable POSIX process/stream/filesystem execution profile. It is not a mutually exclusive compiler backend; generated C, LLVM, Fortran, or other targets may use the profile when explicitly enabled and authorized.
+The composable POSIX process/stream/filesystem execution profile. It is not a mutually exclusive compiler backend; generated C, LLVM, Fortran, or other targets may use the profile when explicitly enabled and when all required capabilities are separately authorized.
 
 ## capability
 
-Permission granted to an execution environment for a class of effects, such as network or filesystem access.
+Runtime permission granted to an execution environment for a class of protected effects, such as network, filesystem, process, or AI-model access. Capability authorization is separate from extension-profile availability.
 
 ## effect
 
@@ -92,7 +92,7 @@ Evidence connecting a result or failure to its source, inputs, transformations, 
 
 ## partial effect
 
-An externally observable effect that began but did not complete normally. Its existence and known/unknown extent must not be hidden by a later execution failure.
+An externally observable effect that began but did not reach its defined completion boundary. Its existence and known/unknown extent must not be hidden by a later execution failure.
 
 ## canonical form
 
