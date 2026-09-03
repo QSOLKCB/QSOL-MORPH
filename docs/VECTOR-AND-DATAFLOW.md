@@ -35,20 +35,39 @@ The IR may represent vectorizable computation as dataflow graphs while carrying 
 It must preserve, where applicable:
 
 - scalar and vector data operations;
+- result/data identities consumed by dependency edges;
 - branches and control-flow regions;
 - call/return boundaries and call state;
-- explicit effects and their stable identities;
+- explicit effects and their stable declared identities;
 - complete required-capability sets for each protected effect;
 - execution-relevant qualifiers not already consumed under a frozen lowering rule;
 - explicit failure behavior not already lowered into core control semantics;
 - source/effect/failure ordering constraints;
-- result-determinism, numeric, and randomness contracts;
+- result-determinism, scoped numeric, and randomness contracts;
 - extension/profile identity required by execution;
 - failure and totality classification;
 - provenance links to QSOL-CORE and originating semantic CARDs;
-- identities needed for per-effect-attempt tracing.
+- identities needed for runtime per-effect-attempt tracing, distinct from declared effect identities.
 
 A backend must not bypass this IR merely because a QSOL-CORE operation is not vectorizable. If the IR cannot represent a supported core operation without semantic loss, that is an IR design/conformance failure rather than permission to invent a second backend path.
+
+## Result and data identity
+
+Dependency graphs require stable producer/consumer identity, not only raw values.
+
+A source result binding may be renamed during lower representation, but the mapping must remain deterministic and provenance-bearing. The IR must preserve enough identity to establish:
+
+```text
+source result binding
+    ↓
+QSOL-CORE data identity
+    ↓
+Vector/Dataflow value/node identity
+    ↓
+dependent consumers
+```
+
+A lowering must not infer dependencies from incidental node order or numeric equality after discarding result identity.
 
 ## Abstract vectors
 
@@ -112,7 +131,7 @@ This representation makes transformation opportunities explicit.
 
 Source order remains semantically relevant for observable effects and for potentially failing operations under fail-stop execution. Only operations proven **pure and total** under the active contract may be freely scheduled from data dependencies.
 
-A Vector/Dataflow lowering must preserve all control, call, effect-order, failure-order, capability, qualifier, failure-behavior, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
+A Vector/Dataflow lowering must preserve all result/dependency identity, control, call, effect-order, failure-order, capability, qualifier, failure-behavior, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
 
 ## Control flow and calls
 
@@ -139,12 +158,14 @@ Explicit effects remain explicit through this IR.
 Conceptually, effect nodes/regions must retain enough information to preserve:
 
 ```text
-effect identity
-effect kind
+declared_effect_id
+effect_kind
 required_capabilities[]
 source/failure order
-effect attempt identity/provenance
+runtime effect-attempt provenance hook
 ```
+
+`declared_effect_id` is the canonical semantic effect identity that survives lowering. A later `effect_attempt_id` identifies a concrete runtime attempt. The two identities must remain distinguishable so retries, duplicate attempts, or same-kind effects from one CARD can be audited.
 
 A file write, process launch, network action, clock access, AI call, or other effect must not disappear merely because the surrounding numeric work becomes a vector graph.
 
@@ -166,11 +187,11 @@ into an implementation equivalent to:
 Z[i] = sqrt(A[i] * B[i] + C[i])
 ```
 
-provided the active numeric, failure, ordering, and semantic contracts permit the transformation.
+provided the active scoped numeric, failure, ordering, and semantic contracts permit the transformation.
 
 Fusion must not be justified solely by performance. It must be semantically legal.
 
-Fusion may not swallow an effect, control boundary, or potentially failing operation in a way that changes observable ordering or failure behavior.
+Fusion may not swallow an effect, control boundary, result/dependency identity, or potentially failing operation in a way that changes observable ordering or failure behavior.
 
 ## Masks
 
@@ -200,7 +221,7 @@ ALL
 ANY
 ```
 
-Floating-point reductions require special care because reassociation can alter results. A deterministic/numeric profile must define when alternate reduction trees are legal.
+Floating-point reductions require special care because reassociation can alter results. The scoped numeric contract governing the reduction must define when alternate reduction trees are legal.
 
 ## XOR and vector logic
 
@@ -278,7 +299,25 @@ An unused result does not make a potentially failing operation unobservable unde
 
 Only operations proven pure and total may be removed solely because their results are dead.
 
-Per-effect completion semantics must also remain representable, including a cleanly aborted begun effect that is proven to have produced no external change.
+Per-effect completion semantics must also remain representable, including a cleanly aborted begun effect that is proven to have produced no external change and the precedence rule under which known completion is `COMPLETED` rather than `UNKNOWN`.
+
+## Scoped numeric contracts
+
+The IR must preserve which numeric contract governs which CARD-derived operation, region, reduction, or kernel candidate.
+
+A lower representation may group operations under a common contract only when that grouping is semantically valid. If separate source contracts remain distinct, the IR must carry enough scope identity to later produce provenance entries such as:
+
+```text
+scope_kind
+scope_id
+source_card_ids[]
+numeric_contract_id
+numeric_contract_hash
+material_numeric_mode
+backend_unit_id?
+```
+
+The material numeric mode may be selected only within the legal choices of that scope's contract. Different kernels may therefore legitimately have different modes, and provenance must not collapse them into one false execution-wide pair.
 
 ## Determinism
 
@@ -290,7 +329,7 @@ Parallel execution can create nondeterminism through:
 - backend library choices;
 - varying launch/scheduling behavior.
 
-The IR must carry enough information for QSOL-MORPH to determine whether a requested result-determinism contract can be satisfied while independently preserving any randomness/reproducibility contract.
+The IR must carry enough information for QSOL-MORPH to determine whether a requested result-determinism contract can be satisfied while independently preserving any randomness/reproducibility contract and all scoped numeric contracts.
 
 If the requested result-determinism contract cannot be satisfied, the backend must fail closed unless the source or execution policy explicitly permitted the weaker result contract before execution. Reporting a weaker class in the trace is required when such a permitted downgrade occurs, but reporting alone is not authorization to downgrade.
 
@@ -307,6 +346,7 @@ core_ir_hash
 vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
+result_binding_map[]
 vector_dataflow_lowering_diagnostics[]
 ```
 
@@ -319,13 +359,16 @@ Vector/Dataflow specification and reference-lowering conformance should include 
 Representative tests should include:
 
 - scalar-only QSOL-CORE programs;
+- producer/consumer result-binding preservation;
 - branches and calls;
+- multiple same-kind declared effects with distinct `declared_effect_id` values;
 - effectful operations with single and multiple capability requirements;
 - execution-relevant qualifiers and explicit failure behavior;
 - failing pure operations ordered around effects;
 - mixed scalar/vector regions;
-- determinism/numeric/randomness contract preservation;
-- per-effect-attempt provenance identity and completion states;
+- multiple scoped numeric contracts and modes;
+- determinism/randomness contract preservation;
+- declared-effect/runtime-attempt provenance identity and completion states;
 - unsupported constructs failing closed rather than bypassing the IR.
 
 ## Performance principle
