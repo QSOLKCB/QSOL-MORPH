@@ -70,7 +70,9 @@ Potential fields:
 target architecture
 device
 runtime/compiler versions
-seed and RNG identity
+result-determinism contract
+randomness contract
+seed and RNG identity where used
 capabilities used
 external tool versions
 start/stop metadata where permitted
@@ -82,7 +84,8 @@ Potential fields:
 
 ```text
 output hashes
-validation status
+test status
+validation status where an explicit VALIDATION transition occurred
 error/tolerance contract
 result semantic class
 artifact locations
@@ -115,13 +118,17 @@ Example:
 @015 SAVE ENERGY
 ```
 
-The result can retain edges back to the observations, parameters, derivation, and validation cards that produced it.
+The result can retain edges back to the observation, parameter, derivation, TEST card, and save operation that produced or checked it.
+
+`@014 TEST ENERGY` remains a `TEST`. It must not be described or serialized as `VALIDATION` merely because it participates in checking a result. If the language later supports an epistemically stronger `VALIDATION` class, promotion to that class requires a distinct CARD or explicit evidence-transition rule defined by the frozen specification.
 
 ## External evidence
 
 External evidence must remain explicit.
 
 If a TEST compares against a file, external instrument, network service, benchmark, or formal tool, the trace should identify the relevant evidence boundary rather than treating the external result as native QSOL truth.
+
+A successful TEST against external evidence still does not silently become VALIDATION or PROOF.
 
 ## Cache provenance
 
@@ -167,6 +174,8 @@ This distinction is intentionally aligned with the optimization discipline devel
 ## Trace policy
 
 Not every execution needs every field. The active specification, determinism profile, and extensions should define the minimum trace required for a claim.
+
+The roadmap requires a minimal trace/provenance foundation before the first executable QSOL reference machine. Later phases may enrich the trace, but executable research results must not begin life without source/IR/execution-contract binding.
 
 ## Principle
 
