@@ -2,7 +2,7 @@
 
 QSOL-MORPH treats provenance as part of execution semantics for research workflows.
 
-This document is architectural and non-normative until the relevant contracts are frozen. Its purpose is to ensure that later implementations can explain not only what bytes were produced, but which semantic units, concrete executions, lowerings, machinery decisions, authorization decisions, execution paths, entropy acquisitions, external tools, and evidence transitions produced them.
+This document is architectural and non-normative until the relevant contracts are frozen. Its purpose is to ensure that later implementations can explain not only what bytes were produced, but which semantic units, concrete executions, lowerings, machinery decisions, authorization decisions, execution paths, entropy acquisitions, external tools, toolchain invocations, and evidence transitions produced them.
 
 ## Trace questions
 
@@ -21,7 +21,7 @@ A complete trace should be able to answer:
 - which protected effects were declared for each concrete CARD execution, authorized, attempted, completed, aborted, partially observed, or legitimately not attempted;
 - which external-entropy acquisition attempt(s) and immutable entropy input(s) governed every applicable EXTERNAL-ENTROPY randomness scope;
 - what exact immutable inputs were consumed and which ones materially contributed to each output;
-- which concrete CARD executions, effect attempts, tools, generated artifacts, optimization records, and execution-contract scopes produced each output;
+- which concrete CARD executions, effect attempts, tools, generated artifacts, optimization records, toolchain invocations, and execution-contract scopes produced each output;
 - whether cache reuse occurred and under what legality evidence;
 - what epistemic class and evidence status belongs to each output;
 - whether execution failed, at what typed scope, and what had already become observable.
@@ -138,6 +138,7 @@ randomness_contract_bindings[]:
     requested_randomness_mode
 
 failure_behavior_bindings[]:
+    failure_behavior_binding_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -145,6 +146,8 @@ failure_behavior_bindings[]:
     effective_failure_behavior_id
     mapping_or_transition_rule_id?
 ```
+
+`failure_behavior_binding_id` is the stable record identity used by result provenance. It is distinct from the generic computation `scope_id` and remains resolvable even when several bindings or policy transitions concern one governed computation.
 
 The owning scope may be a JOB, DECK, CARD, or another scope frozen by the semantic model. Distinct source requirements may not be collapsed into one execution-wide declaration unless a frozen normalization proves that collapse is lossless.
 
@@ -295,6 +298,7 @@ backend_selection_decisions[]
 machinery_authorization_records[]
 machinery_use_records[]
 generated_artifacts[]
+toolchain_invocations[]
 vectorization_decisions[]
 fusion_decisions[]
 memory_placement_decisions[]
@@ -396,10 +400,37 @@ generated_artifacts[]:
     source_card_ids[]?
     optimized_ir_hash?
     optimization_record_ids[]?
+    toolchain_invocation_ids[]
     artifact_location?
 ```
 
-Generated artifacts link concrete target output to the machinery decision that produced them. When an artifact comes from optimized IR, `optimization_record_ids[]` and `optimized_ir_hash` identify the actual transformation history.
+Generated artifacts link concrete target output to the machinery decision that produced them. When an artifact comes from optimized IR, `optimization_record_ids[]` and `optimized_ir_hash` identify the actual transformation history. `toolchain_invocation_ids[]` is the ordered chain of concrete compiler/assembler/linker/code-generation invocations that materially produced the artifact bytes.
+
+## Toolchain invocation provenance
+
+Run-wide compiler/tool versions are useful summaries, but they cannot identify the exact build path for one artifact when different backend units or stages use different versions, flags, targets, linkers, or generated-code options.
+
+```text
+toolchain_invocations[]:
+    toolchain_invocation_id
+    invocation_sequence_index
+    invocation_kind
+    tool_name
+    material_tool_identity
+    target_or_architecture?
+    abi?
+    flags[]
+    environment_or_config_hash?
+    input_ir_hashes[]?
+    input_generated_artifact_ids[]?
+    output_generated_artifact_ids[]
+    backend_unit_id?
+    backend_selection_scope_id?
+```
+
+`material_tool_identity` is immutable/versioned identity sufficient to distinguish the actual compiler, assembler, linker, code generator, or frozen equivalent used by that invocation. It may be represented by a version plus binary/content hash, immutable tool artifact ID, or another frozen identity adequate for the reproducibility claim.
+
+The `toolchain_invocation_ids[]` stored on a generated artifact are ordered and resolve to records whose reciprocal `output_generated_artifact_ids[]` include that artifact. Multi-stage compile/assemble/link pipelines therefore remain explicit. A generated artifact cannot claim reproducible byte provenance from a run-wide compiler list alone.
 
 ## Optimization provenance
 
@@ -426,6 +457,7 @@ An optimization profile is configuration, not evidence of what actually ran. The
 output
   -> generated_artifact
       -> optimization_provenance
+      -> toolchain_invocations
 ```
 
 `backend_unit_id` alone is not sufficient when one unit produces reference and optimized variants.
@@ -471,9 +503,18 @@ randomness_execution_scopes[]:
     entropy_effect_attempt_ids[]?
     entropy_input_ids[]?
     backend_unit_id?
+
+failure_behavior_bindings[]:
+    failure_behavior_binding_id
+    scope_kind
+    scope_id
+    source_card_ids[]
+    requested_failure_behavior_id
+    effective_failure_behavior_id
+    mapping_or_transition_rule_id?
 ```
 
-Output references resolve directly to `result_determinism_scope_id`, `numeric_scope_id`, and `randomness_scope_id`. They never infer those records from a generic `scope_id`.
+Output references resolve directly to `result_determinism_scope_id`, `numeric_scope_id`, `randomness_scope_id`, and `failure_behavior_binding_id`. They never infer those records from a generic `scope_id`.
 
 ### External-entropy attribution
 
@@ -507,6 +548,7 @@ machinery_use_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
+failure_behavior_bindings[]
 inputs[]
 required_capabilities[]
 granted_capabilities[]
@@ -521,10 +563,12 @@ effect_attempts[]
 effect_non_attempt_records[]
 cache_reuse_records[]
 external_tool_versions[]
+generated_artifacts[]
+toolchain_invocations[]
 start_stop_metadata?
 ```
 
-Execution-wide capability arrays are summaries only. Per-effect and per-machinery authorization records prove contextual authorization.
+Execution-wide capability arrays and `runtime_compiler_versions[]` are summaries only. Contextual authorization records prove per-boundary authorization, and `toolchain_invocations[]` prove the exact artifact-producing build path.
 
 ## DECK and CARD execution ledgers
 
@@ -714,13 +758,18 @@ external_tool_versions[]:
     external_tool_id
     tool_kind
     tool_name_or_service
-    version?
-    content_hash_or_model_id?
+    material_identity_status
+    material_identity_kind?
+    material_identity_value?
     endpoint_or_location?
     source_card_ids[]?
     effect_attempt_ids[]?
     output_ids[]?
 ```
+
+For a material external tool, service, model, prover, process, or instrument, `tool_name_or_service` and a mutable endpoint are labels/locators only. `material_identity_status = IDENTIFIED` requires an immutable or versioned `material_identity_value`, such as an executable/content hash, tool version bound strongly enough for the active claim, model/version ID, immutable artifact ID, or frozen equivalent.
+
+If exact material identity cannot be established, record `material_identity_status = UNAVAILABLE` (or a frozen equivalent) and the strongest replay/evidence claim must be weakened or rejected according to the frozen policy. Identity unavailability may never be silently treated as full reproducibility.
 
 Extension resolution identifies the adapter/profile contract. It does not substitute for the actual tool, service, model, prover, process, or instrument identity.
 
@@ -769,6 +818,7 @@ outputs[]:
     result_determinism_scope_ids[]
     numeric_scope_ids[]
     randomness_scope_ids[]
+    failure_behavior_binding_ids[]
     cache_reuse_record_ids[]?
     evidence_status?
 ```
@@ -783,7 +833,9 @@ The concrete producer-execution relation is required whenever runtime producer a
 
 `external_tool_ids[]`, where applicable, identifies the exact material tools/services/models/provers that supplied the output.
 
-`generated_artifact_ids[]` identifies the exact executable/kernel/bytecode artifact that ran where applicable. The artifact links onward to its optimization provenance.
+`generated_artifact_ids[]` identifies the exact executable/kernel/bytecode artifact that ran where applicable. The artifact links onward to its optimization and toolchain-invocation provenance.
+
+`failure_behavior_binding_ids[]` resolves to the exact identified failure-policy records that governed the producer path. A generic computation `scope_id` cannot substitute for this record-level join.
 
 The execution-contract scope arrays resolve directly to the stable type-specific scope-record keys described above.
 
@@ -842,6 +894,7 @@ At minimum, a future validator should reject or fail closed when:
 - a required extension ownership mapping becomes positional or implicit;
 - a requested execution contract is silently weakened without prior authorization;
 - output scope IDs do not resolve to stable type-specific scope records;
+- an output failure-behavior reference does not resolve to a stable `failure_behavior_binding_id`;
 - a concrete output cannot be joined to the CARD execution that produced it;
 - an EXTERNAL-ENTROPY randomness scope cannot resolve to the exact protected RANDOM acquisition attempt(s), and to immutable entropy input identity where required by the audit/replay contract;
 - an effect attempt or non-attempt cannot be joined to its concrete `card_execution_id`;
@@ -856,10 +909,12 @@ At minimum, a future validator should reject or fail closed when:
 - a pre-CARD failure fabricates `failure_card_id`, or a CARD-caused failure omits the matching canonical/concrete CARD identities;
 - cold execution and cache reuse become indistinguishable;
 - an optimized artifact cannot be joined to its optimization record;
+- a generated artifact cannot be joined to the ordered material toolchain invocation chain that produced its bytes;
+- a toolchain invocation omits material tool identity or material build flags/configuration required by the active reproducibility claim;
 - output evidence status contradicts semantic class;
 - a mutable input locator substitutes for immutable input identity;
-- material external-tool identity disappears.
+- a material external tool has neither immutable/versioned material identity nor an explicit identity-unavailable state that weakens the claim.
 
 ## Principle
 
-> Trace meaning, not just bytes. Preserve stable semantic identity, typed scope correspondence, concrete execution identity, unconditional declared-effect accounting, authorization-before-use ordering, and the exact evidence chain from immutable inputs through lowerings and machinery to each output or failure.
+> Trace meaning, not just bytes. Preserve stable semantic identity, typed scope correspondence, concrete execution identity, unconditional declared-effect accounting, authorization-before-use ordering, and the exact evidence chain from immutable inputs through lowerings, optimization, toolchain invocations, and machinery to each output or failure.
