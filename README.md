@@ -46,9 +46,13 @@ The proposed structural hierarchy is:
 JOB [JOB ID]
  ├── SCOPED DETERMINISM / NUMERIC / RANDOMNESS CONTRACTS
  ├── MACHINERY REQUIREMENTS[]
+ ├── EXTENSION REQUIREMENTS[]
+ ├── FAILURE BEHAVIOR?
  └── DECK [DECK ID]
       ├── SCOPED DETERMINISM / NUMERIC / RANDOMNESS CONTRACTS
       ├── MACHINERY REQUIREMENTS[]
+      ├── EXTENSION REQUIREMENTS[]
+      ├── FAILURE BEHAVIOR?
       └── CARD [CARD ID]
            ├── VERB
            ├── NOUN
@@ -71,14 +75,14 @@ JOB [JOB ID]
            ├── NUMERIC CONTRACT
            ├── EXTENSION REQUIREMENTS[]
            ├── FAILURE BEHAVIOR
-           └── DEPENDENCY / EFFECT / FAILURE ORDER
+           └── DEPENDENCIES / TAGGED SEQUENCING CONSTRAINTS[]
 ```
 
 Stable JOB/DECK/CARD IDs are canonical semantic identities. They survive lossless serialization, both lowering stages, and trace production without renumbering.
 
 `VALUE` carries an immediate or literal value when present. `RESULT BINDING` separately names a value produced for dependent CARDs.
 
-Result-determinism, numeric, and randomness contracts remain attached to the JOB, DECK, CARD, or other frozen scope that owns them. A representation may not flatten a DECK/JOB requirement into arbitrary children and silently change its meaning.
+Result-determinism, numeric, randomness, extension, and failure contracts remain attached to the JOB, DECK, CARD, or other frozen scope that owns them. A representation may not flatten a DECK/JOB requirement into arbitrary children and silently change its meaning.
 
 Each protected external effect owns its stable declared effect ID, effect kind, and **complete capability set**. A derived CARD-wide capability union may help preflight, but it does not replace the per-effect association.
 
@@ -153,10 +157,10 @@ The lowering must preserve or explicitly validate before erasure:
 - protected machinery requirements where still material;
 - explicit `failure_behavior`;
 - result-determinism, numeric, and randomness contracts at their governing scopes;
-- extension requirements;
-- dependency/effect/failure ordering.
+- extension requirements at their governing scopes;
+- the canonical tagged `sequencing_constraints[]` relation, including source/effect/failure ordering.
 
-Its provenance records lowering-spec and implementation identities plus qualifier, result-determinism, numeric, randomness, and result-binding decisions.
+Its provenance records lowering-spec and implementation identities plus qualifier, result-determinism, numeric, randomness, machinery/failure, and result-binding decisions where material.
 
 ### Result-binding maps
 
@@ -184,7 +188,7 @@ It carries or represents:
 
 A non-vectorizable operation is not permission to bypass this IR.
 
-Core→Vector/Dataflow provenance records not only result-binding correspondence but also contract-scope mappings for result determinism, numeric behavior, and randomness whenever Core scopes are split, fused, renamed, or otherwise remapped into lower execution regions/units.
+Core→Vector/Dataflow provenance records not only result-binding correspondence but also contract-scope mappings for result determinism, numeric behavior, randomness, machinery requirements, and failure behavior whenever Core scopes are split, fused, renamed, or otherwise remapped into lower execution regions/units.
 
 ## Determinism, numerics, and randomness
 
@@ -252,10 +256,15 @@ declared_effect_id
 card_id
 effect_kind
 required_capabilities[]
+effect_authorization_record_id
 completion_state
 ```
 
-A declared effect that has no runtime attempt is accounted for by an explicit `effect_non_attempt_records[]` reason such as untaken branch, prior fail-stop, CARD not reached, explicit skip, or detected backend omission.
+`effect_authorization_record_id` links the concrete attempt to the contextual required/granted/denied capability decision and policy that governed it. Execution-wide capability summaries do not substitute for this per-attempt authorization record.
+
+A declared effect that has no runtime attempt is accounted for by an explicit `effect_non_attempt_records[]` reason such as untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip.
+
+`BACKEND_OMISSION_DETECTED` (or a frozen equivalent) is not an ordinary successful non-attempt reason. It means a reachable required effect was omitted and therefore **forces structured execution/conformance failure**; it cannot coexist with a successful enclosing execution.
 
 Completion state is one of:
 
@@ -300,7 +309,7 @@ Activating an extension never grants runtime permission by itself.
 
 Machinery selection is also distinct from authorization. `RUN MODEL ON GPU` may select a GPU-backed scope, but protected GPU use begins only after the applicable machinery requirement's capabilities are granted.
 
-`machinery_authorization_records[]` bind the selected backend scope to required/granted/denied machinery capabilities and the capability policy responsible for the decision. A denied GPU authorization must not launch a kernel, and it must not be represented as a fake external effect.
+`machinery_authorization_records[]` bind the selected backend-selection scope and decision to required/granted/denied machinery capabilities and the capability policy responsible for the decision. A denied GPU authorization must not launch a kernel, and it must not be represented as a fake external effect.
 
 ## CUDA without ordinary plumbing
 
@@ -338,6 +347,7 @@ core-to-vector contract-scope mapping decisions[]
 Vector/Dataflow IR hash
 MORPH/compiler identity
 backend_selection_scopes[]
+backend_selection_decisions[]
 machinery_authorization_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
@@ -345,13 +355,17 @@ randomness_execution_scopes[]
 identified inputs[]
 identified outputs[]
 resolved extension identities
+external_tool_versions[]
 capability authorization policy
+effect_authorization_records[]
 declared effect IDs + runtime effect attempts + explicit non-attempt reasons
 cache_reuse_records[]
 optimization decisions
 generated_artifacts[]
 failure records
 ```
+
+`backend_selection_scopes[]` identify governed machinery-selection records; `backend_selection_decisions[]` preserve the ordered decision history within those scopes, including denied/superseded targets and frozen fallback transitions rather than overwriting them with the final backend.
 
 ### Identified inputs
 
@@ -372,7 +386,10 @@ artifact_hash
 artifact_location?
 semantic_class
 status
+evidence_status?
 producer_card_ids[]
+effect_attempt_ids[]?
+external_tool_ids[]?
 backend_selection_scope_ids[]
 generated_artifact_ids[]?
 result_determinism_scope_ids[]
@@ -381,7 +398,11 @@ randomness_scope_ids[]
 cache_reuse_record_ids[]?
 ```
 
-`backend_selection_scope_ids[]` identifies the machinery decision. `generated_artifact_ids[]`, when applicable, identifies the **exact executable/kernel/bytecode artifact that actually ran or supplied the result**. This distinction matters when reference and optimized artifacts share one backend-selection scope.
+When present, `evidence_status` is class-discriminated, conceptually carrying `evidence_class`, evidence `status`, and optional `evidence_rule_id`. It must be compatible with the output's `semantic_class` and any explicit evidence transition. Generic output `status` remains an execution/artifact state and cannot by itself promote TEST to VALIDATION or VALIDATION to PROOF.
+
+`effect_attempt_ids[]`, when applicable, identifies the concrete authorized effect attempts that produced, exposed, or materially supplied the output. `external_tool_ids[]`, when applicable, identifies the exact material tool/service/model/prover records that contributed to it. These links prevent retries or multiple tools invoked by one CARD from collapsing into one ambiguous producer attribution.
+
+`backend_selection_scope_ids[]` identifies the machinery-selection scope. `generated_artifact_ids[]`, when applicable, identifies the **exact executable/kernel/bytecode artifact that actually ran or supplied the result**. This distinction matters when reference and optimized artifacts share one backend-selection scope.
 
 A simulation artifact and a separately validated artifact therefore cannot accidentally share one evidence status or machinery/RNG/generated-code provenance record.
 
