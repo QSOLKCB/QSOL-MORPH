@@ -271,9 +271,11 @@ Failing closed is preferable to emitting a program with changed meaning.
 
 Extensions may define additional lowering rules behind explicit versioned contracts.
 
-A lowering trace should bind the resolved extension identity used to interpret extension-owned constructs and qualifiers.
+A lowering trace should bind the resolved extension identity used to interpret extension-owned constructs and qualifiers **and** preserve which source scope owned that requirement.
 
-An extension may add lowering functionality. It may not silently redefine frozen core meaning.
+If lowering preserves an extension requirement by identity, the source-to-Core scope relation may be omitted only when a frozen deterministic identity-scope reconstruction rule makes the ownership relation losslessly reconstructible. If lowering groups, relocates, splits, fuses, or otherwise transforms the owning scope, `extension_requirement_lowering_decisions[]` records that mapping together with the resolved profile/version/content/contract identity and frozen mapping rule.
+
+An extension may add lowering functionality. It may not silently redefine frozen core meaning or detach a versioned profile requirement from the scope whose syntax, effects, qualifiers, or hooks it interprets.
 
 ## Conformance fixtures
 
@@ -293,7 +295,7 @@ Fixtures should cover at least:
 - seeded randomness;
 - multiple scoped numeric contracts and legal normalization/rejection cases;
 - explicit failure behavior and tagged sequencing constraints, including non-effect/failure sequencing kinds;
-- extension-owned constructs and qualifiers, including JOB/DECK/CARD scoped extension requirements where permitted;
+- extension-owned constructs and qualifiers, including JOB/DECK/CARD scoped extension requirements where permitted and scope-preserving/remapped extension provenance;
 - unsupported construct/qualifier/machinery-requirement/sequencing-constraint rejection.
 
 A reference lowering implementation should pass those fixtures before backend code generation is considered conforming.
@@ -311,6 +313,7 @@ semantic_to_core_implementation_version
 core_ir_hash
 result_binding_map[]
 resolved_extensions[]
+extension_requirement_lowering_decisions[]
 qualifier_lowering_decisions[]
 machinery_requirement_lowering_decisions[]
 result_determinism_lowering_decisions[]
@@ -321,6 +324,8 @@ lowering_diagnostics[]
 ```
 
 The canonical identity fields are `semantic_to_core_spec_version` and `semantic_to_core_implementation_version`, matching the flattened trace and run-manifest schemas. Lowering producers and consumers must not substitute unprefixed aliases unless a future frozen schema explicitly defines that alias mapping.
+
+`extension_requirement_lowering_decisions[]` binds each materially transformed source extension requirement to the Core scope(s) that inherit it, retaining source scope identity, source CARD provenance, resolved profile/version/content/contract identity, and the frozen mapping rule. It may be omitted only under a frozen deterministic identity-scope reconstruction rule that actually covers extension ownership.
 
 `machinery_requirement_lowering_decisions[]` records any scope grouping, identity change, or frozen representation mapping applied to canonical machinery requirements; omission is permitted only when a frozen deterministic identity-preservation rule makes the mapping reconstructible.
 
