@@ -14,6 +14,7 @@ The goal is not merely to say that a program ran. The trace should make it possi
 - why automatic machinery selection or fallback chose each target;
 - whether protected machinery was authorized before use and what ordered trace evidence proves authorization completed before protected use began;
 - whether each protected external effect was authorized before it began and what ordered trace evidence proves that relation;
+- which typed control decision or identified failure record explains every untaken, skipped, or fail-stop-blocked execution path where such a cause is material;
 - what exact immutable inputs were consumed and which material inputs contributed to each identified output;
 - what result-determinism, numeric, randomness, and failure-behavior contracts governed each relevant scope;
 - what extension contracts were resolved and how their owning scopes mapped through both mandatory lowerings;
@@ -509,6 +510,8 @@ run_id
 job_id
 deck_executions[]
 card_executions[]
+control_decisions[]
+failure_records[]
 runtime_compiler_versions[]
 backend_selection_scopes[]
 backend_selection_decisions[]
@@ -549,12 +552,13 @@ deck_executions[]:
     deck_status
     card_execution_ids[]
     execution_order_index?
+    failure_record_id?
     failure_card_id?
     failure_class?
     failure_stage?
 ```
 
-A DECK prevented from starting by prior fail-stop remains visible with an explicit non-started/skipped status or frozen equivalent.
+A DECK prevented from starting by prior fail-stop remains visible with an explicit non-started/skipped status or frozen equivalent. `failure_record_id`, when present, identifies the structured failure event that caused or summarizes the DECK outcome; the aggregate failure fields may be retained as convenient summaries but do not replace the identified record.
 
 ```text
 card_executions[]:
@@ -563,7 +567,8 @@ card_executions[]:
     card_id
     card_status
     execution_order_index?
-    governing_control_or_failure_id?
+    governing_control_decision_id?
+    governing_failure_record_id?
     failure_class?
     failure_stage?
 ```
@@ -571,6 +576,44 @@ card_executions[]:
 Candidate `card_status` values may include `EXECUTED_SUCCESS`, `EXECUTED_FAILED`, `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, or frozen equivalents.
 
 This matters even for pure CARDs. A TEST on an untaken branch may have no output, effect, or failure record, but it must still be distinguishable from a TEST that executed successfully.
+
+### Typed execution-path causes
+
+Execution-path causes use typed, resolvable references rather than one untyped ID namespace.
+
+A candidate control-decision ledger is:
+
+```text
+control_decisions[]:
+    control_decision_id
+    deck_execution_id
+    control_card_id
+    control_kind
+    decision_outcome
+    selected_successor_or_scope_id?
+    decision_sequence_index?
+    backend_detail?
+```
+
+`control_decision_id` identifies the concrete branch/jump/mask/dispatch or frozen equivalent decision that governed an execution path. An `UNTAKEN_BRANCH` CARD or effect declaration should reference the applicable `governing_control_decision_id` when that cause is known and material.
+
+Failures use a separate identified namespace:
+
+```text
+failure_records[]:
+    failure_record_id
+    deck_execution_id?
+    card_execution_id?
+    failure_card_id
+    failure_class
+    failure_stage
+    failure_sequence_index?
+    backend_detail?
+```
+
+`failure_record_id` identifies the structured failure event. `failure_card_id` retains the canonical meaning of the CARD whose unhandled failure produced that record. `PRIOR_FAIL_STOP` or `CARD_NOT_REACHED` caused by failure should reference the applicable `governing_failure_record_id`.
+
+A producer must not put a control-decision ID into a failure field, put a failure-record ID into a control field, or rely on identifier-string shape to infer the target namespace. If both control and failure materially contribute to one path, the frozen composition rule must define whether both typed references are present and how their precedence is interpreted.
 
 ## Identified input provenance
 
@@ -716,13 +759,16 @@ effect_non_attempt_records[]:
     card_id
     effect_kind
     non_attempt_reason
-    governing_control_or_failure_id?
+    governing_control_decision_id?
+    governing_failure_record_id?
     backend_detail?
 ```
 
 Legitimate candidate reasons may include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, or frozen equivalents.
 
-`BACKEND_OMISSION_DETECTED` (or a frozen equivalent) is qualitatively different: it means a reachable required effect was not attempted because the implementation/backend failed to honor the semantic program. Recording that reason **must force structured execution/conformance failure**. It cannot be treated as an ordinary successful non-attempt path and cannot coexist with a successful enclosing execution status.
+`UNTAKEN_BRANCH` should resolve to an applicable `control_decisions[]` record when the cause is available. `PRIOR_FAIL_STOP` and failure-caused `CARD_NOT_REACHED` should resolve to an applicable `failure_records[]` record. An explicit skip may use a separate frozen policy/rule identity if it is not caused by control flow or failure. Typed references prevent a consumer from guessing whether an opaque ID names a branch decision or a failure event.
+
+`BACKEND_OMISSION_DETECTED` (or a frozen equivalent) is qualitatively different: it means a reachable required effect was not attempted because the implementation/backend failed to honor the semantic program. Recording that reason **must force structured execution/conformance failure**. It cannot be treated as an ordinary successful non-attempt path and cannot coexist with a successful enclosing execution status. The resulting structured omission failure should itself have an identified `failure_record_id` when the frozen failure schema requires complete causal linkage.
 
 An effect declaration with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
 
@@ -831,6 +877,8 @@ job_id
 job_status
 deck_executions[]
 card_executions[]
+control_decisions[]
+failure_records[]
 failure_card_id
 failure_class
 failure_stage
@@ -848,7 +896,9 @@ machinery_use_records[]
 observable_output_ids[]
 ```
 
-The canonical field for the CARD whose unhandled failure produced the enclosing failure record is `failure_card_id`. `card_id` remains appropriate inside effect-attempt/authorization/non-attempt records that identify the CARD owning that effect declaration.
+`failure_records[]` is the resolvable source of failure-event identity. Aggregate `failure_card_id`, `failure_class`, and `failure_stage` may summarize the primary/enclosing failure, but causal references from CARD or non-attempt records use `governing_failure_record_id` and therefore resolve to an actual identified failure record.
+
+The canonical field for the CARD whose unhandled failure produced a failure record is `failure_card_id`. `card_id` remains appropriate inside effect-attempt/authorization/non-attempt records that identify the CARD owning that effect declaration.
 
 ## Hash identities
 
@@ -978,7 +1028,7 @@ Not every execution requires every optional field. The active specification, exe
 
 However, executable research results must not begin life without enough provenance to bind identified outputs to:
 
-- their canonical program and per-DECK/per-CARD execution path;
+- their canonical program and per-DECK/per-CARD execution path, including typed control/failure cause references where those causes explain skipped or untaken execution;
 - the exact immutable material inputs that contributed to each output;
 - semantic class/status and a mutually consistent evidence-status claim;
 - scoped machinery-selection decision history plus resolvable determinism/numeric/randomness/failure-behavior decisions;
