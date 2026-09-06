@@ -34,6 +34,8 @@ QSOL-MORPH may:
 
 - select a backend when policy permits;
 - validate extension requirements at the machinery boundary;
+- identify applicable protected-machinery requirements after target resolution;
+- authorize protected machinery before use;
 - check determinism compatibility;
 - choose legal target-lowering strategies from the already-defined lower IR;
 - vectorize;
@@ -42,7 +44,7 @@ QSOL-MORPH may:
 - place data;
 - specialize for a target;
 - emit inspectable code or binaries;
-- record material transformation and selection decisions.
+- record material transformation, selection, and authorization decisions.
 
 It may not silently redefine scientific meaning or absorb the Semantic IR → QSOL-CORE language-lowering stage into backend-specific code generation.
 
@@ -98,11 +100,13 @@ numeric contracts
 determinism contracts
 ```
 
+Protected accelerator use may additionally require one or more canonical machinery capabilities. Target selection and target authorization remain separate decisions.
+
 ## CUDA backend
 
 **CUDA is a backend/machinery selection.**
 
-Selecting CUDA answers where/how the generic GPU computation is lowered. It does not by itself require vendor-specific source controls.
+Selecting CUDA answers where/how the generic GPU computation is lowered. It does not by itself require vendor-specific source controls or grant permission to use protected accelerator machinery.
 
 Desired simple form:
 
@@ -111,6 +115,8 @@ RUN GRAVITY ON CUDA
 ```
 
 QSOL-MORPH may generate normal CUDA plumbing such as allocation, transfers, launch configuration, synchronization, cleanup, and stable failure mapping. Generated CUDA should remain inspectable.
+
+If the governed source/lower scope carries an applicable machinery requirement, authorization must succeed before CUDA machinery is used.
 
 ## QX-CUDA control profile
 
@@ -168,13 +174,18 @@ selection_policy_id?
 selection_policy_version?
 selection_tuning_id?
 selection_tuning_hash?
+machinery_authorization_record_ids[]?
 ```
 
 Policy/tuning fields are material when selection is automatic, such as `ON BEST`. An explicit target still needs enough scope identity to establish which source computation and generated unit used that machinery.
 
+When selected machinery is protected, `machinery_authorization_record_ids[]` directly identifies the authorization decision or decisions governing that selection scope. A consumer must not be forced to infer authorization by matching only source CARDs, capability names, or target strings.
+
+One backend-selection scope may reference zero, one, or several authorization records only as permitted by the frozen authorization/selection contract, for example where several independent machinery requirements apply. Every referenced authorization must be compatible with the selected scope and must succeed before protected use begins.
+
 A single execution-wide backend-selection record is valid only when one frozen machinery decision genuinely governs the whole run. Mixed-target JOBs keep distinct scope entries.
 
-This allows replay/audit to explain both **what** ran and **why** each target was selected.
+This allows replay/audit to explain **what** ran, **why** each target was selected, and **which authorization decision permitted or denied its protected use**.
 
 For a frozen replay, policy may require the previously selected target rather than re-running an evolved selection/tuning process.
 
@@ -217,4 +228,4 @@ The exact CLI is not frozen.
 
 ## Principle
 
-> QSOL programs describe meaning. Semantic lowering defines lower meaning. QSOL-MORPH chooses machinery and must be able to explain the choice.
+> QSOL programs describe meaning. Semantic lowering defines lower meaning. QSOL-MORPH chooses machinery, authorizes protected use, and must be able to explain both decisions.
