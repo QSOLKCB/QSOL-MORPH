@@ -88,7 +88,7 @@ Undefined target behavior is not a valid QSOL semantic contract.
 
 Effects complicate failure because the external world may already have changed.
 
-Every protected external effect is modeled as an **identified effect attempt** with its own completion state. A CARD may produce zero, one, or multiple effect attempts, and a DECK/JOB may accumulate many attempts across multiple CARDs.
+Every protected external effect is modeled as an **identified effect attempt** with its own authorization decision and completion state. A CARD may produce zero, one, or multiple effect attempts, and a DECK/JOB may accumulate many attempts across multiple CARDs.
 
 At minimum, each attempt should distinguish:
 
@@ -103,6 +103,8 @@ UNKNOWN
 These names are provisional, but the distinctions are semantic and must be mutually exclusive.
 
 A declared effect does not necessarily have an attempt. Its CARD may be on an untaken branch, may never be reached after an earlier fail-stop failure, or may be explicitly skipped under a frozen rule. The trace must distinguish those legitimate non-attempts from a backend silently omitting a reachable declared effect.
+
+A detected omission of a **reachable required effect** is not an ordinary non-attempt outcome. It is an implementation/conformance failure and must produce a structured failed execution outcome. Recording `BACKEND_OMISSION_DETECTED` (or a frozen equivalent) cannot be used to legitimize success after the backend skipped required semantic behavior.
 
 ## Completion-state decision rule
 
@@ -205,9 +207,27 @@ Capability authorization is a hard boundary, not a best-effort preflight.
 
 **Every protected external effect must have every capability in its complete required-capability set successfully authorized before that effect begins.**
 
-For example, an operation requiring both `AI_MODEL` and `NETWORK` must not begin its remote model effect unless both capabilities have been granted for that execution.
+Authorization is contextual to the concrete runtime attempt. Each identified effect attempt therefore links to an identified authorization record that preserves at least:
 
-If authorization is denied or cannot be established for any required capability after a runtime attempt has been identified, the attempt fails with state `NOT_STARTED`.
+```text
+effect_authorization_record_id
+effect_attempt_id
+declared_effect_id
+card_id
+required_capabilities[]
+granted_capabilities[]
+denied_capabilities[]
+capability_policy_id
+capability_policy_version
+authorization_status
+authorization_sequence_index?
+```
+
+Execution-wide granted/denied capability summaries are useful diagnostics, but they do not prove which policy decision governed one particular attempt.
+
+For example, an operation requiring both `AI_MODEL` and `NETWORK` must not begin its remote model effect unless both capabilities have been granted by the authorization record for that attempt.
+
+If authorization is denied or cannot be established for any required capability after a runtime attempt has been identified, the attempt fails with state `NOT_STARTED` and retains the denial record.
 
 This rule is unconditional for capability authorization. A backend may not downgrade it to "where practical" merely because preflight is inconvenient.
 
@@ -283,9 +303,9 @@ A failed execution should be traceable with enough information to answer:
 - which stable failure class applies;
 - which backend/runtime detail was reported;
 - which declared effects existed;
-- which effect attempts existed, which canonical declared effect produced each one, the complete capability set governing each attempt, and the completion state of each attempt;
-- why any declared effect had no runtime attempt;
-- whether any output artifact became externally visible;
+- which effect attempts existed, which canonical declared effect produced each one, which authorization decision governed each attempt, the complete capability set governing each attempt, and the completion state of each attempt;
+- why any declared effect had no runtime attempt and whether that reason itself indicates a conformance failure;
+- whether any output artifact became externally visible and which concrete attempt produced/exposed it;
 - what determinism, numeric, randomness, capability, machinery-authorization, policy, and extension contracts were active.
 
 A minimal conceptual record may contain:
@@ -302,10 +322,11 @@ failure_class
 failure_stage
 backend_detail?
 effect_requirements[]
+effect_authorization_records[]
 effect_attempts[]
 effect_non_attempt_records[]
 machinery_authorization_records[]
-observable_artifacts[]
+observable_output_ids[]
 ```
 
 Each selected DECK is represented through an identified record such as:
@@ -342,6 +363,8 @@ Candidate CARD outcomes may include successful execution, failed execution, unta
 
 Each `effect_requirements[]` entry preserves the canonical declared effect, source CARD, effect kind, and complete required-capability set.
 
+Each `effect_authorization_records[]` entry preserves the contextual policy decision that governed one identified attempt.
+
 Each `effect_attempts[]` entry should be independently identifiable and may carry fields such as:
 
 ```text
@@ -350,10 +373,12 @@ declared_effect_id
 card_id
 effect_kind
 required_capabilities[]
+effect_authorization_record_id
 sequence_index
 completion_state
 backend_detail?
-observable_artifacts[]
+observable_output_ids[]
+external_tool_ids[]?
 ```
 
 `declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt. They are not interchangeable.
@@ -370,7 +395,7 @@ effect_non_attempt_records[]:
     backend_detail?
 ```
 
-Candidate reasons include untaken branch, prior fail-stop, CARD not reached, explicit frozen skip, and detected backend omission. A declared effect with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
+Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. A detected backend omission of a reachable effect is instead a structured implementation/conformance failure. A declared effect with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
 
 The trace must not collapse multiple external actions into one aggregate `partial_effect_state`, and it must not collapse selected DECKs or CARD execution paths into one aggregate status that loses which semantic units actually ran.
 
@@ -402,8 +427,8 @@ Backends may translate failure into native mechanisms such as return codes, tagg
 
 Those are implementation choices.
 
-They must map back to the same QSOL CARD/DECK/JOB success/failure semantics, the same per-CARD/per-DECK execution ledger, and the same per-effect-attempt/non-attempt semantics.
+They must map back to the same QSOL CARD/DECK/JOB success/failure semantics, the same per-CARD/per-DECK execution ledger, the same per-effect authorization/attempt/non-attempt semantics, and the rule that a reachable declared-effect omission is failure rather than successful execution.
 
 ## Principle
 
-> Failure is observable behavior. Record every selected DECK, every CARD execution outcome, and every declared effect's attempt or non-attempt reason. Effect completion belongs to the effect attempt, not the CARD outcome. Authorization happens before the protected boundary. Do not leave any of these to backend folklore.
+> Failure is observable behavior. Record every selected DECK, every CARD execution outcome, every declared effect's authorization/attempt or non-attempt reason, and fail when a reachable required effect is omitted. Effect completion belongs to the effect attempt, not the CARD outcome. Authorization happens before the protected boundary. Do not leave any of these to backend folklore.
