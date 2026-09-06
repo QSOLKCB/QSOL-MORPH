@@ -13,7 +13,10 @@ The goal is not merely to say that a program ran. The trace should make it possi
 - what exact immutable inputs were consumed;
 - what result-determinism, numeric, and randomness contracts governed each relevant scope;
 - what extension contracts were resolved;
+- which external tools, services, models, provers, processes, or instruments materially contributed;
 - what protected effects were declared, which capability sets belonged to those effects, and which runtime attempts occurred;
+- what generated artifacts were produced and which backend units/scopes produced them;
+- what optimizations actually ran and under which legality evidence;
 - what identified outputs were produced and what semantic class/status belongs to each one;
 - whether cache reuse occurred and what was reused;
 - whether execution failed and what prior effects or artifacts were already observable.
@@ -58,13 +61,27 @@ job_ids[]
 deck_ids[]
 card_ids[]
 dependency_graph_hash
-epistemic_classes[]
+epistemic_class_bindings[]
 extension_requirements[]
 effect_requirements[]
 result_determinism_bindings[]
 numeric_contract_bindings[]
 randomness_contract_bindings[]
 ```
+
+### Epistemic class bindings
+
+The semantic trace binds epistemic meaning directly to stable CARD identity rather than storing an unassociated class list.
+
+Conceptually:
+
+```text
+epistemic_class_bindings[]:
+    card_id
+    semantic_class
+```
+
+Every applicable semantic class is paired with the canonical `card_id` that owns it. Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association: ordering, filtering, or partial serialization must not be able to detach a class from its CARD. Any class transition requires a frozen evidence-transition rule and provenance; a trace must not silently swap, promote, or inherit epistemic classes between CARDs.
 
 ### Declared effect requirements
 
@@ -86,7 +103,7 @@ A CARD may declare several effects with different permission sets. For example:
 
 ```text
 CARD @050
-    AI_MODEL effect  -> [AI_MODEL, NETWORK]
+    AI_MODEL effect   -> [AI_MODEL, NETWORK]
     WRITE_FILE effect -> [FILESYSTEM_WRITE]
 ```
 
@@ -173,7 +190,9 @@ Potential fields include:
 vector_dataflow_ir_hash
 morph_version
 optimization_profile
+optimization_provenance[]
 backend_selection_scopes[]
+generated_artifacts[]
 vectorization_decisions[]
 fusion_decisions[]
 memory_placement_decisions[]
@@ -208,6 +227,27 @@ backend_selection_scopes[]:
 Selection-policy and tuning identity are material when selection is automatic, such as `ON BEST`.
 
 A single execution-wide entry is valid only when one frozen machinery decision genuinely governs the whole execution. Explicit host targeting on one CARD and `ON BEST` on another remain separate scopes even if they eventually resolve to the same backend.
+
+## Generated artifact provenance
+
+Generated kernels, binaries, object files, bytecode, or equivalent target artifacts are identified records rather than an unscoped list of hashes.
+
+Conceptually:
+
+```text
+generated_artifacts[]:
+    generated_artifact_id
+    artifact_kind
+    artifact_hash
+    backend_unit_id
+    backend_selection_scope_id
+    source_card_ids[]?
+    artifact_location?
+```
+
+`backend_unit_id` identifies the lower execution/code-generation unit that produced the artifact. `backend_selection_scope_id` links that artifact to the machinery-selection record containing the selected backend, architecture/device, and automatic-selection policy/tuning identity where applicable.
+
+A mixed-backend JOB may produce several same-kind artifacts. Their hashes alone do not establish which target decision produced which artifact, so a bare `kernel_or_binary_hashes[]` list is not sufficient provenance.
 
 ## Scoped result-determinism provenance
 
@@ -359,6 +399,25 @@ implementation_or_content_identity?
 
 A profile name alone is insufficient if different versions can change lowering, effects, or results.
 
+## External-tool provenance
+
+The QSOL extension/profile used to invoke a tool is not the same object as the external tool, service, model, prover, process, or instrument that actually produced evidence or data.
+
+Material external tools therefore use identified records such as:
+
+```text
+external_tool_versions[]:
+    external_tool_id
+    tool_kind
+    tool_name_or_service
+    version?
+    content_hash_or_model_id?
+    endpoint_or_location?
+    source_card_ids[]?
+```
+
+The record must preserve enough immutable version/content/model/service identity to distinguish material changes in the external evidence producer. A mutable tool name or endpoint alone is insufficient where the active reproducibility contract requires stronger identity.
+
 ## Per-effect-attempt provenance
 
 Every protected external effect attempt has its own runtime identity and a reference to the declared semantic effect that produced it.
@@ -494,7 +553,9 @@ A trace should distinguish at least:
 - mandatory Vector/Dataflow IR identity;
 - generated target identity;
 - resolved extension/contract identities;
+- external-tool/service/model identities where material;
 - immutable material input identities;
+- optimization reference/optimized IR identities where material;
 - cache identities where reuse occurs;
 - each identified output/result identity.
 
@@ -582,18 +643,27 @@ A cached artifact may still be used as an explicit declared input or reference f
 
 ## Optimization provenance
 
-An optimized implementation remains connected to its reference semantics.
+An optimization profile names requested/configured policy; it is not a record of the transformations that actually occurred.
 
-Useful records may include:
+Actual optimization provenance should therefore be identified, for example:
 
 ```text
-reference_ir_hash
-optimized_ir_hash
-transformation_sequence[]
-legality_witnesses[]
-target_context_measurements[]
-resource_model_assumptions[]
+optimization_provenance[]:
+    optimization_record_id
+    source_card_ids[]
+    backend_unit_id?
+    reference_ir_hash
+    optimized_ir_hash
+    transformation_sequence[]
+    legality_witnesses[]
+    vectorization_decisions[]?
+    fusion_decisions[]?
+    memory_placement_decisions[]?
+    target_context_measurements[]?
+    resource_model_assumptions[]?
 ```
+
+A target-adaptive implementation must preserve the actual transformation sequence and legality evidence rather than only the profile name that permitted a family of choices. An implementation may instead bind a stable content identity for a complete MORPH trace containing equivalent information, but that reference must be sufficient to retrieve and verify the complete decision record.
 
 A faster semantics-breaking change is not an optimization.
 
@@ -615,7 +685,7 @@ Correctness and evidence boundaries outrank attractive speed numbers.
 
 Not every execution requires every optional field. The active specification, execution contracts, capability policy, extension set, lowering contracts, backend-selection policy, and cache/replay rules define the minimum trace required for the claim being made.
 
-However, executable research results must not begin life without enough provenance to bind identified outputs to their canonical program, immutable inputs, semantic class/status, scoped machinery/determinism/numeric/randomness decisions, extension set, authorization decisions, cache/reuse context where relevant, and execution/failure history.
+However, executable research results must not begin life without enough provenance to bind identified outputs to their canonical program, immutable inputs, semantic class/status, scoped machinery/determinism/numeric/randomness decisions, extension set, material external-tool identities, authorization decisions, optimization decisions where material, generated target identities where material, cache/reuse context where relevant, and execution/failure history.
 
 The roadmap therefore places the trace/failure/provenance foundation before the first executable QSOL reference machine.
 
