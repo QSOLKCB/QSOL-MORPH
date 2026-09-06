@@ -137,7 +137,7 @@ CARD = (
     result_determinism,
     numeric_contract,
     randomness_contract,
-    extensions[],
+    extension_requirements[],
     failure_behavior,
     dependencies,
     sequencing_constraints,
@@ -163,7 +163,7 @@ Not every field is required for every card.
 
 `result_binding` names the value produced by the CARD when it produces one. It is distinct from the produced value itself because dependent CARDs and provenance edges may refer to that binding identity.
 
-`extensions[]` records the versioned profile/contract requirements needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. For example, a QX-CUDA-owned tuning qualifier must not survive as an uninterpreted token after the required QX-CUDA contract identity is lost. Extension availability remains distinct from runtime capability authorization.
+`extension_requirements[]` records the versioned profile/contract requirements needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. For example, a QX-CUDA-owned tuning qualifier must not survive as an uninterpreted token after the required QX-CUDA contract identity is lost. Extension availability remains distinct from runtime capability authorization.
 
 The result-determinism, numeric, randomness, extension, failure, dependency, and sequencing fields are included here to keep this human–AI conceptual shape aligned with the canonical Semantic IR. This document does not freeze their final syntax.
 
