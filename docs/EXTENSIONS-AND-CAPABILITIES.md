@@ -1,6 +1,6 @@
 # Extensions and Capabilities
 
-QSOL-MORPH should keep the core deliberately small and move optional machinery behind explicit extension profiles.
+QSOL-MORPH should keep the core deliberately small and move optional syntax, adapters, effects, vendor controls, and extension-owned lowering hooks behind explicit extension profiles. **Machinery selection itself remains a MORPH/backend concern and does not require an extension profile merely because the selected target is optional or accelerated.**
 
 ## Extension profiles
 
@@ -10,7 +10,7 @@ Candidate profiles include:
 QX-VEC      vector operations
 QX-MATH     scientific numerics
 QX-POSIX    POSIX processes and streams
-QX-GPU      generic accelerator execution
+QX-GPU      optional generic accelerator controls/syntax
 QX-CUDA     CUDA-specific controls
 QX-AI       model interaction
 QX-PROVE    formal-verification adapters
@@ -20,11 +20,13 @@ QX-NET      network-related syntax/adapters
 
 These names are provisional until frozen by a future specification.
 
+`QX-GPU` and `QX-CUDA`, where retained by a future specification, describe optional language/control surfaces. They are not aliases for GPU/CUDA machinery selection and are not prerequisites for ordinary backend selection unless the program actually uses extension-owned syntax or controls.
+
 ## Core rule
 
 An extension may add versioned syntax, adapters, effects, lowering hooks, or capability **requirements**. Activating or installing an extension never grants a runtime capability by itself, and an extension must not silently redefine frozen core meaning.
 
-If a feature is target-specific, vendor-specific, effectful, or optional, the default assumption is that it belongs in an extension rather than QSOL-CORE.
+If a feature is vendor-specific syntax, an optional adapter, an extension-owned effect, or an optional language/control surface, the default assumption is that it belongs in an extension rather than QSOL-CORE. A machinery target such as C, LLVM, GPU, or CUDA remains machinery even when no extension profile is active.
 
 ## Declaring extensions
 
@@ -71,7 +73,7 @@ A **machinery selection** describes where/how a computation is executed, such as
 
 A **capability** describes what the execution environment allows, either for a protected effect or for protected machinery access.
 
-An **extension profile** describes optional language/adapter functionality that must be available to interpret or lower the deck.
+An **extension profile** describes optional language/adapter/control functionality that must be available only when the program uses that profile's contract.
 
 These are four different boundaries and must not be collapsed.
 
@@ -116,7 +118,7 @@ A protected machinery requirement may likewise require one or more capabilities.
 GPU
 ```
 
-through a distinct `machinery_requirements[]` record. That requirement does not turn GPU selection into an external effect.
+through a distinct `machinery_requirements[]` record. That requirement does not turn GPU selection into an external effect and does not require `USE QX-GPU` unless extension-owned GPU controls are actually used.
 
 ## Protected machinery authorization
 
@@ -190,7 +192,7 @@ RUN MODEL ON CUDA WITH:
 
 A generic backend should not be required to understand CUDA-specific launch syntax.
 
-GPU access may require a machinery capability/profile, but selecting GPU machinery is not itself an externally observable Semantic-IR effect. Device selection belongs in MORPH/execution trace metadata; protected device use is authorized through the machinery-authorization boundary.
+GPU/CUDA access may require a machinery capability, but selecting GPU/CUDA machinery is not itself an externally observable Semantic-IR effect and does not by itself activate `QX-GPU` or `QX-CUDA`. Device selection belongs in MORPH/execution trace metadata; protected device use is authorized through the machinery-authorization boundary. Extension availability is checked separately only for extension-owned syntax or controls.
 
 ## POSIX profile
 
@@ -225,4 +227,4 @@ A QSOL card can retain stable semantics while QX-MIDI maps relevant events or pr
 
 ## Principle
 
-> Keep the core small. Effects describe external actions. Machinery describes execution placement. Capabilities authorize protected boundaries. Extensions define optional functionality. Never let one masquerade as another.
+> Keep the core small. Effects describe external actions. Machinery describes execution placement. Capabilities authorize protected boundaries. Extensions define optional language, adapter, and control functionality. Never let one masquerade as another.
