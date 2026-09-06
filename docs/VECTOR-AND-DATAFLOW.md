@@ -382,13 +382,47 @@ vector_dataflow_lowering_diagnostics[]
 
 `result_binding_map[]` must use a frozen cardinality-aware representation that can express preserved/renamed identities, one-to-many splits, many-to-one fusion, and any permitted many-to-many mapping without positional inference.
 
+### Typed mapping endpoints
+
+Every second-lowering mapping family identifies both ends with typed scope references. A bare ID is insufficient because JOB, DECK, CARD, Core-region, Vector/Dataflow-region, kernel, and backend-unit namespaces may overlap.
+
+Candidate endpoint shapes are:
+
+```text
+core_scope_refs[]:
+    scope_kind
+    scope_id
+
+vector_dataflow_scope_refs[]:
+    scope_kind
+    scope_id
+```
+
+A generic mapping record therefore carries:
+
+```text
+core_scope_refs[]
+vector_dataflow_scope_refs[]
+source_card_ids[]
+mapping_rule_id
+backend_unit_ids[]?
+transition_authorized_by?
+```
+
+This typed-endpoint rule applies to:
+
+- `extension_requirement_mapping_decisions[]`;
+- `machinery_requirement_mapping_decisions[]`;
+- `core_to_vector_result_determinism_mapping_decisions[]`;
+- `core_to_vector_numeric_contract_mapping_decisions[]`;
+- `core_to_vector_randomness_mapping_decisions[]`;
+- `failure_behavior_mapping_decisions[]`.
+
 The three `core_to_vector_*_mapping_decisions[]` families bind Core result-determinism, numeric-contract, and randomness scopes to the Vector/Dataflow scopes that inherit them. If a Core scope splits into several kernels, several scopes fuse into a lower region, or lower identity otherwise changes, the applicable mapping must be recorded.
 
-`extension_requirement_mapping_decisions[]` binds Core extension-requirement ownership to the Vector/Dataflow scope(s) that inherit it. Each material record preserves the relevant Core scope identity, resulting lower scope identities, source CARD provenance, resolved profile/version/content/contract identity, and frozen mapping rule. A JOB-, DECK-, or Core-region-owned extension requirement may not become a lower profile merely by positional or naming inference.
+`extension_requirement_mapping_decisions[]` additionally preserves resolved profile/version/content/contract identity. A JOB-, DECK-, or Core-region-owned extension requirement may not become a lower profile merely by positional or naming inference.
 
-The extension, result-determinism, numeric, and randomness contract-mapping arrays may be omitted only when a frozen deterministic identity-scope reconstruction rule proves the mapping is lossless. IR hashes alone do not establish scope correspondence.
-
-`machinery_requirement_mapping_decisions[]` and `failure_behavior_mapping_decisions[]` similarly record any material change of representation or scope for protected-machinery requirements and failure behavior. Direct identity-preserving carry-through may omit a decision record only under a frozen deterministic reconstruction rule.
+The applicable mapping family may be omitted only when a frozen deterministic identity-scope reconstruction rule proves that family's mapping is lossless. IR hashes alone do not establish scope correspondence.
 
 MORPH must receive a specific identifiable Vector/Dataflow IR together with every still-applicable execution contract, extension requirement, and machinery requirement. It must not be possible for a changed lower graph, profile ownership, or authorization requirement to hide behind the same Semantic IR/Core IR/MORPH identities.
 
@@ -408,8 +442,9 @@ Representative tests should include:
 - failing pure operations ordered around effects;
 - mixed scalar/vector regions;
 - multiple scoped numeric contracts and modes;
-- result-determinism/numeric/randomness contract-scope splits and fusions with explicit mapping decisions;
-- extension-requirement scope preservation plus split/fusion/remap cases with explicit mapping decisions;
+- result-determinism/numeric/randomness contract-scope splits and fusions with **typed** Core and Vector/Dataflow mapping endpoints;
+- extension-requirement scope preservation plus split/fusion/remap cases with typed endpoint mappings;
+- machinery and failure-behavior mapping cases with overlapping textual scope IDs in different namespaces;
 - determinism/randomness contract preservation;
 - declared-effect/runtime-attempt provenance identity and completion states;
 - unsupported constructs or machinery requirements failing closed rather than bypassing the IR.
