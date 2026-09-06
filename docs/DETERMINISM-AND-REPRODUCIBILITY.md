@@ -269,11 +269,14 @@ generated_artifacts[]:
     source_card_ids[]?
     optimized_ir_hash?
     optimization_record_ids[]?
-    toolchain_invocation_ids[]
+    direct_producer_toolchain_invocation_id
+    toolchain_invocation_chain_ids[]
     artifact_location?
 ```
 
-A bare hash list is insufficient. When an artifact is generated from optimized IR, its `optimized_ir_hash` and `optimization_record_ids[]` identify the transformation history that produced it. `toolchain_invocation_ids[]` records the ordered exact compiler/assembler/linker/code-generation invocations that materially produced its bytes.
+A bare hash list is insufficient. When an artifact is generated from optimized IR, its `optimized_ir_hash` and `optimization_record_ids[]` identify the transformation history that produced it.
+
+`direct_producer_toolchain_invocation_id` identifies the invocation that directly emitted this artifact. `toolchain_invocation_chain_ids[]` records the ordered material ancestry of compiler/assembler/linker/code-generation invocations that contributed transitively to its bytes. Chain membership does not mean every ancestor directly emitted the final artifact.
 
 ## Toolchain invocation provenance
 
@@ -297,7 +300,26 @@ toolchain_invocations[]:
 
 `material_tool_identity` must be an immutable/versioned identity adequate to distinguish the actual tool used for the active reproducibility claim, such as version plus executable/content hash, immutable tool artifact ID, or frozen equivalent.
 
-Generated artifacts and toolchain invocations are reciprocally linked. If multiple stages materially produce an artifact, its `toolchain_invocation_ids[]` are ordered so compile/assemble/link or equivalent chains remain reconstructable. A run-wide compiler-version list is summary metadata only and cannot substitute for artifact-specific invocation identity, flags, target/ABI, or configuration.
+`input_generated_artifact_ids[]` and `output_generated_artifact_ids[]` are direct build-graph edges. A generated artifact's `direct_producer_toolchain_invocation_id` must resolve to an invocation whose `output_generated_artifact_ids[]` contains that artifact. Other invocations in `toolchain_invocation_chain_ids[]` are transitive ancestors and are not required to claim the final artifact as a direct output.
+
+For a normal compile/link chain:
+
+```text
+compile-1: source/IR -> obj-1
+link-1:    obj-1     -> exe-1
+
+obj-1.direct_producer_toolchain_invocation_id = compile-1
+obj-1.toolchain_invocation_chain_ids = [compile-1]
+
+exe-1.direct_producer_toolchain_invocation_id = link-1
+exe-1.toolchain_invocation_chain_ids = [compile-1, link-1]
+```
+
+The compiler directly outputs `obj-1`; the linker directly outputs `exe-1`. The executable still retains the complete ordered material chain without falsely claiming the compiler directly emitted it.
+
+Where intermediate generated artifacts are retained, the ordered chain must be consistent with the direct input/output artifact graph. Any future frozen representation that omits intermediates must define how the transitive chain remains content-bound and verifiable.
+
+A run-wide compiler-version list is summary metadata only and cannot substitute for artifact-specific invocation identity, flags, target/ABI, configuration, direct producer, or transitive chain.
 
 ## Optimization provenance
 
@@ -324,7 +346,7 @@ Every optimized generated artifact links to its applicable optimization record(s
 
 ```text
 output -> generated_artifact -> optimization_provenance
-                         \-> toolchain_invocations
+                         \-> direct toolchain producer + ordered ancestry
 ```
 
 ## Lowering provenance
@@ -368,6 +390,8 @@ scope_ref:
 ```
 
 At the second boundary, every applicable mapping family uses typed `core_scope_refs[]` and `vector_dataflow_scope_refs[]`. Bare scope-ID arrays are not sufficient where namespaces can overlap.
+
+For `machinery_requirement_mapping_decisions[]`, typed scope endpoints are necessary but not sufficient: each mapping also carries `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` so several requirements owned by one Core scope cannot be confused. Those arrays preserve the exact requirement/capability-set correspondence through preservation, split, or frozen legal fusion.
 
 This typed-endpoint rule applies to extension requirements, machinery requirements, result determinism, numeric contracts/modes, randomness, and failure behavior. Mapping families may be omitted only under a frozen deterministic identity-scope reconstruction rule covering that family.
 
@@ -624,7 +648,7 @@ A canonical CARD ID alone is insufficient when a CARD can execute more than once
 
 `external_tool_ids[]`, where applicable, identifies exact material external tools/services/models/provers.
 
-`generated_artifact_ids[]` identifies the exact generated artifact that executed where applicable and thereby links the output to optimization and toolchain provenance.
+`generated_artifact_ids[]` identifies the exact generated artifact that executed where applicable and thereby links the output to optimization provenance, its direct toolchain producer, and its ordered transitive toolchain ancestry.
 
 `failure_behavior_binding_ids[]` identifies the exact failure-policy provenance records that governed the producer path.
 
@@ -725,9 +749,11 @@ Every EXTERNAL-ENTROPY randomness scope links to the exact protected RANDOM acqu
 
 Every output binds canonical producers **and** concrete CARD execution producers, exact material input IDs, applicable effect attempts/tools, exact generated artifacts, stable execution-contract/failure-policy records, cache reuse, and compatible evidence status.
 
-Every generated artifact binds the exact ordered toolchain invocation chain that materially produced its bytes; run-wide compiler/version summaries are not a substitute.
+Every generated artifact identifies its direct producer invocation and its exact ordered transitive toolchain ancestry. Direct invocation input/output artifact edges remain truthful; run-wide compiler/version summaries are not a substitute.
 
 Every material external tool either has an immutable/versioned identity adequate for the active claim or an explicit identity-unavailable status that weakens that claim.
+
+Every Core-to-Vector/Dataflow machinery mapping identifies the exact source and lower machinery requirement IDs in addition to typed scope endpoints, so multiple requirements owned by one scope cannot be swapped or detached.
 
 Every Core-to-Vector/Dataflow contract mapping uses typed scope endpoints so overlapping scope namespaces cannot make source/lower ownership ambiguous.
 
@@ -745,10 +771,10 @@ QSOL-MORPH states the strongest reproducibility guarantee actually provided by a
 
 An implementation fails closed when a required determinism, numeric, randomness, effect capability, machinery capability, failure behavior, extension, effect-accounting, material-tool identity, toolchain-build provenance, or other frozen execution contract cannot be satisfied.
 
-Silently weakening `STRICT`, substituting external entropy for required seeded replay, acquiring external entropy without a declared/authorized `RANDOM` effect, failing to attribute external entropy to its concrete acquisition attempt, changing fail-stop into continuation, dropping explicit recovery policy, beginning protected work before authorization, losing typed path causality, fabricating a failing CARD for a pre-CARD failure, omitting a reachable required effect, claiming full replay with unavailable material external-tool identity, or claiming reproducible artifact bytes without the material toolchain invocation chain is invalid unless a frozen pre-execution contract explicitly permits the applicable weakening. A reachable-effect omission is not such a permitted transition and produces structured failure.
+Silently weakening `STRICT`, substituting external entropy for required seeded replay, acquiring external entropy without a declared/authorized `RANDOM` effect, failing to attribute external entropy to its concrete acquisition attempt, changing fail-stop into continuation, dropping explicit recovery policy, beginning protected work before authorization, losing typed path causality, fabricating a failing CARD for a pre-CARD failure, omitting a reachable required effect, claiming full replay with unavailable material external-tool identity, or claiming reproducible artifact bytes without a truthful direct producer and material toolchain ancestry is invalid unless a frozen pre-execution contract explicitly permits the applicable weakening. A reachable-effect omission is not such a permitted transition and produces structured failure.
 
 General execution failure and effect-attempt completion semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
 
 ## Design principle
 
-> Nondeterminism, failure policy, typed execution path, concrete CARD execution identity, machinery-selection history, authorization order, cache reuse, external tools, optimization decisions, toolchain invocations, generated-artifact identity, immutable inputs, and entropy acquisition are scientific inputs, not invisible implementation details.
+> Nondeterminism, failure policy, typed execution path, concrete CARD execution identity, machinery-selection history, authorization order, cache reuse, external tools, optimization decisions, direct toolchain production, transitive toolchain ancestry, generated-artifact identity, immutable inputs, and entropy acquisition are scientific inputs, not invisible implementation details.
