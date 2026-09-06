@@ -21,7 +21,7 @@ A complete trace should be able to answer:
 - which protected effects were declared for each concrete CARD execution, authorized, attempted, completed, aborted, partially observed, or legitimately not attempted;
 - which external-entropy acquisition attempt(s) and immutable entropy input(s) governed every applicable EXTERNAL-ENTROPY randomness scope;
 - what exact immutable inputs were consumed and which ones materially contributed to each output;
-- which concrete CARD executions, effect attempts, tools, generated artifacts, optimization records, toolchain invocations, and execution-contract scopes produced each output;
+- which concrete CARD executions, effect attempts, tools, generated artifacts, optimization records, direct toolchain producers, transitive toolchain ancestry, and execution-contract scopes produced each output;
 - whether cache reuse occurred and under what legality evidence;
 - what epistemic class and evidence status belongs to each output;
 - whether execution failed, at what typed scope, and what had already become observable.
@@ -280,6 +280,21 @@ Use the applicable mapping family for:
 - randomness contracts;
 - failure behavior.
 
+`machinery_requirement_mapping_decisions[]` additionally identifies the stable machinery-requirement records on both sides of the lowering boundary:
+
+```text
+machinery_requirement_mapping_decisions[]:
+    core_scope_refs[]
+    vector_dataflow_scope_refs[]
+    source_machinery_requirement_ids[]
+    lower_machinery_requirement_ids[]
+    source_card_ids[]
+    mapping_rule_id
+    backend_unit_ids[]?
+```
+
+The source/lower requirement-ID arrays are cardinality-aware. Scope correspondence and source CARD identity do not identify which requirement was mapped when one Core scope owns several machinery requirements. Each lower requirement must preserve the source target selector/class and complete capability set or identify the frozen rule that transformed them.
+
 `extension_requirement_mapping_decisions[]` additionally retains the applicable profile/version/content/contract identity.
 
 If a Core scope splits into multiple kernels, several Core scopes fuse into one lower region, or scope identity otherwise changes, that mapping is provenance-visible. Each mapping family may be omitted only under a frozen deterministic identity-scope reconstruction rule that covers that family. IR hashes alone do not establish scope correspondence.
@@ -400,11 +415,14 @@ generated_artifacts[]:
     source_card_ids[]?
     optimized_ir_hash?
     optimization_record_ids[]?
-    toolchain_invocation_ids[]
+    direct_producer_toolchain_invocation_id
+    toolchain_invocation_chain_ids[]
     artifact_location?
 ```
 
-Generated artifacts link concrete target output to the machinery decision that produced them. When an artifact comes from optimized IR, `optimization_record_ids[]` and `optimized_ir_hash` identify the actual transformation history. `toolchain_invocation_ids[]` is the ordered chain of concrete compiler/assembler/linker/code-generation invocations that materially produced the artifact bytes.
+Generated artifacts link concrete target output to the machinery decision that produced them. When an artifact comes from optimized IR, `optimization_record_ids[]` and `optimized_ir_hash` identify the actual transformation history.
+
+`direct_producer_toolchain_invocation_id` names the one invocation that directly emitted this artifact. `toolchain_invocation_chain_ids[]` is the ordered material ancestry of compiler/assembler/linker/code-generation invocations whose outputs contributed transitively to the artifact bytes. The chain includes the direct producer but chain membership does **not** mean that every ancestor directly emitted the final artifact.
 
 ## Toolchain invocation provenance
 
@@ -430,7 +448,28 @@ toolchain_invocations[]:
 
 `material_tool_identity` is immutable/versioned identity sufficient to distinguish the actual compiler, assembler, linker, code generator, or frozen equivalent used by that invocation. It may be represented by a version plus binary/content hash, immutable tool artifact ID, or another frozen identity adequate for the reproducibility claim.
 
-The `toolchain_invocation_ids[]` stored on a generated artifact are ordered and resolve to records whose reciprocal `output_generated_artifact_ids[]` include that artifact. Multi-stage compile/assemble/link pipelines therefore remain explicit. A generated artifact cannot claim reproducible byte provenance from a run-wide compiler list alone.
+`input_generated_artifact_ids[]` and `output_generated_artifact_ids[]` are **direct edges** in the build graph. If invocation `link-1` consumes `obj-1` and emits `exe-1`, then `obj-1` appears in `link-1.input_generated_artifact_ids[]` and `exe-1` appears in `link-1.output_generated_artifact_ids[]`.
+
+The reciprocal direct-producer invariant is therefore narrow and exact: a generated artifact's `direct_producer_toolchain_invocation_id` must resolve to an invocation whose `output_generated_artifact_ids[]` contains that artifact. An invocation listed only in `toolchain_invocation_chain_ids[]` is not required to list the final artifact as a direct output.
+
+For example:
+
+```text
+compile-1: source/IR -> obj-1
+link-1:    obj-1     -> exe-1
+
+obj-1.direct_producer_toolchain_invocation_id = compile-1
+obj-1.toolchain_invocation_chain_ids = [compile-1]
+
+exe-1.direct_producer_toolchain_invocation_id = link-1
+exe-1.toolchain_invocation_chain_ids = [compile-1, link-1]
+```
+
+`compile-1.output_generated_artifact_ids[]` contains `obj-1`, not `exe-1`; `link-1.output_generated_artifact_ids[]` contains `exe-1`. This preserves both the truthful direct-output relation and the exact transitive build ancestry.
+
+Where every intermediate generated artifact is retained, `toolchain_invocation_chain_ids[]` must be consistent with the graph reachable through direct input/output artifact edges. If a future frozen profile permits omission of intermediate artifacts, it must define how the transitive chain remains content-bound and verifiable rather than fabricating direct-output edges.
+
+A generated artifact cannot claim reproducible byte provenance from a run-wide compiler list alone.
 
 ## Optimization provenance
 
@@ -457,7 +496,8 @@ An optimization profile is configuration, not evidence of what actually ran. The
 output
   -> generated_artifact
       -> optimization_provenance
-      -> toolchain_invocations
+      -> direct toolchain producer
+      -> ordered toolchain ancestry
 ```
 
 `backend_unit_id` alone is not sufficient when one unit produces reference and optimized variants.
@@ -568,7 +608,7 @@ toolchain_invocations[]
 start_stop_metadata?
 ```
 
-Execution-wide capability arrays and `runtime_compiler_versions[]` are summaries only. Contextual authorization records prove per-boundary authorization, and `toolchain_invocations[]` prove the exact artifact-producing build path.
+Execution-wide capability arrays and `runtime_compiler_versions[]` are summaries only. Contextual authorization records prove per-boundary authorization, and `toolchain_invocations[]` plus generated-artifact direct/ancestry links prove the exact artifact-producing build graph.
 
 ## DECK and CARD execution ledgers
 
@@ -833,7 +873,7 @@ The concrete producer-execution relation is required whenever runtime producer a
 
 `external_tool_ids[]`, where applicable, identifies the exact material tools/services/models/provers that supplied the output.
 
-`generated_artifact_ids[]` identifies the exact executable/kernel/bytecode artifact that ran where applicable. The artifact links onward to its optimization and toolchain-invocation provenance.
+`generated_artifact_ids[]` identifies the exact executable/kernel/bytecode artifact that ran where applicable. The artifact links onward to its optimization provenance, its direct toolchain producer, and its ordered transitive toolchain ancestry.
 
 `failure_behavior_binding_ids[]` resolves to the exact identified failure-policy records that governed the producer path. A generic computation `scope_id` cannot substitute for this record-level join.
 
@@ -889,6 +929,7 @@ At minimum, a future validator should reject or fail closed when:
 - an epistemic class becomes detached from its CARD;
 - a declared effect loses its per-effect capability binding;
 - a protected machinery requirement disappears before MORPH;
+- a machinery-requirement mapping cannot identify the exact source and lower requirement records when multiple requirements share a scope;
 - a result-binding map cannot represent the actual split/fusion cardinality;
 - a lowering scope mapping uses ambiguous untyped endpoints where namespaces can overlap;
 - a required extension ownership mapping becomes positional or implicit;
@@ -909,7 +950,9 @@ At minimum, a future validator should reject or fail closed when:
 - a pre-CARD failure fabricates `failure_card_id`, or a CARD-caused failure omits the matching canonical/concrete CARD identities;
 - cold execution and cache reuse become indistinguishable;
 - an optimized artifact cannot be joined to its optimization record;
-- a generated artifact cannot be joined to the ordered material toolchain invocation chain that produced its bytes;
+- a generated artifact cannot resolve its direct producer toolchain invocation;
+- a generated artifact's ordered toolchain ancestry is inconsistent with the direct generated-artifact input/output graph under the active profile;
+- a transitive toolchain ancestor is falsely recorded as directly outputting a final artifact merely to satisfy chain membership;
 - a toolchain invocation omits material tool identity or material build flags/configuration required by the active reproducibility claim;
 - output evidence status contradicts semantic class;
 - a mutable input locator substitutes for immutable input identity;
@@ -917,4 +960,4 @@ At minimum, a future validator should reject or fail closed when:
 
 ## Principle
 
-> Trace meaning, not just bytes. Preserve stable semantic identity, typed scope correspondence, concrete execution identity, unconditional declared-effect accounting, authorization-before-use ordering, and the exact evidence chain from immutable inputs through lowerings, optimization, toolchain invocations, and machinery to each output or failure.
+> Trace meaning, not just bytes. Preserve stable semantic identity, typed scope correspondence, concrete execution identity, unconditional declared-effect accounting, authorization-before-use ordering, truthful direct build edges, transitive toolchain ancestry, and the exact evidence chain from immutable inputs through lowerings, optimization, toolchain invocations, and machinery to each output or failure.
