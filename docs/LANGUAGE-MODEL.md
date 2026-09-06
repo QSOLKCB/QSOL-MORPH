@@ -134,6 +134,7 @@ CARD = (
     qualifiers,
     semantic_class,
     effect_requirements[],
+    machinery_requirements[],
     result_determinism,
     numeric_contract,
     randomness_contract,
@@ -150,6 +151,12 @@ EFFECT_REQUIREMENT = (
     required_capabilities[]
 )
 
+MACHINERY_REQUIREMENT = (
+    machinery_requirement_id,
+    target_selector_or_class,
+    required_capabilities[]
+)
+
 EXTENSION_REQUIREMENT = (
     profile_name,
     required_version_or_range,
@@ -161,11 +168,15 @@ Not every field is required for every card.
 
 `effect_requirements[]` is the canonical effect structure. A protected effect has a stable declared effect identity, its effect kind, and the complete capability set that must be authorized before that specific effect begins. A CARD-level union of capabilities may be derived for preflight, but it is not a substitute for this per-effect association.
 
+`machinery_requirements[]` is the separate canonical authorization structure for protected machinery. A requirement binds stable `machinery_requirement_id`, the target selector/class to which it applies, and the complete capability set required before that machinery may be used. It does not turn CPU/GPU/CUDA selection into an external effect and must not be flattened into `effect_requirements[]`.
+
+A machinery requirement may also be owned by a DECK or JOB in the canonical Semantic IR where the frozen scope model permits it. This CARD sketch shows the CARD-local case; tooling must preserve the actual owning scope rather than moving a higher-scope requirement into an arbitrary child.
+
 `result_binding` names the value produced by the CARD when it produces one. It is distinct from the produced value itself because dependent CARDs and provenance edges may refer to that binding identity.
 
 `extension_requirements[]` records the versioned profile/contract requirements needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. For example, a QX-CUDA-owned tuning qualifier must not survive as an uninterpreted token after the required QX-CUDA contract identity is lost. Extension availability remains distinct from runtime capability authorization.
 
-The result-determinism, numeric, randomness, extension, failure, dependency, and sequencing fields are included here to keep this human–AI conceptual shape aligned with the canonical Semantic IR. This document does not freeze their final syntax.
+The machinery, result-determinism, numeric, randomness, extension, failure, dependency, and sequencing fields are included here to keep this human–AI conceptual shape aligned with the canonical Semantic IR. This document does not freeze their final syntax.
 
 Examples:
 
