@@ -64,18 +64,23 @@ LoweredCard {
     preserved_metadata
     effect_requirements[]
     machinery_requirements[]
+    extension_requirements[]
     result_determinism_binding?
     numeric_contract_binding?
     randomness_contract_binding?
-    ordering_constraints
+    sequencing_constraints[]
     failure_behavior
     provenance_edges
 }
 ```
 
+`sequencing_constraints[]` retains the canonical tagged Semantic-IR ordering field. Effect-order and failure-order may be deterministic projections of those tagged constraints, but they are not alternative lower fields and may not replace, flatten, or discard other sequencing kinds. If a future normative lower representation uses a different encoding, the conversion must be frozen, lossless, and provenance-visible.
+
 `failure_behavior` retains the canonical Semantic-IR field name. If a future normative specification introduces a differently named lower representation, that conversion must itself be frozen and provenance-visible rather than being implied by an undocumented alias.
 
 `machinery_requirements[]` retains the canonical protected-machinery requirements that may later govern MORPH target authorization. A generic `preserved_metadata` bucket is not a substitute for this explicit association.
+
+`extension_requirements[]` retains the structured profile/version/contract association for extension-owned semantics at the CARD scope. JOB- or DECK-scoped extension requirements remain attached to their owning lower scope under the same preservation rule; they must not be copied onto an arbitrary CARD merely because lowering is expressed per CARD.
 
 Some semantic CARDs may lower to multiple core operations.
 
@@ -236,13 +241,13 @@ Silent unit loss is not valid lowering.
 
 ## Ordering and failure
 
-Lowering must preserve source-observable ordering constraints.
+Lowering must preserve source-observable ordering constraints through the canonical tagged `sequencing_constraints[]` representation or a separately frozen lossless equivalent.
 
 Only CARDs proven **pure and total** under the active contract may be freely reordered solely from dependency information.
 
 Potentially failing pure CARDs remain ordering-relevant under fail-stop semantics when moving them could change which external effects commit.
 
-Effectful CARDs retain their effect-order constraints and per-effect capability bindings.
+Effectful CARDs retain their effect-order constraints and per-effect capability bindings. Effect-order and failure-order views are derived from the full tagged sequencing relation and must not be used to truncate it.
 
 The lower representation must preserve enough information for QSOL-CORE to reproduce CARD → DECK → JOB failure propagation, explicit `failure_behavior`, and per-effect-attempt completion state.
 
@@ -254,7 +259,7 @@ If a semantic construct or execution-relevant qualifier has no legal QSOL-CORE l
 
 It must not:
 
-- drop the construct, result binding, qualifier, or machinery requirement;
+- drop the construct, result binding, qualifier, machinery requirement, extension requirement, or tagged sequencing constraint;
 - replace it with a no-op without a frozen rule;
 - silently weaken an execution or scoped numeric contract;
 - translate an unknown epistemic class into ordinary data;
@@ -287,9 +292,9 @@ Fixtures should cover at least:
 - protected machinery requirements at CARD/DECK/JOB scopes and explicit preservation into the lower representation;
 - seeded randomness;
 - multiple scoped numeric contracts and legal normalization/rejection cases;
-- explicit failure behavior and ordering constraints;
-- extension-owned constructs and qualifiers;
-- unsupported construct/qualifier/machinery-requirement rejection.
+- explicit failure behavior and tagged sequencing constraints, including non-effect/failure sequencing kinds;
+- extension-owned constructs and qualifiers, including JOB/DECK/CARD scoped extension requirements where permitted;
+- unsupported construct/qualifier/machinery-requirement/sequencing-constraint rejection.
 
 A reference lowering implementation should pass those fixtures before backend code generation is considered conforming.
 
