@@ -183,7 +183,7 @@ Require stable type-specific record keys:
 - `result_determinism_scopes[]` with `result_determinism_scope_id`;
 - `numeric_execution_scopes[]` with `numeric_scope_id`;
 - `randomness_execution_scopes[]` with `randomness_scope_id`;
-- `failure_behavior_bindings[]` preserving requested/effective failure policy and material mapping/transition identity.
+- `failure_behavior_bindings[]` with stable `failure_behavior_binding_id`, governed scope/source provenance, requested/effective failure policy, and material mapping/transition identity.
 
 Each scope retains governed computation identity and source provenance. A single execution-wide scope is legal only when a frozen normalization proves it faithfully represents every governed source requirement.
 
@@ -220,6 +220,7 @@ generated_artifact_ids[]?
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
+failure_behavior_binding_ids[]
 cache_reuse_record_ids[]?
 ```
 
@@ -229,17 +230,22 @@ Every `producer_card_execution_id` resolves to `card_executions[]`, which identi
 
 `input_ids[]` identifies the exact immutable inputs materially contributing to that output. Execution-wide input availability is not a substitute for per-output attribution.
 
+`failure_behavior_binding_ids[]` resolves to stable `failure_behavior_binding_id` records. A generic computation scope ID is not sufficient to identify which requested/effective failure policy governed the producer path.
+
 When present, `evidence_status` is class-discriminated and must be compatible with `semantic_class`. Generic output status cannot silently promote TEST, VALIDATION, or PROOF class.
 
 ### Generated artifacts, optimization, tools, and cache reuse
 
 Require:
 
-- identified `generated_artifacts[]` linked to backend unit and backend-selection scope/decision, with optimization links where applicable;
+- identified `generated_artifacts[]` linked to backend unit and backend-selection scope/decision, with optimization links and ordered `toolchain_invocation_ids[]` where applicable;
+- identified `toolchain_invocations[]` carrying stable invocation ID/order, invocation kind, immutable/versioned material tool identity, target/ABI context, exact flags/configuration, material inputs, reciprocal generated-artifact outputs, backend unit, and backend-selection scope where applicable;
 - identified `optimization_provenance[]` recording reference/optimized IR identity, actual transformation sequence, legality evidence, target context, and reciprocal generated-artifact links;
-- identified `external_tool_versions[]` with stable links to applicable effect attempts and/or outputs;
+- identified `external_tool_versions[]` with stable links to applicable effect attempts and/or outputs plus immutable/versioned material identity, or an explicit identity-unavailable status that weakens replay/evidence claims;
 - identified `cache_reuse_records[]` distinguishing cold execution, verified reuse, unverified hit, or frozen equivalent, with material cache identity, legality rule, reused computation/artifact identity, and verification evidence;
 - per-output cache-reuse links where applicable.
+
+Run-wide compiler/tool version lists are summaries only. They cannot substitute for the exact ordered toolchain invocation chain that materially produced one generated artifact.
 
 Ordinary cache substitution is effect-free by default. Effectful reuse requires separately frozen replay/cache semantics preserving declared effects, contextual authorization, source/effect/failure ordering, attempt provenance, output attribution, and observable external state.
 
@@ -360,11 +366,12 @@ No executable QSOL path may emit a research result without enough provenance to 
 - exact immutable material inputs;
 - semantic class and compatible evidence status;
 - exact generated target where applicable;
-- resolvable backend-selection/determinism/numeric/randomness/failure-behavior scopes;
+- exact ordered material toolchain invocation chain where generated target bytes are involved;
+- resolvable backend-selection/determinism/numeric/randomness/failure-behavior record IDs;
 - protected-machinery authorization/use ordering where applicable;
 - cache-reuse path;
 - resolved extension set;
-- concrete material external-tool identity;
+- concrete material external-tool identity, or explicit identity unavailability with a correspondingly weakened claim;
 - concrete effect authorization/attempt/non-attempt history;
 - exact external-entropy acquisition attempt(s) where applicable;
 - execution/failure context that produced or prevented the result.
@@ -464,10 +471,12 @@ Require:
 
 - semantics-preserving C emission;
 - stable backend-unit identity;
-- identified `generated_artifacts[]` with artifact ID/kind/hash, backend unit, backend-selection scope, and source provenance where material;
-- deterministic build flags and toolchain provenance;
+- identified `generated_artifacts[]` with artifact ID/kind/hash, backend unit, backend-selection scope, source provenance, optimization links where applicable, and ordered `toolchain_invocation_ids[]`;
+- identified `toolchain_invocations[]` recording the exact material compiler/assembler/linker/code-generation identities, invocation order, target/ABI, deterministic build flags/configuration, material inputs, and reciprocal generated-artifact outputs;
 - reference/optimized equivalence evidence where optimization is used;
 - no bypass around the Vector/Dataflow IR.
+
+A run-wide compiler/version inventory may remain as a summary, but it is not sufficient artifact provenance when several compilation/link stages or configurations are possible.
 
 ## PR #13 — Morph Optimization Passes
 
@@ -561,4 +570,4 @@ Examples before that freeze are illustrative and must not become accidental pars
 
 ## Principle
 
-> Specify meaning. Preserve identity. Trace concrete execution. Authorize before effects or protected machinery begin. Optimize only after equivalence is demonstrated.
+> Specify meaning. Preserve identity. Trace concrete execution. Authorize before effects or protected machinery begin. Bind generated bytes to exact toolchain invocations. Optimize only after equivalence is demonstrated.
