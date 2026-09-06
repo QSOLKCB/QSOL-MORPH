@@ -10,6 +10,10 @@ This document adapts optimization principles already formalized in QSOL's OPT wo
 
 Speed is subordinate to correctness, determinism requirements, validation boundaries, provenance, and public semantic contracts.
 
+Under fail-stop semantics, failure is observable behavior. A pure operation is not automatically safe to delete or move merely because it has no external effect: a potentially failing operation can change which later effects execute and which earlier effects remain committed.
+
+Only operations proven **pure and total** under the active contract may be freely dependency-reordered or removed solely because their result is unused. A potentially failing pure operation such as division or modulo by zero remains ordering-relevant relative to observable effects. Dead-result elimination of such an operation is legal only under a separately frozen rule that preserves the original failure at the same observable point and preserves all affected provenance.
+
 ## Admissible optimization
 
 A candidate optimization is admissible only when the required contract is preserved.
@@ -28,6 +32,8 @@ resource assumptions
 ```
 
 A backend-specific optimization may add an implementation strategy. It may not silently alter one of these dimensions.
+
+For scheduling and dead-result transformations, “semantics preserved” includes fail-stop failure observability. Dependency-only scheduling and ordinary dead-result elimination therefore require proof of both purity and totality, not purity alone.
 
 ## Reference equivalence
 
@@ -88,6 +94,25 @@ CI should distinguish:
 A pipeline that always reuses a valid cache may still hide a broken clean-build path.
 
 Periodic or gated cold-path validation should exist for claims that depend on reconstructability.
+
+### Effectful cache/replay legality
+
+Ordinary cached result/value substitution is **effect-free by default**.
+
+An effectful CARD must not be satisfied merely by returning a previously cached value when doing so would skip any declared external effect or alter:
+
+- the effect's stable declared identity;
+- capability authorization before the effect begins;
+- source/effect/failure ordering;
+- CARD/DECK/JOB fail-stop behavior;
+- per-attempt identity and completion-state provenance;
+- output-to-effect-attempt attribution;
+- externally observable artifacts or state;
+- randomness or external-input replay semantics.
+
+Effectful reuse is legal only under a separately frozen cache/replay semantic that explicitly defines whether and how the effect executes again and preserves every affected authorization, ordering, failure, and provenance boundary. Absent such a rule, the implementation executes the effect normally or fails closed rather than substituting a cached result.
+
+A valid cache key and a previously correct cached value are therefore necessary but not sufficient evidence that semantic substitution is legal.
 
 ## Combined resource model
 
