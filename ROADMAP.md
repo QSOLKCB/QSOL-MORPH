@@ -82,7 +82,7 @@ Planned scope:
 - randomness/reproducibility requirements at their canonical owning scope;
 - explicit scoped `failure_behavior` on CARD, DECK, or JOB where the frozen model permits non-default recovery/continuation/compensation behavior;
 - dependencies;
-- source-order, effect-order, and failure-order constraints;
+- tagged `sequencing_constraints[]` preserving source-order, effect-order, failure-order, and any future frozen sequencing kind without parallel-schema ambiguity;
 - `extension_requirements[]` binding each profile to its required version/range and contract identity where applicable;
 - deterministic canonical ordering;
 - schema validation;
@@ -106,7 +106,7 @@ Initial implementation targets:
 - canonical JSON representation;
 - XML interchange representation.
 
-Every lossless format must round-trip all canonical semantic and enforcement fields, including stable JOB/DECK/CARD identifiers, scoped JOB/DECK/CARD determinism/numeric/randomness contracts, result bindings, qualifiers, effect requirements, machinery requirements and their per-requirement capability sets, explicit failure behavior, `extension_requirements[]`, dependencies, effect-order, and failure-order information.
+Every lossless format must round-trip all canonical semantic and enforcement fields, including stable JOB/DECK/CARD identifiers, scoped JOB/DECK/CARD determinism/numeric/randomness contracts, result bindings, qualifiers, effect requirements, machinery requirements and their per-requirement capability sets, explicit failure behavior, `extension_requirements[]`, dependencies, and the complete tagged `sequencing_constraints[]` field. Effect-order/failure-order views may be derived from tagged sequencing entries but must not replace or truncate the canonical field.
 
 The human-readable `.qsl` source profile is explicitly **deferred**. It may not be implemented until a separate normative QSOL text-profile specification freezes lexical grammar, syntax, shorthand/default reconstruction, diagnostics, canonical text rendering, and the source-to-Semantic-IR mapping. Until that freeze, examples of QSOL text remain illustrative only.
 
@@ -125,18 +125,22 @@ The initial trace contract should bind, where applicable:
 - implementation/MORPH version;
 - canonical `effect_requirements[]`, each carrying source CARD ID, declared `effect_id`, effect kind, and the complete `required_capabilities[]` set for that declared protected effect;
 - canonical `machinery_requirements[]`, each carrying stable requirement identity, governing source scope, target selector/class, and complete required-capability set;
-- `backend_selection_scopes[]`, each binding scope identity, source CARD IDs, backend-unit identity, requested target/qualifier, selected backend/version, target architecture/device, automatic-selection policy/tuning identity where applicable, and any linked machinery-authorization record IDs;
-- identified `machinery_authorization_records[]` binding the selected backend scope to applicable machinery requirement IDs, complete required/granted/denied capability sets, policy identity/version, and authorization outcome;
+- `backend_selection_scopes[]`, each identifying a governed scope/source/backend unit plus ordered `selection_decision_ids[]` and the `final_selection_decision_id` when execution proceeds;
+- identified `backend_selection_decisions[]`, each carrying its own decision ID, governing selection scope, order index, requested target, selected backend/version/architecture/device, automatic-selection policy/tuning identity where applicable, predecessor decision/fallback-rule identity where applicable, linked machinery-authorization records, and decision status;
+- identified `machinery_authorization_records[]` binding the relevant backend selection decision/scope to applicable machinery requirement IDs, complete required/granted/denied capability sets, policy identity/version, and authorization outcome;
 - `result_determinism_scopes[]`, each binding scope identity, source provenance, requested guarantee, effective guarantee, any pre-execution transition authority, and backend execution-unit identity where useful;
 - `numeric_execution_scopes[]`, each binding scope identity, source provenance, numeric contract identity/hash, material numeric mode, and backend execution-unit identity where useful;
 - `randomness_execution_scopes[]`, each binding scope identity, source provenance, requested/effective randomness mode, any pre-execution transition authority, and replay-relevant RNG algorithm/version/seed/stream/partitioning plus backend execution-unit identity where useful;
+- scoped `failure_behavior_bindings[]` preserving the source and effective failure policy at each governing JOB/DECK/CARD or other frozen scope, including default fail-stop identity when material and any frozen mapping/transition rule;
 - execution-wide required/granted/denied capability summaries plus capability-policy identity/version and capabilities actually used, without treating those summaries as replacements for per-effect or per-machinery authorization records;
 - identified `inputs[]`, each binding a stable `input_id` to the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed;
-- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, governing backend-selection/result-determinism/numeric/randomness scope IDs, applicable exact `generated_artifact_ids[]`, and any `cache_reuse_record_ids[]` that contributed to that output;
+- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, generic artifact/execution status, class-discriminated `evidence_status?`, producer CARD IDs, governing backend-selection/result-determinism/numeric/randomness scope IDs, applicable exact `generated_artifact_ids[]`, concrete `effect_attempt_ids[]` when effects materially produced/exposed the output, material `external_tool_ids[]`, and any `cache_reuse_record_ids[]` that contributed to that output;
+- where present, `evidence_status` must contain a compatible `evidence_class`, status, and any material evidence-transition/rule identity; generic output status must not silently promote TEST/VALIDATION/PROOF class;
 - identified `cache_reuse_records[]`, each distinguishing cold execution, verified reuse, unverified cache hit, or frozen equivalent and binding source CARD IDs, material cache identity, reused computation/artifact identity, legality rule, and verification evidence;
 - active extension profiles plus resolved extension versions/content identities;
-- identified `external_tool_versions[]` for material external tools/services/models/provers/processes;
-- identified `effect_attempts[]`, each carrying runtime `effect_attempt_id`, canonical `declared_effect_id`, initiating `card_id`, `effect_kind`, complete `required_capabilities[]`, sequence identity/order where applicable, and individual completion state;
+- identified `external_tool_versions[]` for material external tools/services/models/provers/processes, with stable links to the applicable effect attempts and/or identified outputs when one source CARD can invoke more than one concrete tool/version;
+- identified `effect_authorization_records[]`, each binding one effect attempt/declaration to its complete required/granted/denied capability sets, capability-policy identity/version, authorization outcome, and authorization decision/order identity before effect begin;
+- identified `effect_attempts[]`, each carrying runtime `effect_attempt_id`, canonical `declared_effect_id`, initiating `card_id`, `effect_kind`, complete `required_capabilities[]`, its `effect_authorization_record_id` (or frozen equivalent), sequence identity/order where applicable, individual completion state, reciprocal `observable_output_ids[]` for outputs it materially produced/exposed, and material external-tool IDs where applicable;
 - identified `effect_non_attempt_records[]` for declared effects that have no runtime attempt, each carrying `declared_effect_id`, `card_id`, `effect_kind`, an explicit non-attempt reason, and governing control/failure identity where applicable;
 - structured execution-failure records where applicable.
 
@@ -144,13 +148,15 @@ Every selected DECK must remain visible in `deck_executions[]`. A DECK prevented
 
 Every CARD in a selected DECK execution must remain visible in `card_executions[]`. Candidate outcomes include executed success/failure, untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. `card_ids[]` records identity/membership; it is not proof that a CARD executed.
 
-Declared `effect_requirements[]` are required in addition to runtime attempt accounting. Every declared effect must be accounted for by either one or more `effect_attempts[]` or an explicit `effect_non_attempt_records[]` reason when no attempt object exists. Candidate reasons include untaken branch, prior fail-stop, CARD not reached, explicit frozen skip, and detected backend omission. An effect declaration with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
+Declared `effect_requirements[]` are required in addition to runtime attempt accounting. Every declared effect must be accounted for by either one or more `effect_attempts[]` or an explicit `effect_non_attempt_records[]` reason when no attempt object exists. Legitimate reasons include untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip. `BACKEND_OMISSION_DETECTED` (or frozen equivalent) is not a successful non-attempt path: it is evidence that a reachable required effect was omitted and **must produce structured execution/conformance failure**. An effect declaration with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
 
-Protected machinery selection and protected machinery authorization remain separate. An automatic target such as `ON BEST` may be resolved first, but all capabilities required by the applicable machinery requirement must be authorized **before protected machinery use begins**. A denied GPU authorization must not launch GPU work or create a fake external-effect attempt. Fallback to another target is legal only under a frozen pre-execution fallback/selection rule and must remain traceable.
+Effect authorization is contextual and per attempt. Execution-wide granted/denied capability sets are summaries only. Every identified protected effect attempt must link to an authorization decision proving which policy evaluated that attempt and which complete capability set was granted or denied. A denied authorization may leave an already identified attempt in `NOT_STARTED`, but the effect itself must not begin.
+
+Protected machinery selection and protected machinery authorization remain separate. An automatic target such as `ON BEST` may be resolved first, but all capabilities required by the applicable machinery requirement must be authorized **before protected machinery use begins**. A denied GPU authorization must not launch GPU work or create a fake external-effect attempt. Fallback to another target is legal only under a frozen pre-execution fallback/selection rule and must remain traceable as a new ordered backend-selection decision linked to its denied/predecessor decision rather than overwriting the first selection.
 
 A mutable input locator such as a path, URL, dataset name, or model name is retrieval context, not sufficient provenance by itself. Every material input must have a stable input identity plus an immutable value/content/artifact identity that distinguishes exactly what was consumed.
 
-A single execution-wide backend-selection, result-determinism, numeric, or randomness scope is valid only when a frozen normalization rule proves that one entry faithfully represents every governed source decision or requirement. CARD-, region-, kernel-, or generated-unit-scoped machinery/contracts/modes/streams must not be collapsed into false global singletons.
+A single execution-wide backend-selection, result-determinism, numeric, randomness, or failure-behavior scope is valid only when a frozen normalization rule proves that one entry faithfully represents every governed source decision or requirement. CARD-, region-, kernel-, or generated-unit-scoped machinery/contracts/modes/streams must not be collapsed into false global singletons.
 
 Cache reuse must remain provenance-visible even when substitution is legal and effect-free. Cold execution and cache substitution must not produce indistinguishable execution records merely because they yield identical bytes.
 
@@ -163,16 +169,17 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - future continue/retry/recovery/parallel-JOB behavior requires explicit frozen JOB-level semantics;
 - pure CARD failure commits no semantic state;
 - capability authorization is completed successfully **before every protected external effect begins**;
-- every capability required by that specific effect attempt must be granted before the attempt begins;
+- every capability required by that specific effect attempt must be granted by the attempt's identified authorization record before the effect begins;
 - every capability required by protected machinery must be granted before protected machinery use begins;
 - other static/precondition checks should occur before an external effect where practical;
 - effects already externally observable before a later failure are not retroactively erased;
 - every identified effect attempt must be traceable independently as `NOT_STARTED`, `COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN` (or frozen equivalents);
 - completion-state classification is mutually exclusive and ordered, with known completion taking precedence over broader uncertainty;
+- a detected omission of a reachable declared effect is an execution/conformance failure and cannot coexist with a successful enclosing execution result;
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
-- failure traces identify the run/JOB, every selected DECK, every CARD execution outcome, failure class/stage, per-effect attempt or non-attempt accounting, relevant machinery authorization, and whether any output artifact became observable.
+- failure traces identify the run/JOB, every selected DECK, every CARD execution outcome, failure class/stage, per-effect declaration/authorization/attempt/non-attempt accounting, relevant machinery authorization/selection-decision history, and whether any output artifact became observable.
 
-This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the selected stable run/JOB/per-DECK/per-CARD execution, immutable material inputs, epistemic class/status, exact generated target where applicable, scoped backend-selection/determinism/numeric/randomness context, machinery authorization, cache-reuse path, extension set, material external-tool identities, effect authorization decisions, and execution/failure context that produced it.
+This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the selected stable run/JOB/per-DECK/per-CARD execution, immutable material inputs, epistemic class and compatible evidence status, exact generated target where applicable, scoped backend-selection/determinism/numeric/randomness/failure-behavior context, machinery authorization, cache-reuse path, extension set, concrete material external-tool identities, per-effect authorization/attempt identities, and execution/failure context that produced it.
 
 ## PR #6 — Normative QSOL-CORE Operational Specification
 
@@ -183,6 +190,9 @@ Planned work:
 - freeze the initial instruction families and exact instruction inventory;
 - define operand, result, type, and state-transition semantics;
 - define arithmetic and numeric-contract interaction;
+- define result-determinism execution semantics at each supported Core scope, including requested/effective guarantees, permitted transitions, fail-closed behavior, and how instruction evaluation contributes to the scoped guarantee;
+- define randomness modes and Core-visible randomness behavior, including `NONE`, seeded execution, external entropy/declared nondeterminism where supported, RNG algorithm/version identity, seed/stream/partitioning semantics, and the failure/transition rules required by the PR #5 contract;
+- define how determinism and randomness remain orthogonal and how their scopes compose with numeric contracts;
 - define logic semantics, including XOR;
 - define comparison semantics;
 - define branch/jump/call/return/stop behavior;
@@ -191,9 +201,9 @@ Planned work:
 - define success/failure propagation into DECK and JOB outcomes;
 - define which operations are pure, total, potentially failing, or effectful;
 - define sequencing and reordering observability;
-- publish conformance fixtures/examples for each instruction.
+- publish conformance fixtures/examples for each instruction, including determinism/randomness satisfaction and rejection cases.
 
-This PR is normative specification work, not an executable machine. The reference implementation may not invent instruction meaning that is absent from this specification.
+This PR is normative specification work, not an executable machine. The reference implementation may not invent instruction, determinism, randomness, RNG, transition, or failure meaning that is absent from this specification.
 
 ## PR #7 — QSOL-CORE Reference Machine
 
@@ -204,7 +214,7 @@ The reference machine must:
 - implement the frozen instruction semantics rather than define them;
 - emit the required PR #5 trace including per-DECK/per-CARD execution outcomes;
 - preserve result bindings and dependencies;
-- obey frozen DECK/JOB failure propagation and per-effect-attempt/non-attempt behavior;
+- obey frozen DECK/JOB failure propagation and per-effect-authorization/attempt/non-attempt behavior;
 - require successful authorization of every capability required by each protected effect before that effect begins;
 - require successful machinery authorization before any protected machinery used by the reference execution path begins use;
 - fail closed when capability, numeric, randomness, or determinism requirements cannot be satisfied;
@@ -225,8 +235,8 @@ Planned work:
 - define lowering of explicit `effect_requirements[]`, stable declared `effect_id`, and each effect's complete required-capability set;
 - define preservation of `machinery_requirements[]` or their frozen transformation into later MORPH-facing metadata without turning them into effects;
 - define preservation of explicit scoped `failure_behavior`;
-- define preservation/composition of JOB/DECK/CARD result-determinism, numeric, randomness, extension, source-order, effect-order, and failure-order contracts;
-- define deterministic result-binding preservation/renaming rules and provenance mappings;
+- define preservation/composition of JOB/DECK/CARD result-determinism, numeric, randomness, extension, and tagged sequencing contracts;
+- define deterministic cardinality-aware result-binding preservation/renaming/split/fusion rules and provenance mappings;
 - define unsupported-construct/qualifier failure behavior;
 - define extension-owned lowering hooks behind resolved versioned contracts;
 - publish Semantic IR → QSOL-CORE conformance fixtures and rejection fixtures.
@@ -242,8 +252,8 @@ The reference lowering must:
 - consume canonical Semantic IR rather than hand-built QSOL-CORE only;
 - produce QSOL-CORE plus preserved result bindings, qualifiers, scoped contracts, effect bindings/IDs, machinery requirements/metadata, failure behavior, metadata, and provenance required by later stages;
 - fail closed for unsupported or contract-breaking semantic constructs/qualifiers;
-- bind semantic IR identity, canonical `semantic_to_core_spec_version`, canonical `semantic_to_core_implementation_version`, resolved extension identities, resulting QSOL-CORE identity, and `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
-- record `qualifier_lowering_decisions[]`, `result_determinism_lowering_decisions[]`, `numeric_contract_lowering_decisions[]`, and `randomness_lowering_decisions[]` whenever lowering consumes, groups, remaps, normalizes, or otherwise materially transforms those source requirements;
+- bind semantic IR identity, canonical `semantic_to_core_spec_version`, canonical `semantic_to_core_implementation_version`, resolved extension identities, resulting QSOL-CORE identity, and cardinality-aware `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
+- record `qualifier_lowering_decisions[]`, `result_determinism_lowering_decisions[]`, `numeric_contract_lowering_decisions[]`, `randomness_lowering_decisions[]`, `machinery_requirement_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]` whenever lowering consumes, groups, remaps, normalizes, or otherwise materially transforms those source requirements/policies;
 - pass all frozen lowering conformance and rejection fixtures.
 
 No MORPH backend should be considered end-to-end conforming until this first lowering stage is present.
@@ -266,11 +276,11 @@ Planned concepts:
 - explicit effect nodes/regions preserving canonical declared `effect_id`;
 - complete required-capability sets and authorization boundaries for each protected effect;
 - preserved protected-machinery requirements/metadata required by MORPH selection and authorization;
-- source-order, effect-order, and failure-order constraints;
+- tagged source/effect/failure sequencing constraints;
 - per-effect-attempt identity/provenance hooks distinct from declared effect identity;
 - result-determinism, scoped numeric, randomness, extension, qualifier, and failure-behavior preservation;
-- deterministic lower result-binding mapping rules;
-- explicit scope identity needed to map Core execution contracts into lower regions/kernels/units;
+- deterministic cardinality-aware lower result-binding mapping rules;
+- explicit scope identity needed to map Core execution contracts, machinery requirements, and failure behavior into lower regions/kernels/units;
 - fusion legality;
 - alias rules;
 - parallel partitioning;
@@ -293,8 +303,8 @@ The reference lowering must:
 - emit the full semantics-preserving Vector/Dataflow IR;
 - preserve result bindings, control, calls, scalar operations, declared effect IDs, per-effect capability sets, machinery requirements/metadata, qualifiers, failure behavior, ordering, determinism, scoped numeric contracts/modes, randomness, extensions, and provenance;
 - fail closed when a supported QSOL-CORE operation lacks a legal Vector/Dataflow representation;
-- bind `core_ir_hash`, Vector/Dataflow specification identity, lowering implementation identity, `vector_dataflow_ir_hash`, and `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
-- record `core_to_vector_result_determinism_mapping_decisions[]`, `core_to_vector_numeric_contract_mapping_decisions[]`, and `core_to_vector_randomness_mapping_decisions[]` whenever Core contract scopes split, fuse, rename, group, or otherwise map to different Vector/Dataflow scopes; omission is allowed only under a frozen deterministic identity-scope reconstruction rule;
+- bind `core_ir_hash`, Vector/Dataflow specification identity, lowering implementation identity, `vector_dataflow_ir_hash`, and cardinality-aware `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
+- record `core_to_vector_result_determinism_mapping_decisions[]`, `core_to_vector_numeric_contract_mapping_decisions[]`, `core_to_vector_randomness_mapping_decisions[]`, `machinery_requirement_mapping_decisions[]`, and `failure_behavior_mapping_decisions[]` whenever the corresponding Core scopes/requirements/policies split, fuse, rename, group, or otherwise map to different Vector/Dataflow scopes/representations; omission is allowed only under a frozen deterministic identity-scope reconstruction rule that covers that contract family;
 - pass scalar-only, result/dependency, control-flow, call, effect/capability, machinery-requirement, mixed vector/scalar, failure-order, and contract-preservation fixtures.
 
 A backend may not bypass this stage for branches, calls, effects, or other non-vector operations merely because they are not optimization candidates.
@@ -330,7 +340,7 @@ Goals:
 - end-to-end comparison from canonical Semantic IR through the reference machine and C result path;
 - no backend bypass of the mandatory lower IR for control, calls, effects, or scalar operations.
 
-The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity, scoped determinism/numeric/randomness execution information, machinery authorization where applicable, and identified `generated_artifacts[]`. Each generated artifact must bind a stable artifact ID/kind/hash to its `backend_unit_id` and governing `backend_selection_scope_id`, plus source CARD/location provenance where material. Applicable outputs must also record the exact `generated_artifact_ids[]` that actually produced or supplied them.
+The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity, scoped determinism/numeric/randomness execution information, selection-decision/fallback history where applicable, machinery authorization where applicable, and identified `generated_artifacts[]`. Each generated artifact must bind a stable artifact ID/kind/hash to its `backend_unit_id` and governing `backend_selection_scope_id`, plus the final `backend_selection_decision_id` where selection history has more than one decision, and source CARD/location provenance where material. Applicable outputs must also record the exact `generated_artifact_ids[]` that actually produced or supplied them.
 
 ## PR #13 — Morph Optimization Passes
 
@@ -386,7 +396,7 @@ Implement POSIX-oriented execution and composition against the frozen PR #14 con
 
 External operations remain explicit effects and require authorization of **all** corresponding capabilities before each protected effect begins. POSIX is a composable execution profile, not a mutually exclusive compiler backend: a C-, LLVM-, or other generated program may use the QX-POSIX contract when explicitly enabled and authorized.
 
-The reference implementation must pass the frozen QX-POSIX conformance/rejection fixtures and emit required per-effect-attempt provenance linking each runtime attempt to its declared effect ID.
+The reference implementation must pass the frozen QX-POSIX conformance/rejection fixtures and emit required per-effect authorization and per-effect-attempt provenance linking each runtime attempt to its declared effect ID and any identified outputs.
 
 ## PR #16 — LLVM Backend
 
@@ -407,9 +417,9 @@ Planned concepts:
 - explicit machinery requirements and capability authorization boundaries for protected accelerator use, distinct from external effects;
 - external accelerator-related effects, if any, modeled separately through normal effect requirements;
 - fail-closed behavior when accelerator authorization is denied;
-- frozen rules for any authorized fallback from an unavailable/denied selected target;
+- frozen rules and identified decision-chain provenance for any authorized fallback from an unavailable/denied selected target;
 - failure and effect-attempt completion semantics for actual external effects;
-- provenance requirements for device, kernel, launch, machinery authorization, and **scoped** determinism/numeric/randomness behavior;
+- provenance requirements for device, kernel, launch, machinery authorization, backend-selection decision history, and **scoped** determinism/numeric/randomness behavior;
 - conformance/rejection fixtures.
 
 This PR is normative specification work. Vendor backends implement this contract rather than defining generic GPU meaning themselves.
@@ -426,7 +436,7 @@ RUN GRAVITY ON CUDA
 
 without requiring ordinary CUDA plumbing in research source.
 
-This phase implements the CUDA machinery/backend only. It must enforce the frozen machinery-authorization boundary before protected CUDA use and emit corresponding scoped provenance. It does **not** invent or implement QX-CUDA vendor-control syntax unless the normative QX-CUDA contract is already frozen.
+This phase implements the CUDA machinery/backend only. It must enforce the frozen machinery-authorization boundary before protected CUDA use and emit corresponding scoped selection/authorization provenance. It does **not** invent or implement QX-CUDA vendor-control syntax unless the normative QX-CUDA contract is already frozen.
 
 ## PR #19 — Normative QX-CUDA Control Contract
 
@@ -476,17 +486,18 @@ Targets may include:
 - semantic preservation for selected QSOL-CORE → Vector/Dataflow lowering rules;
 - semantic preservation for selected morph passes;
 - invariant consistency;
-- epistemic-class preservation;
-- canonical serialization properties including stable JOB/DECK/CARD, scoped contract, machinery-requirement, and result-binding preservation;
+- epistemic-class preservation and class-discriminated evidence-status compatibility;
+- canonical serialization properties including stable JOB/DECK/CARD, scoped contract, machinery-requirement, result-binding, and tagged sequencing-constraint preservation;
 - immutable input-provenance binding properties for a defined subset;
 - aggregate `run_id` plus per-DECK and per-CARD execution-record completeness for multi-DECK JOBs and untaken/skipped paths;
-- scoped backend-selection, machinery-authorization, result-determinism, numeric-contract/mode, and randomness provenance properties;
-- per-output epistemic/status, execution-scope, and exact generated-artifact binding properties;
-- result-binding-map preservation across both mandatory lowering boundaries;
-- Core→Vector/Dataflow determinism/numeric/randomness contract-scope mapping preservation for a defined subset;
+- scoped backend-selection decision-chain, machinery-authorization, result-determinism, numeric-contract/mode, randomness, and failure-behavior provenance properties;
+- per-output epistemic/evidence status, execution-scope, exact generated-artifact, concrete effect-attempt, and external-tool binding properties;
+- cardinality-aware result-binding-map preservation across both mandatory lowering boundaries;
+- Core→Vector/Dataflow determinism/numeric/randomness/machinery/failure contract-scope mapping preservation for a defined subset;
 - cache/replay legality and cache-reuse provenance for a defined effect-free subset;
-- declared-effect completeness with explicit attempt-or-non-attempt accounting and declared-effect/runtime-attempt correspondence for a defined subset;
-- generated-artifact/backend-scope attribution properties;
+- declared-effect completeness with explicit attempt-or-non-attempt accounting, per-attempt authorization, and declared-effect/runtime-attempt correspondence for a defined subset;
+- detected reachable-effect omission implies execution/conformance failure;
+- generated-artifact/backend-scope/selection-decision attribution properties;
 - external-tool identity and optimization-provenance binding properties for a defined subset;
 - QX-POSIX contract properties for a defined subset;
 - generic GPU / QX-CUDA contract properties for a defined subset;
