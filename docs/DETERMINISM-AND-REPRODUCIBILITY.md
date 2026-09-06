@@ -33,7 +33,7 @@ The same canonical program, immutable declared inputs, implementation identity, 
 
 Results may differ at the bit level across legal implementations but remain within an explicitly declared numeric contract.
 
-A `NUMERIC` declaration is incomplete without the numeric contract governing the relevant computation. Contracts may be attached at CARD or other frozen scopes, so provenance must preserve those bindings rather than assume one global numeric contract exists.
+A `NUMERIC` declaration is incomplete without the numeric contract governing the relevant computation. Contracts may be attached at JOB, DECK, CARD, or another frozen scope, so provenance must preserve those bindings rather than assume one global numeric contract exists.
 
 ### DECLARED-NONDETERMINISTIC result behavior
 
@@ -58,6 +58,14 @@ randomness = SEEDED
 ```
 
 The exact names and complete facet set remain provisional.
+
+## Scoped source contracts
+
+Result-determinism, numeric, and randomness requirements remain attached to the canonical scope that owns them.
+
+A JOB may establish a default/frozen requirement for its DECKs, a DECK may own a requirement for its CARDs, and a CARD may have its own explicit requirement where the normative semantic model permits that composition. The future specification must freeze inheritance/refinement rules before executable implementation.
+
+No serializer, lowering, or backend may silently flatten a JOB/DECK contract into an arbitrary child or weaken a parent requirement merely because the target cannot satisfy it. Effective scope bindings and any permitted transition remain provenance-visible.
 
 ## Scoped requested versus effective result contracts
 
@@ -215,6 +223,7 @@ backend_selection_scopes[]:
     selection_policy_version?
     selection_tuning_id?
     selection_tuning_hash?
+    machinery_authorization_record_ids[]?
 ```
 
 Policy/tuning identity is material when selection is automatic, such as `ON BEST`.
@@ -222,6 +231,30 @@ Policy/tuning identity is material when selection is automatic, such as `ON BEST
 A single execution-wide selection entry is valid only when one frozen machinery decision genuinely governs the whole run.
 
 For a frozen experiment, replay may require the recorded backend rather than re-running an evolved selection policy.
+
+## Protected machinery authorization
+
+Selecting machinery does not itself authorize its use, and machinery selection is not an external Semantic-IR effect.
+
+Protected machinery access is traced through identified records such as:
+
+```text
+machinery_authorization_records[]:
+    machinery_authorization_record_id
+    backend_selection_scope_id
+    source_card_ids[]
+    machinery_requirement_ids[]
+    required_capabilities[]
+    granted_capabilities[]
+    denied_capabilities[]
+    capability_policy_id
+    capability_policy_version
+    authorization_status
+```
+
+For `ON BEST`, the target may be resolved first so the applicable machinery requirement is known. All required capabilities must then be granted before protected machinery use starts. A denied accelerator authorization must not launch a kernel and must not be represented as a synthetic external effect.
+
+Fallback from an unauthorized target to another target is legal only under a frozen pre-execution selection/fallback rule, and the selection plus authorization history remains provenance-visible.
 
 ## Generated artifact provenance
 
@@ -265,11 +298,18 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 core_to_vector_result_binding_map[]
+core_to_vector_result_determinism_mapping_decisions[]
+core_to_vector_numeric_contract_mapping_decisions[]
+core_to_vector_randomness_mapping_decisions[]
 ```
 
 Binding maps are required whenever result identities are preserved or transformed, except under a frozen deterministic identity-map reconstruction rule.
 
-The Semantic→Core lowering-decision records identify the frozen rules, scope mappings, normalizations, and transition authorities that explain how execution-relevant qualifiers and source determinism/numeric/randomness contracts became the QSOL-CORE contract. IR hashes identify representations but do not themselves establish those decisions or correspondence between source and lower result names.
+The Semantic→Core lowering-decision records identify the frozen rules, scope mappings, normalizations, and transition authorities that explain how execution-relevant qualifiers and source determinism/numeric/randomness contracts became the QSOL-CORE contract.
+
+The Core→Vector/Dataflow mapping records perform the same job for the second mandatory lowering. If a Core contract scope is split across kernels, fused into a region, or otherwise changes lower identity, the corresponding result-determinism, numeric, or randomness mapping must be recorded. These records may be omitted only when a frozen deterministic identity-scope reconstruction rule proves the mapping is lossless.
+
+IR hashes identify representations but do not themselves establish contract-scope correspondence.
 
 ## Result provenance
 
@@ -417,6 +457,28 @@ Candidate reasons include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED
 
 An effect declaration with neither an attempt nor a non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
 
+## Per-CARD execution provenance
+
+Canonical membership alone does not establish execution.
+
+Every CARD in a selected DECK execution receives an identified path/outcome record:
+
+```text
+card_executions[]:
+    card_execution_id
+    deck_execution_id
+    card_id
+    card_status
+    execution_order_index?
+    governing_control_or_failure_id?
+    failure_class?
+    failure_stage?
+```
+
+Candidate statuses include `EXECUTED_SUCCESS`, `EXECUTED_FAILED`, `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, or frozen equivalents.
+
+This is material even for pure CARDs. A TEST that sits on an untaken branch may produce no output, no effect, and no failure, but it is semantically different from a TEST that executed successfully. `card_ids[]` names possible/referenced identities; `card_executions[]` records the actual path taken.
+
 ## Multi-DECK JOB execution provenance
 
 A JOB may coordinate more than one DECK, so an aggregate run manifest cannot use one singular `deck_id` / `deck_status` pair as the execution model.
@@ -428,7 +490,7 @@ deck_executions[]:
     deck_execution_id
     deck_id
     deck_status
-    card_ids[]
+    card_execution_ids[]
     execution_order_index?
     failure_card_id?
     failure_class?
@@ -449,6 +511,7 @@ semantic_ir_hash
 job_id
 deck_executions[]
 card_ids[]
+card_executions[]
 execution_status
 job_status
 failure_card_id?
@@ -466,8 +529,12 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 core_to_vector_result_binding_map[]
+core_to_vector_result_determinism_mapping_decisions[]
+core_to_vector_numeric_contract_mapping_decisions[]
+core_to_vector_randomness_mapping_decisions[]
 morph_version
 backend_selection_scopes[]
+machinery_authorization_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
@@ -490,17 +557,13 @@ optimization_provenance[]
 generated_artifacts[]
 ```
 
-`run_id` identifies the aggregate execution event. `job_id` identifies the stable canonical JOB selected for that run. `deck_executions[]` identifies each selected DECK and its individual per-run outcome, including DECKs that never start because an earlier DECK failed under fail-stop semantics. `card_ids[]` identifies the stable CARD identities that the manifest's producer, output, failure, scope, effect-attempt, non-attempt, generated-artifact, external-tool, optimization, and cache-reuse references may name. A whole-source hash is not a substitute for this execution hierarchy.
+`run_id` identifies the aggregate execution event. `job_id` identifies the stable canonical JOB selected for that run. `deck_executions[]` identifies each selected DECK and its individual per-run outcome, including DECKs that never start because an earlier DECK failed under fail-stop semantics. `card_executions[]` records the actual path/outcome of every CARD in those selected DECK executions. `card_ids[]` remains a stable identity/reference inventory, not proof that every CARD executed.
 
-`execution_status` and `job_status` record the aggregate run outcome even when no output exists. Per-DECK status and failure context live in `deck_executions[]`. When a JOB-level or enclosing failure field applies, `failure_card_id`, `failure_class`, and `failure_stage` identify the canonical failing CARD and stable semantic failure context. Effect completion alone cannot stand in for the enclosing CARD/DECK/JOB outcome: a process effect may be `COMPLETED` while its CARD and JOB fail because the completed process returned a non-success exit status.
+`execution_status` and `job_status` record the aggregate run outcome even when no output exists. Per-DECK status and failure context live in `deck_executions[]`; per-CARD path/outcome lives in `card_executions[]`. When a JOB-level or enclosing failure field applies, `failure_card_id`, `failure_class`, and `failure_stage` identify the canonical failing CARD and stable semantic failure context. Effect completion alone cannot stand in for the enclosing CARD/DECK/JOB outcome.
 
-Each `backend_selection_scopes[]` entry binds source CARDs/lower execution units to their requested and selected machinery plus automatic-selection policy/tuning identity where applicable.
+Each `backend_selection_scopes[]` entry binds source CARDs/lower execution units to their requested and selected machinery plus automatic-selection policy/tuning identity where applicable. Applicable protected machinery authorization is linked through `machinery_authorization_records[]` and must succeed before machinery use.
 
-Each `result_determinism_scopes[]` entry binds the scope identity, source CARD provenance, requested/effective guarantees, any preauthorized transition, and backend execution-unit identity where useful.
-
-Each `numeric_execution_scopes[]` entry binds the scope identity, source CARD provenance, numeric-contract identity/hash, material numeric mode, and backend execution-unit identity where useful.
-
-Each `randomness_execution_scopes[]` entry binds the scope identity, source CARD provenance, requested/effective randomness mode, transition authority, replay-relevant RNG algorithm/version/seed/stream/partitioning, and backend execution-unit identity where useful.
+Each `result_determinism_scopes[]`, `numeric_execution_scopes[]`, and `randomness_execution_scopes[]` entry binds its scope identity, source provenance, effective contract/mode, and backend execution-unit identity where useful.
 
 Each `inputs[]` entry binds a declared material input to the exact immutable value/content/artifact identity consumed.
 
@@ -508,17 +571,19 @@ Each `outputs[]` entry binds its artifact/result identity to its own semantic cl
 
 Each `cache_reuse_records[]` entry makes cold versus reused execution auditable and binds the material cache identity plus any legality/verification evidence supporting substitution.
 
-Each `effect_requirements[]` entry carries the source CARD ID, canonical declared effect ID, effect kind, and complete `required_capabilities[]` set for that declared protected effect. These declaration rows are required independently of runtime attempts. Every declaration must be accounted for by one or more `effect_attempts[]` or an explicit `effect_non_attempt_records[]` reason when no attempt exists, so untaken control flow and prior fail-stop remain distinguishable from implementation omission.
+Each `effect_requirements[]` entry carries the source CARD ID, canonical declared effect ID, effect kind, and complete `required_capabilities[]` set for that declared protected effect. Every declaration must be accounted for by one or more `effect_attempts[]` or an explicit `effect_non_attempt_records[]` reason when no attempt exists.
 
-Each Semantic→Core lowering-decision record preserves the rule/scope/transition evidence needed to explain consumed qualifiers and determinism/numeric/randomness mappings; the manifest must not jump from a Core hash to the next stage and make those decisions implicit.
+Each Semantic→Core lowering-decision record preserves the rule/scope/transition evidence needed to explain consumed qualifiers and determinism/numeric/randomness mappings.
+
+Each Core→Vector/Dataflow contract-mapping record preserves the scope correspondence required to explain how Core determinism/numeric/randomness contracts became lower execution regions or units. A changed lower scope layout must not be inferred from hashes alone.
 
 Each `external_tool_versions[]` entry binds a material external evidence/data producer to its stable version/content/model/service identity independently of the QSOL extension profile used to invoke it.
 
 Each `optimization_provenance[]` entry records what transformations actually ran and their legality/evidence context. `optimization_profile` alone is insufficient for target-adaptive optimization provenance.
 
-Each `generated_artifacts[]` entry binds a generated kernel/binary or equivalent artifact hash to its `backend_unit_id` and governing `backend_selection_scope_id`, so mixed-backend code generation remains attributable to the machinery and selection policy that produced each artifact. Applicable output records then link to the exact generated artifact IDs that actually executed.
+Each `generated_artifacts[]` entry binds a generated kernel/binary or equivalent artifact hash to its `backend_unit_id` and governing `backend_selection_scope_id`. Applicable output records then link to the exact generated artifact IDs that actually executed.
 
-Not every optional field applies to every execution, but stable JOB and per-DECK execution identity plus the enclosing execution outcome are material even when a failed run produces no outputs, and no material reproducibility decision may disappear merely because another run would have reached the same bytes by a different path.
+Not every optional field applies to every execution, but stable JOB, per-DECK, and per-CARD execution identity plus the enclosing execution outcome are material even when a failed or skipped path produces no outputs. No material reproducibility decision may disappear merely because another run would have reached the same bytes by a different path.
 
 The manifest should represent independent reproducibility facets independently rather than collapsing them into false execution-wide singletons.
 
@@ -530,7 +595,7 @@ QSOL-MORPH should state the strongest reproducibility guarantee actually provide
 
 ## Failure behavior
 
-An implementation fails closed when a required scoped determinism, numeric, randomness, capability, or other frozen execution contract cannot be satisfied.
+An implementation fails closed when a required scoped determinism, numeric, randomness, effect capability, machinery capability, or other frozen execution contract cannot be satisfied.
 
 Silently weakening:
 
@@ -544,4 +609,4 @@ General execution failure and effect-attempt completion semantics are documented
 
 ## Design principle
 
-> Nondeterminism, machinery choice, cache reuse, external tools, optimization decisions, generated-artifact identity, execution path, and external inputs are scientific inputs, not invisible implementation details.
+> Nondeterminism, machinery choice and authorization, cache reuse, external tools, optimization decisions, generated-artifact identity, execution path, and external inputs are scientific inputs, not invisible implementation details.
