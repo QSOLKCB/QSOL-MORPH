@@ -24,7 +24,7 @@ The semantic target of a CARD, such as `TEMPERATURE`, `MODEL`, or `RESULT`.
 
 ## result binding
 
-The canonical identity naming a value produced by a CARD for dependency/reference use by later CARDs. It is distinct from the produced value itself and must survive lossless serialization and lowering, either unchanged or through a deterministic provenance-bound rename map.
+The canonical identity naming a value produced by a CARD for dependency/reference use by later CARDs. It is distinct from the produced value itself and must survive lossless serialization and lowering either unchanged or through an identified, deterministic, provenance-bound **cardinality-aware result-binding map**. A mapping group may represent one-to-one preservation/rename, one-to-many split, or many-to-one fusion. Many-to-many mappings require an explicitly frozen rule. Mapping groups use explicit plural source/lower binding sets and deterministic canonical ordering; positional inference or an assumed one-name-to-one-name rename is not sufficient.
 
 ## semantic anchor
 
@@ -64,7 +64,7 @@ The mandatory target-independent lower IR that preserves the complete supported 
 
 ## Core-to-Vector/Dataflow Lowering
 
-The independently specified and provenance-bearing transformation from QSOL-CORE into the mandatory Vector/Dataflow IR. A conforming run identifies the input Core IR, active Vector/Dataflow specification, lowering implementation, resulting Vector/Dataflow IR, and any material result-binding map.
+The independently specified and provenance-bearing transformation from QSOL-CORE into the mandatory Vector/Dataflow IR. A conforming run identifies the input Core IR, active Vector/Dataflow specification, lowering implementation, resulting Vector/Dataflow IR, and any material cardinality-aware result-binding map.
 
 ## MORPH
 
@@ -136,7 +136,7 @@ Rules describing which numeric transformations and result differences are legal 
 
 ## numeric execution scope
 
-A provenance entry binding a scope identity to its numeric-contract identity/hash and effective material numeric mode, optionally including source CARD identities and backend execution-unit identity. Multiple scopes are retained when different legal numeric behavior applies within one run.
+A provenance entry binding a stable numeric-scope record identity to a governed computation scope, numeric-contract identity/hash, and effective material numeric mode, optionally including source CARD identities and backend execution-unit identity. Multiple scope records are retained when different legal numeric behavior applies within one run.
 
 ## trace
 
