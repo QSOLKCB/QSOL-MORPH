@@ -51,6 +51,8 @@ Acquiring fresh entropy is an externally stateful operation. Any execution that 
 
 The randomness mode permits fresh entropy but does not itself authorize entropy access. Each concrete acquisition uses the ordinary per-effect authorization and attempt provenance model.
 
+A randomness scope using `EXTERNAL-ENTROPY` must additionally identify the exact acquisition attempt or attempts that supplied its entropy and, where material to audit or replay, the immutable input identity of the entropy actually consumed. Merely naming the source CARD or randomness mode is insufficient when one CARD can acquire entropy more than once.
+
 ## Scoped source contracts
 
 Result-determinism, numeric, randomness, extension, machinery, and failure-behavior requirements remain attached to the canonical scope that owns them.
@@ -109,12 +111,18 @@ randomness_execution_scopes[]:
     seed?
     stream_id?
     parallel_partitioning?
+    entropy_effect_attempt_ids[]?
+    entropy_input_ids[]?
     backend_unit_id?
 ```
 
 `randomness_scope_id` is referenced by output `randomness_scope_ids[]`.
 
 Seeded replay binds algorithm, algorithm version, seed, stream identity, and parallel partitioning/stream mapping wherever they affect the generated sequence.
+
+When `effective_randomness_mode = EXTERNAL-ENTROPY`, `entropy_effect_attempt_ids[]` identifies every protected `RANDOM` acquisition attempt that materially supplied this randomness scope. Each attempt must resolve to a successful contextual authorization record and explicit effect-begin provenance. If the entropy value itself is a material input, `entropy_input_ids[]` identifies the immutable input record(s) actually consumed.
+
+An audit identity or content hash may identify an entropy acquisition without preserving raw secret/random bytes, but such a record does not establish byte-for-byte replayability unless the consumed entropy is reconstructable. The manifest must state the strongest guarantee actually supported.
 
 ### Numeric behavior
 
@@ -318,18 +326,9 @@ core_to_vector_randomness_mapping_decisions[]
 failure_behavior_mapping_decisions[]
 ```
 
-### Result-binding maps
-
-Result-binding maps are cardinality-aware identified mapping groups capable of:
-
-- one-to-one preservation/rename;
-- one-to-many split;
-- many-to-one frozen legal fusion;
-- many-to-many only under an explicit frozen rule.
+Result-binding maps are cardinality-aware identified mapping groups capable of one-to-one preservation/rename, one-to-many split, many-to-one frozen legal fusion, and many-to-many only under an explicit frozen rule.
 
 Binding maps are required whenever result identities are preserved or transformed unless a frozen deterministic rule reconstructs the complete mapping.
-
-### Typed scope mappings
 
 Lowering decision records identify both endpoints with typed scope references:
 
@@ -339,19 +338,7 @@ scope_ref:
     scope_id
 ```
 
-At the second boundary, every applicable mapping family uses:
-
-```text
-core_scope_refs[]:
-    scope_kind
-    scope_id
-
-vector_dataflow_scope_refs[]:
-    scope_kind
-    scope_id
-```
-
-Bare `core_scope_ids[]` and `vector_dataflow_scope_ids[]` are not sufficient where scope namespaces can overlap.
+At the second boundary, every applicable mapping family uses typed `core_scope_refs[]` and `vector_dataflow_scope_refs[]`. Bare scope-ID arrays are not sufficient where namespaces can overlap.
 
 This typed-endpoint rule applies to extension requirements, machinery requirements, result determinism, numeric contracts/modes, randomness, and failure behavior. Mapping families may be omitted only under a frozen deterministic identity-scope reconstruction rule covering that family.
 
@@ -389,8 +376,6 @@ deck_executions[]:
 
 Every selected DECK remains represented, including a DECK prevented from starting by prior fail-stop.
 
-Every CARD execution is a distinct runtime object:
-
 ```text
 card_executions[]:
     card_execution_id
@@ -407,7 +392,7 @@ card_executions[]:
 
 Candidate statuses include executed success/failure, untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip.
 
-## Typed execution-path causality
+## Typed execution-path causality and failure identity
 
 Control decisions and failures are separate identified namespaces:
 
@@ -422,18 +407,24 @@ control_decisions[]:
 
 failure_records[]:
     failure_record_id
-    failure_card_id
+    failing_scope_kind
+    failing_scope_id
     failure_class
     failure_stage
-    card_execution_id?
+    failure_card_id?
+    failure_card_execution_id?
     deck_execution_id?
     sequence_index?
     backend_detail?
 ```
 
+`failing_scope_kind` plus `failing_scope_id` is always present. It identifies the typed runtime or pre-runtime scope where the failure occurred.
+
+For a CARD-caused failure, `failure_card_id` and `failure_card_execution_id` are required and must resolve consistently through `card_executions[]`. For a legitimate pre-CARD failure, such as JOB-scoped contract rejection or protected-machinery denial before CARD execution, those CARD fields are absent rather than fabricated.
+
 An untaken branch references `governing_control_decision_id`. Prior fail-stop or another failure-caused non-reach references `governing_failure_record_id`.
 
-A catch-all `governing_control_or_failure_id` is invalid because it erases the target namespace and becomes ambiguous when IDs overlap.
+A catch-all `governing_control_or_failure_id` is invalid because it erases the target namespace.
 
 ## Per-effect authorization provenance
 
@@ -443,6 +434,7 @@ effect_authorization_records[]:
     effect_attempt_id
     declared_effect_id
     card_id
+    card_execution_id
     required_capabilities[]
     granted_capabilities[]
     denied_capabilities[]
@@ -456,30 +448,14 @@ Execution-wide capability sets are summaries, not proof that one attempt was aut
 
 ## Effect declaration and attempt accounting
 
-A declared effect may legitimately have no runtime attempt when its CARD does not execute.
-
-```text
-effect_non_attempt_records[]:
-    declared_effect_id
-    card_id
-    effect_kind
-    non_attempt_reason
-    governing_control_decision_id?
-    governing_failure_record_id?
-    backend_detail?
-```
-
-Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip.
-
-`BACKEND_OMISSION_DETECTED` or frozen equivalent means a reachable required effect was omitted. It forces structured execution/conformance failure and cannot coexist with successful enclosing execution.
-
-Runtime attempts carry contextual authorization, explicit begin/end ordering, and concrete output/tool attribution:
+Runtime attempts carry contextual authorization, explicit begin/end ordering, concrete CARD-execution identity, and output/tool attribution:
 
 ```text
 effect_attempts[]:
     effect_attempt_id
     declared_effect_id
     card_id
+    card_execution_id
     effect_kind
     required_capabilities[]
     effect_authorization_record_id
@@ -500,7 +476,36 @@ authorization_sequence_index < effect_begin_sequence_index
 
 Denied authorization has no effect-begin event. Generic `sequence_index` is not authorization-order proof.
 
-Candidate completion states are mutually exclusive:
+A declared effect may legitimately have no runtime attempt for a specific concrete CARD execution:
+
+```text
+effect_non_attempt_records[]:
+    effect_non_attempt_record_id
+    declared_effect_id
+    card_id
+    card_execution_id
+    effect_kind
+    non_attempt_reason
+    governing_control_decision_id?
+    governing_failure_record_id?
+    backend_detail?
+```
+
+Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip.
+
+`BACKEND_OMISSION_DETECTED` or frozen equivalent means a reachable required effect was omitted. It forces structured execution/conformance failure and cannot coexist with successful enclosing execution.
+
+### Unconditional declaration completeness
+
+For every selected concrete `card_execution_id`, every applicable canonical effect declaration owned by its `card_id` must resolve to:
+
+- one or more identified attempts for that `card_execution_id`; or
+- exactly one identified legitimate non-attempt record for that `card_execution_id`; or
+- structured failure if accounting cannot be completed or a reachable required effect was omitted.
+
+This is unconditional. There is no profile, backend, optimization, or deployment mode in which declaration-completeness accounting may be silently disabled.
+
+Candidate completion states remain mutually exclusive:
 
 ```text
 NOT_STARTED
@@ -551,8 +556,6 @@ cache_reuse_records[]:
 Verified cache reuse does not prove cold reconstructability.
 
 ## Result provenance
-
-A run may produce several outputs with different epistemic classes and execution histories.
 
 ```text
 outputs[]:
@@ -616,11 +619,9 @@ card_ids[]
 card_executions[]
 control_decisions[]
 failure_records[]
+primary_failure_record_id?
 execution_status
 job_status
-failure_card_id?
-failure_class?
-failure_stage?
 failure_behavior_bindings[]
 semantic_to_core_spec_version
 semantic_to_core_implementation_version
@@ -674,11 +675,15 @@ generated_artifacts[]
 
 `run_id` identifies the aggregate execution. `job_id` identifies the canonical JOB. `deck_executions[]` and `card_executions[]` identify the concrete runtime path.
 
-`control_decisions[]` and `failure_records[]` provide typed resolvable causes for untaken or blocked CARDs and effect non-attempts. Untaken control flow never points to a failure namespace; prior fail-stop never points to a control namespace merely because an ID string happens to match.
+`control_decisions[]` and `failure_records[]` provide typed resolvable causes for untaken or blocked CARDs and effect non-attempts. A failure record always identifies its typed failing scope; CARD identity is present only when a CARD execution actually caused that failure.
 
 Every protected machinery use links to all applicable successful authorization records and preserves authorization-before-use ordering.
 
-Every begun protected effect preserves authorization-before-begin ordering.
+Every begun protected effect preserves authorization-before-begin ordering and carries its concrete `card_execution_id`.
+
+Every declared effect is unconditionally accounted for per selected concrete CARD execution by attempt, legitimate identified non-attempt, or structured failure.
+
+Every EXTERNAL-ENTROPY randomness scope links to the exact protected RANDOM acquisition attempt(s) and immutable entropy input identity where material.
 
 Every output binds canonical producers **and** concrete CARD execution producers, exact material input IDs, applicable effect attempts/tools, exact generated artifacts, stable execution-contract scope records, cache reuse, and compatible evidence status.
 
@@ -696,9 +701,9 @@ QSOL-MORPH states the strongest reproducibility guarantee actually provided by a
 
 ## Failure behavior
 
-An implementation fails closed when a required determinism, numeric, randomness, effect capability, machinery capability, failure behavior, extension, or other frozen execution contract cannot be satisfied.
+An implementation fails closed when a required determinism, numeric, randomness, effect capability, machinery capability, failure behavior, extension, effect-accounting, or other frozen execution contract cannot be satisfied.
 
-Silently weakening `STRICT`, substituting external entropy for required seeded replay, acquiring external entropy without a declared/authorized `RANDOM` effect, changing fail-stop into continuation, dropping explicit recovery policy, beginning protected work before authorization, losing typed path causality, or omitting a reachable required effect is invalid unless a frozen pre-execution contract explicitly permits the applicable transition. A reachable-effect omission is not such a permitted transition and produces structured failure.
+Silently weakening `STRICT`, substituting external entropy for required seeded replay, acquiring external entropy without a declared/authorized `RANDOM` effect, failing to attribute external entropy to its concrete acquisition attempt, changing fail-stop into continuation, dropping explicit recovery policy, beginning protected work before authorization, losing typed path causality, fabricating a failing CARD for a pre-CARD failure, or omitting a reachable required effect is invalid unless a frozen pre-execution contract explicitly permits the applicable transition. A reachable-effect omission is not such a permitted transition and produces structured failure.
 
 General execution failure and effect-attempt completion semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
 
