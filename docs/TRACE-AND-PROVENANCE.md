@@ -8,6 +8,8 @@ This document is architectural and non-normative until the relevant contracts ar
 
 The record definitions and cross-record validation conditions in this document apply wherever the same records appear, including the README, agent guidance, roadmap gates, reproducibility manifests, and failure-domain traces. Shorter inventories are projections of this model, not permission to omit conditionally required fields or weaken validation. `?` means conditional presence: the applicability rules below decide when the field is required. A standalone projection retains the transitive closure needed to validate its records, inline or through retrievable content-bound references. These architectural requirements do not freeze an executable format or implement the later roadmap phases.
 
+In particular, complete canonical machinery-capability coverage, concrete cache-substitution subjects, concrete input consumers/acquisitions, and owner-qualified result bindings are shared requirements of every projection. Canonical sequencing endpoints use the [typed endpoint contract](SERIALIZATION.md#typed-sequencing-endpoints); shorter references to sequencing or binding identity do not waive its namespace and ownership checks.
+
 ## Trace questions
 
 A complete trace should be able to answer:
@@ -24,9 +26,9 @@ A complete trace should be able to answer:
 - which protected machinery requirements applied and whether authorization completed before protected use began;
 - which protected effects were declared for each concrete CARD execution, authorized, attempted, completed, aborted, partially observed, or legitimately not attempted;
 - which external-entropy acquisition attempt(s) and immutable entropy input(s) governed every applicable EXTERNAL-ENTROPY randomness scope;
-- what exact immutable inputs were consumed and which ones materially contributed to each output;
+- what exact immutable inputs were consumed, by which concrete invocations or acquisition attempts, and which ones materially contributed to each output;
 - which concrete CARD executions, effect attempts, tools, generated artifacts, optimization records, direct toolchain producers, transitive toolchain ancestry, and execution-contract scopes produced each output;
-- whether cache reuse occurred and under what legality evidence;
+- which concrete CARD executions used cache substitution rather than cold execution and under what legality evidence;
 - what epistemic class and evidence status belongs to each output;
 - whether execution failed, at what typed scope, and what had already become observable.
 
@@ -120,6 +122,8 @@ machinery_requirements[]:
 ```
 
 A GPU requirement does not turn GPU selection into an external effect. It is a separate protected-machinery authorization boundary.
+
+Every trace requirement must resolve to the corresponding hash-bound canonical requirement, retaining its owning scope, target selector/class, and complete capability set. A lowered requirement additionally retains its validated source-to-lower requirement mapping. A runtime copy or a capability union cannot replace that canonical association. [Canonical machinery coverage](#canonical-machinery-coverage) is checked before accepting either a grant or a protected use.
 
 ### Source contract bindings
 
@@ -229,11 +233,23 @@ result_binding_map[]:
     mapping_group_id
     source_bindings[]:
         source_card_id?
+        owner_scope_path[]:
+            scope_kind
+            scope_id
         binding_id
     lower_bindings[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
         binding_id
     mapping_rule_id?
 ```
+
+Each binding is identified by its complete typed `owner_scope_path[]` and local `binding_id` within the exact representation on that side of the hash-bound lowering boundary. At Semantic-to-Core the source and lower contexts are `semantic_ir_hash` and `core_ir_hash`; at Core-to-Vector/Dataflow they are `core_ir_hash` and `vector_dataflow_ir_hash`. A flattened manifest must keep each map associated with its boundary and both IR identities. A hash or local binding name from a different representation cannot satisfy the reference.
+
+The owner path is the ordered absolute containment path from the representation root to the binding's defining scope, with a known `scope_kind` and stable `scope_id` for every segment. Include all enclosing scopes needed to distinguish local names. An empty path is valid only for an actual representation-root binding, never an unknown local owner. Each complete reference resolves to exactly one binding defined by that scope in that IR. `source_card_id`, when present as source provenance, must agree with the resolved producer and cannot replace the owner path. Lowered scopes need not fabricate a source CARD as their owner.
+
+Thus two Core scopes or Vector/Dataflow kernels can each define local binding `v0` without ambiguity: their owner paths differ. A split can name both qualified `v0` bindings; a fusion can name several distinct qualified sources. The dependent consumer must resolve to that same qualified binding, not the first matching local name. Missing/invalid owner paths, duplicate definitions under one complete key, wrong representation, or unresolved producers fail conformance.
 
 This model supports:
 
@@ -242,7 +258,7 @@ This model supports:
 - many-to-one frozen legal fusion;
 - many-to-many only when an explicit frozen rule permits it.
 
-`source_bindings[]` and `lower_bindings[]` use deterministic canonical ordering. Positional inference is not sufficient. A map is required whenever result identities are preserved or transformed unless a frozen rule permits deterministic reconstruction of the complete mapping.
+`source_bindings[]` and `lower_bindings[]` use deterministic canonical ordering by the complete qualified references, with no duplicate member in an array. Path segments retain containment order. Positional inference and sorting by `binding_id` alone are not sufficient. A map is required whenever result identities are preserved or transformed unless a frozen rule permits deterministic reconstruction of the complete mapping, including every owner path and both representation identities. Identity of local name text alone is not that reconstruction rule. Both mandatory lowerings and all manifest projections use this same qualified map.
 
 ### First-lowering scope mappings
 
@@ -453,6 +469,34 @@ machinery_authorization_records[]:
     authorization_sequence_index?
 ```
 
+### Canonical machinery coverage
+
+Before accepting any machinery authorization, resolve every `machinery_requirement_ids[]` entry to exactly one requirement in the hash-bound canonical input and its actual owning scope. Validate the trace requirement's identity, owner, target selector/class, and complete capability set against that canonical record, not against another runtime copy. For requirements carried through lowering, validate the source/lower requirement-ID associations and frozen mapping rules against both IR hashes through every traversed boundary. A map cannot silently discard a source permission or manufacture authorization. Unknown, ambiguous, mismatched, or duplicate requirement identities fail closed; a locally scoped requirement ID needs its unambiguous owning-scope context rather than a first-match lookup.
+
+For an authorization record `A`, define `C(A)` as the union of the complete canonical capability sets of every uniquely resolved requirement named by `A.machinery_requirement_ids[]`. The membership and target applicability of each individual requirement remain validated even when capability names overlap. Require:
+
+```text
+for each referenced requirement R:
+    trace_requirement(R).required_capabilities
+        = canonical_requirement(R).required_capabilities
+
+A.required_capabilities = C(A)
+
+for authorization_status = GRANTED:
+    A.granted_capabilities = C(A)
+    A.denied_capabilities = {}
+```
+
+These are exact canonical set equalities, not subset containment or agreement between shortened copies. Capability arrays have valid canonical identities, deterministic ordering, and no duplicates. Granted and denied sets are disjoint and contain only capabilities from the record's canonical required set. A record that denies or has not established every required permission may describe rejection/incomplete authorization, but it cannot authorize use. A broader environment grant is only a policy input; this contextual decision records the exact required set it actually evaluated.
+
+Every referenced requirement must apply to this record's exact backend-selection decision, target, source/owning scope, and policy context. A grant for another requirement, resource, candidate, or invocation context does not count merely because it uses the same capability names. The record's selection decision must resolve to its recorded selection scope, and source CARD associations must agree with the canonical ownership and validated lowering relation.
+
+Before accepting a protected use, independently derive the **complete applicable requirement set** from the hash-bound canonical program, the actual selection decision/target, the concrete participating CARD executions or genuine pre-CARD scope, and the frozen scope/extension/lowering applicability rules. Do not derive completeness solely from the requirement IDs or authorization IDs that the producer chose to list. Every applicable JOB-, DECK-, CARD-, and inherited/lowered machinery requirement must be accounted for.
+
+The union of requirement identities covered by the use's linked, context-compatible successful authorization records must equal that independently derived set, with no missing or unrelated requirement. For each requirement, the covering authorization must satisfy its entire canonical capability set; grants from unrelated records or contexts cannot be pooled to repair a partial decision. Several requirements sharing one capability still retain their individual identity and policy applicability. A grouping of requirements is valid only when the same context actually governs every member and the record evaluates their exact canonical union.
+
+All of those checks, successful policy outcomes, and authorization-before-use ordering are required together before the protected boundary. An empty authorization list is valid only when the canonical applicability rules establish that no protected requirement applies, not because the runtime omitted the requirements. A canonical requirement for `{GPU, NETWORK}` is not satisfied by a runtime requirement, authorization, and use that consistently mention only `{GPU}`. Likewise, dropping a second applicable requirement entirely fails coverage even if every remaining record is internally consistent. Invalid coverage rejects authorization/use and produces structured failure; a trace of a violation must not report the use as authorized.
+
 Protected use is independently identified:
 
 ```text
@@ -479,7 +523,7 @@ Authorization and use indices live in one frozen monotonic event-order domain. E
 authorization_sequence_index < protected_use_start_sequence_index
 ```
 
-Denied machinery has no use-start record.
+Denied machinery has no use-start record. Correct event order does not cure incomplete canonical requirement or capability coverage.
 
 ## Generated artifact provenance
 
@@ -712,7 +756,7 @@ No accepted frozen rule, no semantic transition. Missing, stale, ambiguous, self
 
 When `effective_randomness_mode = EXTERNAL-ENTROPY`, the randomness scope must identify the exact protected `RANDOM` acquisition attempt or attempts that supplied entropy through `entropy_effect_attempt_ids[]`. Each referenced attempt must resolve to the ordinary effect authorization/attempt ledger and therefore prove authorization completed before acquisition began.
 
-Where the acquired entropy becomes a material runtime input, `entropy_input_ids[]` identifies the immutable input record(s), such as a canonical captured value, content hash, immutable artifact identity, or another frozen identity sufficient to distinguish what was actually consumed. If raw entropy is intentionally not retained, a frozen audit identity may establish what acquisition was used, but the manifest must not claim byte-for-byte replayability unless the consumed entropy value is actually reconstructable.
+Where the acquired entropy becomes a material runtime input, `entropy_input_ids[]` identifies the immutable input record(s), such as a canonical captured value, content hash, immutable artifact identity, or another frozen identity sufficient to distinguish what was actually consumed. The referenced input's `effect_attempt_ids[]` and the acquisition attempt's `acquired_input_ids[]` must agree with this entropy attribution, and its concrete consumers remain identified even if they fail without producing outputs. If raw entropy is intentionally not retained, a frozen audit identity may establish what acquisition was used, but the manifest must not claim byte-for-byte replayability unless the consumed entropy value is actually reconstructable.
 
 The randomness mode itself never authorizes entropy access and never substitutes for the protected `RANDOM` effect attempt.
 
@@ -786,6 +830,8 @@ card_executions[]:
     deck_execution_id
     card_id
     card_status
+    input_ids[]
+    cache_reuse_record_ids[]?
     execution_order_index?
     governing_control_decision_id?
     governing_failure_record_id?
@@ -795,6 +841,8 @@ card_executions[]:
 ```
 
 Canonical `card_id` identifies the semantic CARD. `card_execution_id` identifies one concrete execution of that CARD. The distinction matters for loops, retries, calls, repeated DECK execution, or any future construct that can execute one canonical CARD more than once.
+
+`input_ids[]` identifies all and only the material inputs actually consumed by this invocation under the frozen operation/provenance contract, with reciprocal `inputs[].consumer_card_execution_ids[]` links. A failed or output-free invocation still records the inputs it consumed; an unstarted invocation must not claim inputs merely available to its DECK. `cache_reuse_record_ids[]` is required whenever a runtime cache classification record concerns this invocation and is reciprocal with that record's `card_execution_ids[]`. Neither relation is inferred from canonical CARD identity or the order of output arrays.
 
 `failure_record_id` is required for a failed CARD or DECK outcome and resolves to the exact failure record governing that outcome, directly or through an explicitly frozen and validated propagation relation. Equal failure classes/stages do not identify a failure event. A blocked/not-started CARD instead uses its governing cause and must not fabricate a failure caused by that CARD. Summary failure labels, when retained, must agree with the referenced record and cannot replace it.
 
@@ -862,9 +910,22 @@ inputs[]:
     location?
     media_or_schema_type?
     source_card_ids[]?
+    consumer_card_execution_ids[]
+    consumer_scope_refs[]?
+    effect_attempt_ids[]
 ```
 
 Every material input requires a stable `input_id` plus a canonical value or immutable content/artifact identity sufficient to identify what was actually consumed. Paths, URLs, dataset names, and model names are retrieval context, not immutable identity by themselves.
+
+`consumer_card_execution_ids[]` contains the exact concrete invocations that consumed this identified input, not every invocation of a canonical CARD. Each ID resolves in this run through `card_executions[]` to its CARD and DECK execution, and that record reciprocally lists the input in `input_ids[]`. The relation remains mandatory for a consumer that fails, produces no output, or has a later retry. A canonical `source_card_ids[]` summary, when present, must agree with the actual consumers and does not replace their runtime identities.
+
+`effect_attempt_ids[]` identifies the concrete effect acquisition(s) that supplied the captured input, such as a file read, clock sample, network response, or external-entropy acquisition. It is nonempty for effect-acquired input and empty only when no effect acquisition supplied that input. Each referenced attempt resolves to its declaration, concrete `card_execution_id`, authorization, and completion/ordering evidence, and reciprocally lists this input in `acquired_input_ids[]`. The frozen operation contract must establish that the attempt supplied these exact captured bytes/value. A denied or `NOT_STARTED` attempt cannot supply a captured input. A failed/partial attempt may supply only the material actually acquired and permitted by the failure contract; do not invent a capture for an attempt that supplied nothing.
+
+Acquisition and consumption are different roles: the acquiring CARD execution may differ from the executions that later consume the input. Both relations must remain explicit. Independent acquisitions retain distinct capture identities even when their content hashes happen to match, unless a frozen representation preserves the full occurrence-to-consumer relation without loss. A single captured immutable value may legitimately have several identified consumers. Matching file paths, canonical CARD IDs, or equal bytes alone cannot assign captures to iterations.
+
+Inputs with no CARD consumer must not fabricate one. Build-only inputs retain their actual consuming `toolchain_invocations[].input_ids[]` relations. Genuine pre-CARD run/DECK setup instead requires `consumer_scope_refs[]`, each a typed `{ scope_kind, scope_id }` reference to the actual RUN or DECK_EXECUTION (`run_id` or `deck_execution_id`) that consumed the input. These non-CARD relations do not waive concrete CARD references when CARD consumption also occurs. The CARD array is empty only when no CARD invocation actually consumed the input.
+
+Input, consumer, and acquisition IDs are duplicate-free and resolve within the same run/reference closure. Validate the actual consumption/acquisition relation and its causal ordering under the frozen operation contract, not only the existence of named IDs. Output `input_ids[]` may describe transitive material dependencies; that output relation does not replace the direct-consumer ledger. Failure traces retain consumed inputs and their consumer/acquisition closure even if no output references them. Missing, swapped, ambiguous, wrong-run, or unverifiable attribution fails provenance validation rather than guessing which read or retry used a value.
 
 ## Effect authorization
 
@@ -919,11 +980,14 @@ effect_attempts[]:
     effect_end_sequence_index?
     completion_state
     backend_detail?
+    acquired_input_ids[]
     observable_output_ids[]
     external_tool_ids[]?
 ```
 
 `card_id` identifies the canonical declaration owner. `card_execution_id` identifies the concrete runtime invocation in which this attempt occurred. Attempts from different retries, loop iterations, calls, or repeated DECK executions must never collapse merely because they share one canonical CARD ID.
+
+`acquired_input_ids[]` identifies the captured material input records actually supplied by this acquisition attempt and is reciprocal with `inputs[].effect_attempt_ids[]`. It is empty for an attempt that acquired no material input. It is independent of `observable_output_ids[]`: a read may supply an input to a CARD that later fails without publishing any output. See the [input consumer and acquisition rules](#inputs).
 
 Authorization and effect-begin indices share one frozen monotonic event-order domain. Every protected attempt known to begin satisfies:
 
@@ -1015,6 +1079,7 @@ cache_reuse_records[]:
     cache_reuse_record_id
     classification
     source_card_ids[]
+    card_execution_ids[]
     reused_computation_id?
     cache_key_hash?
     cached_artifact_hash?
@@ -1027,11 +1092,19 @@ cache_reuse_records[]:
 
 Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents.
 
-For `VERIFIED_REUSE`, `legality_rule_id` and `verification_evidence_id` are mandatory. They resolve to a `rule_records[]` entry of kind `CACHE_SUBSTITUTION` and passing, content-bound `validation_evidence[]` for this exact cache-reuse record. The record must identify the reused computation/artifact and the checked cache key/artifact content, either directly through the corresponding hash fields or through resolvable immutable cached-output/producer provenance. Evidence verifies the material cache identity and substitution legality against the current inputs, contracts, and execution context before substitution is applied. A matching hash or a producer's `VERIFIED_REUSE` label alone is not verification evidence.
+`card_execution_ids[]` identifies the concrete **current-run** CARD invocation or invocations to which this cache decision applies. It is nonempty for runtime CARD lookup, cold execution, or substitution, including an invocation that later fails or produces no output. Every ID resolves through this run's `card_executions[]` and has a reciprocal `cache_reuse_record_ids[]` reference. `source_card_ids[]` is the corresponding canonical CARD projection, not the concrete substitution subject and not the producer of an old cache entry. Historical producer identity stays in `cache_producer_run_id`, `cached_output_id`, and the content-bound cache-origin provenance; it cannot be mistaken for the current invocation.
 
-Ordinary result substitution is effect-free by default. Effectful reuse additionally requires that the referenced rule is the separately frozen replay/cache semantic covering this operation's declared effects, contextual authorization, ordering, failure, attempt provenance, output attribution, and external state behavior. A generic cache rule does not permit effectful substitution.
+One retry executing cold and another using the cache require distinct records linked to the respective `card_execution_id`, even though their canonical CARD is the same. A grouped record may list several executions only when its classification, cached material, and verified rule/evidence apply to every listed current invocation. Otherwise split the records. Canonical IDs, output-array position, or a Cartesian product between output producer and cache-record arrays must not reconstruct this association. Whole-CARD cold execution and whole-CARD substitution cannot both be claimed for the same invocation; a future partial/region reuse contract must represent its typed subsubjects explicitly rather than overloading these whole-CARD records.
 
-An `UNVERIFIED_HIT` remains diagnostic and cannot satisfy a CARD or produce a verified-reuse output. It must undergo successful verification before reuse, trigger cold execution, or fail closed. Missing, stale, mismatched, failed, or unavailable verification evidence invalidates `VERIFIED_REUSE`; optional notation for other classifications never waives its conditions.
+For `VERIFIED_REUSE`, `legality_rule_id` and `verification_evidence_id` are mandatory. They resolve to a `rule_records[]` entry of kind `CACHE_SUBSTITUTION` and passing, content-bound `validation_evidence[]` for this exact cache-reuse record. The record must identify the reused computation/artifact and the checked cache key/artifact content, either directly through the corresponding hash fields or through resolvable immutable cached-output/producer provenance. Evidence verifies the material cache identity and substitution legality against the exact current `card_execution_ids[]`, their consumed inputs, contracts, and execution context before substitution is applied. The evidence's evaluated context includes that complete invocation set; changing the set invalidates the evidence. A matching hash or a producer's `VERIFIED_REUSE` label alone is not verification evidence.
+
+Ordinary result substitution is effect-free by default. Effectful reuse additionally requires that the referenced rule is the separately frozen replay/cache semantic covering this operation's declared effects, contextual authorization, ordering, failure, attempt provenance, output attribution, and external state behavior. Validate that rule against the attempt/non-attempt/authorization accounting for each exact current `card_execution_id`; accounting for another retry or the historical cache producer cannot discharge the current invocation's effects. A generic cache rule does not permit effectful substitution.
+
+An `UNVERIFIED_HIT` remains diagnostic and cannot satisfy a CARD or produce a verified-reuse output. It must undergo successful verification before reuse, trigger cold execution, or fail closed. Missing, stale, mismatched, failed, or unavailable verification evidence invalidates `VERIFIED_REUSE`; optional notation for other classifications never waives its conditions. A diagnostic hit and the actual cold/reuse outcome remain distinguishable records or an explicitly frozen validated state transition, not contradictory applied outcomes.
+
+A build-only cache operation or diagnostic with no runtime CARD subject may have an empty `card_execution_ids[]` only when the applicable build/diagnostic provenance identifies its actual non-CARD subject. Such a record cannot satisfy a runtime CARD, waive its effect accounting, or be cited as evidence of runtime substitution. Never invent a CARD execution for a build-only operation, and never use this exception to omit an actual runtime consumer.
+
+Output cache references are validated through the reuse record's concrete execution links and the frozen producer/dependency relation to that output. Each output lists only records that materially contributed to it. Unknown, wrong-run, mismatched canonical/concrete, contradictory, or unverifiable substitution subjects fail closed. This join remains available even without an output because the current execution ledger also references its cache records.
 
 Verified cache reuse does not prove cold reconstructability.
 
@@ -1066,7 +1139,7 @@ outputs[]:
 
 The concrete producer-execution relation is required whenever runtime producer attribution is part of the trace contract, including whenever the same canonical CARD can execute more than once. A canonical CARD ID alone is insufficient for loops, retries, repeated calls, or repeated DECK execution.
 
-`input_ids[]` identifies the exact immutable inputs materially contributing to the output. Execution-wide input availability is not a substitute.
+`input_ids[]` identifies the exact immutable inputs materially contributing to the output. Execution-wide input availability is not a substitute, and this transitive output relation does not replace each input's direct concrete consumer/acquisition links.
 
 `effect_attempt_ids[]`, where applicable, identifies concrete effect attempts that produced or exposed the output. Those attempts reciprocally list the output in `observable_output_ids[]`.
 
@@ -1075,6 +1148,8 @@ The concrete producer-execution relation is required whenever runtime producer a
 `generated_artifact_ids[]` identifies the exact executable/kernel/bytecode artifact that ran where applicable. The artifact links onward to its optimization provenance, its direct toolchain producer, and its ordered transitive toolchain ancestry.
 
 `failure_behavior_binding_ids[]` resolves to the exact identified failure-policy records that governed the producer path. A generic computation `scope_id` cannot substitute for this record-level join.
+
+`cache_reuse_record_ids[]` resolves to records with explicit current `card_execution_ids[]`; those subjects must match the actual material producer/dependency relation. Separate arrays of output producers and cache records are not a positional or all-to-all association.
 
 The execution-contract scope arrays resolve directly to the stable type-specific scope-record keys described above.
 
@@ -1122,18 +1197,20 @@ effect_attempts[]
 effect_non_attempt_records[]
 machinery_authorization_records[]
 machinery_use_records[]
+inputs[]
+cache_reuse_records[]
 rule_records[]
 validation_evidence[]
 observable_output_ids[]
 ```
 
-A failure trace includes the backend-selection scope and decision ledgers referenced by its machinery authorization/use records, including denied candidates and fallback predecessors, not just the final target. Every `failure_behavior_binding_ids[]` reference resolves to the retained governing policy bindings. A standalone failure manifest must preserve the complete transitive closure of its references, including applicable rules, evidence, requirements, and observable outputs, either inline or through retrievable content-bound trace records. An unresolvable ID or an unbound mutable external trace link is incomplete provenance.
+A failure trace includes the backend-selection scope and decision ledgers referenced by its machinery authorization/use records, including denied candidates and fallback predecessors, not just the final target. Every `failure_behavior_binding_ids[]` reference resolves to the retained governing policy bindings. A standalone failure manifest must preserve the complete transitive closure of its references, including applicable rules, evidence, requirements, consumed inputs, cache subjects, and observable outputs, either inline or through retrievable content-bound trace records. An unresolvable ID or an unbound mutable external trace link is incomplete provenance. Consumed input and cache-to-invocation relations remain required even when `observable_output_ids[]` is empty.
 
 The primary failure resolves through `failure_records[]` to an always-present typed failing scope. `failure_card_id` is canonical only for CARD-caused failures and is absent for legitimate pre-CARD failures.
 
 Effect-attempt completion is independent of CARD success. A completed process effect may coexist with a failed CARD if the process completed and returned a non-success status under the active contract.
 
-Protected machinery authorization outcomes are not enough by themselves. If protected machinery actually began, `machinery_use_records[]` preserve the concrete use, its CARD-execution or pre-CARD initiating-scope relation, and ordering evidence.
+Protected machinery authorization outcomes are not enough by themselves. If protected machinery actually began, `machinery_use_records[]` preserve the concrete use, its CARD-execution or pre-CARD initiating-scope relation, complete canonical requirement coverage, and ordering evidence.
 
 ## Provenance validation rules
 
@@ -1144,8 +1221,12 @@ At minimum, a future validator should reject or fail closed when:
 - a declared effect loses its per-effect capability binding;
 - declaration, attempt, and authorization capability sets do not exactly match the hash-bound canonical declaration, or their owner/execution/reciprocal identity links disagree;
 - a protected machinery requirement disappears before MORPH;
+- a machinery authorization's required set differs from the exact canonical union of its resolved requirements, or a successful grant does not cover that exact set;
+- a machinery use omits an independently applicable canonical requirement or uses grants for another target, scope, or policy context, even when its listed records and event ordering agree;
 - a machinery-requirement mapping cannot identify the exact source and lower requirement records at either lowering boundary when multiple requirements share a scope;
 - a result-binding map cannot represent the actual split/fusion cardinality;
+- a result-binding endpoint lacks its complete typed owner path or cannot resolve uniquely within the correct hash-bound representation;
+- a sequencing endpoint loses its kind, owner path, stable ID, or direction during serialization/lowering;
 - a lowering scope mapping uses ambiguous untyped endpoints where namespaces can overlap;
 - a required extension ownership mapping becomes positional or implicit;
 - a material resolved extension lacks its exact profile version, contract hash, implementation-component identities, or resolvable owning requirement and governed scopes;
@@ -1174,6 +1255,7 @@ At minimum, a future validator should reject or fail closed when:
 - a failure trace omits referenced backend-selection scopes, decisions, or other records needed to resolve its provenance;
 - a pre-CARD failure fabricates `failure_card_id`, or a CARD-caused failure omits the matching canonical/concrete CARD identities;
 - cold execution and cache reuse become indistinguishable;
+- runtime cache records lack their current concrete `card_execution_ids[]`, disagree with reciprocal execution links, or borrow another invocation's evidence/effect accounting;
 - `VERIFIED_REUSE` lacks a matching frozen legality rule, checked cache identity, or passing verification evidence, or an unverified hit supplies an output;
 - an optimized artifact cannot be joined to its optimization record;
 - optimization legality witnesses are opaque labels or do not verify against the exact IR pair, complete transformation sequence, and active contracts;
@@ -1185,6 +1267,8 @@ At minimum, a future validator should reject or fail closed when:
 - output evidence status contradicts semantic class;
 - an epistemic promotion lacks its applicable frozen rule and passing subject/content-bound substantive evidence before claim publication;
 - a mutable input locator substitutes for immutable input identity;
+- an input loses its actual concrete consumers or effect-acquisition attempts, or a failed/output-free invocation loses consumed-input attribution;
+- reciprocal input/consumer/acquisition links disagree, captures are assigned by canonical CARD or path alone, or a denied/unstarted acquisition claims a captured input;
 - a material external tool has neither immutable/versioned material identity nor an explicit identity-unavailable state that weakens the claim.
 
 ### Conformance cases for the future trace validator
@@ -1201,8 +1285,13 @@ These are documentation acceptance cases for the applicable roadmap gates, not a
 | Optimization legality | Typed content-bound witnesses verify the exact IR pair, complete pass sequence, and active numeric/determinism/randomness/failure and other material contracts before optimized-variant acceptance. | Opaque `PASS`; wrong IR pair; changed tolerance or failure policy; incomplete pass coverage; unavailable verifier/evidence; finite tests represented as universal proof. |
 | Failed CARD outcome | The failed execution's `failure_record_id` resolves to its exact governing failure or validated propagation relation. | Class/stage summaries only; another invocation's same-class failure; unresolved ID; fake CARD failure for a merely blocked path. |
 | Extension resolution | Each material resolution retains exact version, contract hash, complete implementation-component identities, owning requirement refs, and actual governed scopes; the selected version satisfies the source range. | Profile/range only; missing adapter/hook identity; wrong owner; incompatible version/hash; identity-mapping omission used to erase the material resolution. |
+| Multi-capability machinery and complete use coverage | Resolve canonical requirements, validate their trace/lowering copies, require the exact canonical capability union and full grant, and cover every independently applicable requirement for the actual decision/use before start. | Copy only `GPU` when a requirement needs `{GPU, NETWORK}`; truncate the trace copy too; drop a second applicable requirement; add unrelated grants; use another candidate's authorization; keep correct event order but incomplete coverage. |
+| Concrete cache substitution | Two invocations of one canonical CARD have distinct cold/reuse records with correct current `card_execution_ids[]`, reciprocal execution links, and passing reuse evidence/effect accounting for the exact substituted invocation. | Omit runtime execution IDs; use the historical cache producer as the current subject; swap retries; infer a Cartesian product from a multi-producer output; reuse another invocation's effect accounting; claim both applied cold and whole-CARD reuse. |
+| Typed sequencing identity | Every directed edge resolves by endpoint kind, complete typed owner path, and stable ID in its containing representation, under the shared serialization contract. | Drop kind/path; confuse CARD `7` with effect `7`; join repeated local CARD IDs under different DECKs; reverse direction while retaining ID text; resolve against a different representation. |
+| Qualified lower bindings | Each side of both lowering maps resolves its full owner path and binding ID in the correct input/output IR; a split names both distinct scoped `v0` bindings and a fusion retains each qualified source. | Keep local `v0` only; omit an enclosing scope; substitute a different IR; sort names and infer owners; duplicate a fully qualified binding; use an identity exception that cannot reconstruct ownership. |
+| Concrete runtime input consumers and acquisition | Two reads/samples by repeated CARD invocations retain distinct captured input identities, exact consumer execution links, reciprocal CARD input links, and actual acquisition attempt/input links, including when an invocation fails with no output. | Keep only canonical source CARD IDs; swap consumers or acquisition attempts; collapse independent equal-content captures without occurrence mapping; use an output as the only join; fabricate inputs for denied/unstarted reads or CARD consumers for build-only inputs. |
 
-For every case involving referenced rules or evidence, also reject missing content, hash mismatch, an unaccepted authority/verifier, a wrong subject namespace, and evidence that cannot establish the required pre-application ordering. A positive example is conditional on an actually accepted frozen rule; the table does not create one by example.
+For every case involving referenced rules or evidence, also reject missing content, hash mismatch, an unaccepted authority/verifier, a wrong subject namespace, and evidence that cannot establish the required pre-application ordering. A positive example is conditional on an actually accepted frozen rule; the table does not create one by example. The [serialization conformance cases](SERIALIZATION.md#sequencing-conformance-cases) additionally cover typed endpoint round trips across nested and flattened formats.
 
 ## Principle
 
