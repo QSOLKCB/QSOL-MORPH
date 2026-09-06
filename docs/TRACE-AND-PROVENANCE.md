@@ -13,13 +13,14 @@ The goal is not merely to say that a program ran. The trace should make it possi
 - which machinery-selection decisions were considered, denied, superseded, or finally used for each governed scope;
 - why automatic machinery selection or fallback chose each target;
 - whether protected machinery was authorized before use and what ordered trace evidence proves authorization completed before protected use began;
+- whether each protected external effect was authorized before it began and what ordered trace evidence proves that relation;
 - what exact immutable inputs were consumed and which material inputs contributed to each identified output;
 - what result-determinism, numeric, randomness, and failure-behavior contracts governed each relevant scope;
-- what extension contracts were resolved;
+- what extension contracts were resolved and how their owning scopes mapped through both mandatory lowerings;
 - which external tools, services, models, provers, processes, or instruments materially contributed to each applicable attempt/output;
 - what protected effects were declared, which capability sets belonged to them, which authorization decision governed each attempt, which runtime attempts occurred, and why any declaration had no attempt;
 - which concrete effect attempts produced or exposed each applicable output;
-- what generated artifacts were produced and which exact artifacts produced each applicable output;
+- what generated artifacts were produced, which exact artifacts produced each applicable output, and which optimization provenance governed each optimized artifact;
 - what optimizations actually ran and under which legality evidence;
 - what identified outputs were produced, what semantic class/status belongs to each one, and what evidence-status claim is valid for each output;
 - whether cache reuse occurred and what was reused;
@@ -176,6 +177,7 @@ semantic_to_core_implementation_version
 core_ir_hash
 result_binding_map[]
 resolved_extensions[]
+extension_requirement_lowering_decisions[]
 qualifier_lowering_decisions[]
 machinery_requirement_lowering_decisions[]
 result_determinism_lowering_decisions[]
@@ -221,6 +223,22 @@ Qualifier, machinery-requirement, result-determinism, numeric, randomness, failu
 
 A decision record should retain the source scope(s), resulting Core scope(s), source CARD identities, applicable frozen mapping/normalization rule, and any preauthorized transition identity when those details are material.
 
+Extension requirements need their own scope-preserving mapping family because resolved extension identity alone does not establish ownership. A candidate record is:
+
+```text
+extension_requirement_lowering_decisions[]:
+    source_scope_kind
+    source_scope_id
+    core_scope_ids[]
+    source_card_ids[]
+    profile_name
+    resolved_version_or_content_identity
+    contract_id_or_hash?
+    mapping_rule_id
+```
+
+A JOB- or DECK-owned extension requirement must not be silently relocated to a CARD or detached from the lower Core scope(s) it governs. This mapping family may be omitted only when a frozen deterministic identity-scope reconstruction rule proves the source and Core extension scopes correspond without loss.
+
 If a machinery requirement or failure behavior is preserved by identity, a decision record may be omitted only when a frozen deterministic reconstruction rule establishes that preservation. Generic metadata or IR hashes are not such a rule.
 
 ## Core-to-Vector/Dataflow trace
@@ -235,6 +253,7 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 result_binding_map[]
+extension_requirement_mapping_decisions[]
 machinery_requirement_mapping_decisions[]
 core_to_vector_result_determinism_mapping_decisions[]
 core_to_vector_numeric_contract_mapping_decisions[]
@@ -260,13 +279,15 @@ backend_unit_ids[]?
 transition_authorized_by?
 ```
 
-Use the applicable family for result determinism, numeric contracts/modes, randomness, protected-machinery requirements, and failure behavior.
+Use the applicable family for extension requirements, result determinism, numeric contracts/modes, randomness, protected-machinery requirements, and failure behavior.
+
+For extension requirements, `extension_requirement_mapping_decisions[]` must additionally retain the applicable profile/version/content/contract identity so a lower region or backend unit cannot inherit an extension contract by positional or naming inference.
 
 If a Core scope is split into multiple kernels, several Core scopes are fused into a region, or lower scope identity otherwise changes, the mapping must be provenance-visible.
 
-The result-determinism, numeric, and randomness mapping arrays may be omitted only when a frozen deterministic identity-scope reconstruction rule proves that the Core and Vector/Dataflow contract scopes correspond without loss. The same principle applies to machinery/failure mapping decisions. IR hashes alone are not a reconstruction rule.
+The extension, result-determinism, numeric, and randomness mapping arrays may be omitted only when a frozen deterministic identity-scope reconstruction rule proves that the Core and Vector/Dataflow contract scopes correspond without loss. The same principle applies to machinery/failure mapping decisions. IR hashes alone are not a reconstruction rule.
 
-If the Vector/Dataflow lowering implementation, specification, control representation, effect ordering, machinery requirements, capability metadata, binding mapping, failure behavior, or numeric/randomness structure changes, provenance must distinguish the resulting lower IR.
+If the Vector/Dataflow lowering implementation, specification, control representation, effect ordering, extension ownership, machinery requirements, capability metadata, binding mapping, failure behavior, or numeric/randomness structure changes, provenance must distinguish the resulting lower IR.
 
 ## MORPH trace
 
@@ -399,19 +420,24 @@ generated_artifacts[]:
     backend_selection_scope_id
     backend_selection_decision_id?
     source_card_ids[]?
+    optimized_ir_hash?
+    optimization_record_ids[]?
     artifact_location?
 ```
 
 `backend_unit_id` identifies the lower execution/code-generation unit that produced the artifact. `backend_selection_scope_id` identifies the governed machinery-selection scope. `backend_selection_decision_id`, when material, identifies the final concrete decision whose target produced the artifact, which is required to disambiguate fallback histories.
 
-A mixed-backend JOB may produce several same-kind artifacts. Their hashes alone do not establish which target decision produced which artifact.
+When an artifact is generated from optimized IR, `optimized_ir_hash` and `optimization_record_ids[]` bind that concrete artifact to the actual transformation sequence and legality evidence that produced it. The referenced optimization records reciprocally list the applicable `generated_artifact_ids[]`. A reference/no-transform artifact may omit optimization links only under a frozen deterministic rule proving that no material optimization decision intervened.
 
-A backend-selection scope may govern several generated artifacts, including reference and optimized variants. Output provenance therefore records applicable `generated_artifact_ids[]` so an output identifies the exact generated artifact that actually produced or supplied it.
+A mixed-backend JOB may produce several same-kind artifacts. Their hashes alone do not establish which target decision or optimization history produced which artifact.
+
+A backend-selection scope may govern several generated artifacts, including reference and optimized variants. Output provenance therefore records applicable `generated_artifact_ids[]` so an output identifies the exact generated artifact that actually produced or supplied it, and the artifact in turn identifies the optimization provenance that governed it.
 
 ## Scoped result-determinism provenance
 
 ```text
 result_determinism_scopes[]:
+    result_determinism_scope_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -421,6 +447,8 @@ result_determinism_scopes[]:
     backend_unit_id?
 ```
 
+`result_determinism_scope_id` is the stable record key referenced by output `result_determinism_scope_ids[]`. `scope_kind` + `scope_id` identify the governed computation and are not an implicit alias for this record key. Multiple execution records may govern the same computation scope only when each remains independently identified and the frozen composition rule is traceable.
+
 A scope may be retained from source or introduced by a semantics-preserving lowering. Grouping must preserve the strongest applicable requirements or follow another frozen normalization rule that is provenance-visible.
 
 A recorded transition is evidence, not authorization. If a requested guarantee cannot be satisfied and no pre-execution rule authorizes a weaker guarantee, execution fails closed.
@@ -429,6 +457,7 @@ A recorded transition is evidence, not authorization. If a requested guarantee c
 
 ```text
 numeric_execution_scopes[]:
+    numeric_scope_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -438,6 +467,8 @@ numeric_execution_scopes[]:
     backend_unit_id?
 ```
 
+`numeric_scope_id` is the stable record key referenced by output `numeric_scope_ids[]`; it is separate from the governed computation `scope_id`.
+
 Material numeric choices may include FMA behavior, denormal handling, effective precision, reduction strategy, selected math-library mode, or another frozen numeric-mode identity.
 
 A single execution-wide numeric scope is valid only when a frozen rule establishes that one contract and one material mode govern the entire execution.
@@ -446,6 +477,7 @@ A single execution-wide numeric scope is valid only when a frozen rule establish
 
 ```text
 randomness_execution_scopes[]:
+    randomness_scope_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -459,6 +491,8 @@ randomness_execution_scopes[]:
     parallel_partitioning?
     backend_unit_id?
 ```
+
+`randomness_scope_id` is the stable record key referenced by output `randomness_scope_ids[]`; it is separate from the governed computation `scope_id`.
 
 Seeded replay requires more than an integer seed. Where applicable, RNG algorithm, version, seed, stream identity, and parallel partitioning/stream mapping are material inputs.
 
@@ -596,7 +630,13 @@ effect_authorization_records[]:
 
 The authorization record establishes exactly which policy evaluated this attempt and what complete capability set was granted or denied in that context. An implementation must not infer per-attempt authorization from execution-wide capability unions because the same capability may be permitted for one scope/effect and denied for another.
 
-Authorization must complete successfully before the protected effect begins. If an attempt object has already been created and authorization is denied, that attempt remains `NOT_STARTED` and links to the denial record.
+Authorization must complete successfully before the protected effect begins. `authorization_sequence_index` and the attempt's `effect_begin_sequence_index` are values in the same frozen monotonic event-order domain whenever effect-order auditability is required. Every protected effect known to have begun must satisfy:
+
+```text
+authorization_sequence_index < effect_begin_sequence_index
+```
+
+A denied authorization must not have a corresponding effect-begin event. If an attempt object has already been created and authorization is denied, that attempt remains `NOT_STARTED`, carries no `effect_begin_sequence_index`, and links to the denial record. A generic attempt `sequence_index` is not a substitute for this authorization-before-begin proof unless a future frozen schema explicitly defines it in the same event-order domain.
 
 Protected machinery authorization remains separate through `machinery_authorization_records[]` and ordered `machinery_use_records[]`; machinery selection is not an external effect.
 
@@ -612,7 +652,7 @@ resolved_extensions[]:
     implementation_or_content_identity?
 ```
 
-A profile name alone is insufficient if different versions can change lowering, effects, or results.
+A profile name alone is insufficient if different versions can change lowering, effects, or results. Resolved identity also does not replace the scope-mapping records required when an extension requirement is JOB-, DECK-, CARD-, Core-, or lower-region-scoped.
 
 ## External-tool provenance
 
@@ -648,6 +688,8 @@ effect_attempts[]:
     required_capabilities[]
     effect_authorization_record_id
     sequence_index
+    effect_begin_sequence_index?
+    effect_end_sequence_index?
     completion_state
     backend_detail?
     observable_output_ids[]
@@ -657,6 +699,8 @@ effect_attempts[]:
 `declared_effect_id` references canonical `EffectRequirement.effect_id`. `effect_attempt_id` identifies the concrete runtime attempt. They are not interchangeable.
 
 `effect_authorization_record_id` identifies the contextual decision that granted or denied this attempt's complete required capability set. A successful effect attempt cannot exist without a successful applicable authorization record under the frozen authorization contract.
+
+`effect_begin_sequence_index` is the ordered event proving when protected effect execution actually began. `effect_end_sequence_index`, when known and material, records the completion/abort/stop event in the same frozen event-order domain. `NOT_STARTED` attempts have no begin event. Every attempt known to have begun carries a begin event when the active auditability contract requires ordering proof.
 
 `observable_output_ids[]` contains stable output IDs this attempt actually produced, published, exposed, or materially supplied. An output produced by an external effect carries the reciprocal `effect_attempt_ids[]` reference.
 
@@ -766,7 +810,7 @@ Each output owns its own epistemic class and status. One validated output must n
 
 `external_tool_ids[]`, when applicable, identifies the concrete external evidence/data producers that materially supplied this output. Those tool records reciprocally reference the output and/or the effect attempts through which they contributed.
 
-`backend_selection_scope_ids[]` identifies machinery-selection scopes governing the output. `generated_artifact_ids[]`, when applicable, identifies the exact generated executable, kernel, bytecode image, or equivalent artifact that actually produced or supplied it. The determinism/numeric/randomness references identify the execution contracts that governed it. `cache_reuse_record_ids[]`, when present, identifies legal cache reuse that contributed to it.
+`backend_selection_scope_ids[]` identifies machinery-selection scopes governing the output. `generated_artifact_ids[]`, when applicable, identifies the exact generated executable, kernel, bytecode image, or equivalent artifact that actually produced or supplied it. `result_determinism_scope_ids[]`, `numeric_scope_ids[]`, and `randomness_scope_ids[]` resolve directly to the stable type-specific record keys defined by their respective execution-scope arrays, not to the generic computation `scope_id`. The cache references identify legal reuse that contributed to the output.
 
 ## Failure and partial-effect provenance
 
@@ -900,6 +944,7 @@ optimization_provenance[]:
     optimized_ir_hash
     transformation_sequence[]
     legality_witnesses[]
+    generated_artifact_ids[]?
     vectorization_decisions[]?
     fusion_decisions[]?
     memory_placement_decisions[]?
@@ -908,6 +953,8 @@ optimization_provenance[]:
 ```
 
 A target-adaptive implementation must preserve the actual transformation sequence and legality evidence rather than only the profile name. A stable content identity for a complete MORPH trace may substitute only when it is sufficient to retrieve and verify the complete decision record.
+
+When optimized IR is code-generated, every resulting artifact must be joined to the applicable optimization record(s), and those records reciprocally identify the generated artifacts. `backend_unit_id` alone is insufficient when one unit has reference and optimized variants. The chain `output → generated_artifact → optimization_provenance` must resolve without guessing from hashes or array position.
 
 A faster semantics-breaking change is not an optimization.
 
@@ -934,10 +981,10 @@ However, executable research results must not begin life without enough provenan
 - their canonical program and per-DECK/per-CARD execution path;
 - the exact immutable material inputs that contributed to each output;
 - semantic class/status and a mutually consistent evidence-status claim;
-- scoped machinery-selection decision history plus determinism/numeric/randomness/failure-behavior decisions;
-- exact generated artifact identities where applicable;
-- concrete effect attempts and their contextual authorization decisions where external effects produced or exposed the result;
-- extension set and concrete material external-tool identities;
+- scoped machinery-selection decision history plus resolvable determinism/numeric/randomness/failure-behavior decisions;
+- exact generated artifact identities and their governing optimization provenance where applicable;
+- concrete effect attempts and their contextual authorization decisions plus authorization-before-begin ordering evidence where external effects produced or exposed the result;
+- extension set, extension-scope mappings through both mandatory lowerings, and concrete material external-tool identities;
 - machinery authorization decisions plus ordered protected-use evidence where protected machinery was actually used;
 - optimization decisions where material;
 - cache/reuse context where relevant;
