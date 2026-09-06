@@ -68,7 +68,7 @@ When proposing changes:
 28. preserve `machinery_requirements[]` and explicit failure behavior through Semantic→Core lowering or record a frozen provenance-visible mapping;
 29. preserve the complete QSOL-CORE control/effect/machinery/contract surface through the mandatory Vector/Dataflow IR;
 30. record both mandatory lowering identities/hashes and cardinality-aware result-binding maps in provenance;
-31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change;
+31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change; for machinery mappings, preserve explicit source/lower machinery-requirement IDs as well as typed scope endpoints;
 32. record result-determinism provenance at the JOB/DECK/CARD/region/kernel or other frozen scope where it is valid; do not invent a global pair unless a frozen normalization proves it valid;
 33. record scoped numeric contract/mode provenance;
 34. record scoped randomness/RNG provenance;
@@ -91,7 +91,7 @@ When proposing changes:
 51. bind each output to canonical producer CARDs **and concrete `producer_card_execution_ids[]`**, exact materially contributing `input_ids[]`, applicable failure-behavior bindings, and exact generated artifact IDs when generated code is involved;
 52. bind optimized generated artifacts to the exact optimization-record IDs and optimized-IR identity that produced them, with reciprocal generated-artifact IDs on optimization records;
 53. give each failure-behavior provenance record a stable `failure_behavior_binding_id` and make output references resolve to those record IDs rather than a generic computation `scope_id`;
-54. bind every generated artifact to the ordered exact toolchain invocation IDs that produced its bytes, including material tool identity, flags/configuration, target/ABI context, and reciprocal output-artifact links;
+54. bind every generated artifact to one truthful `direct_producer_toolchain_invocation_id` plus ordered `toolchain_invocation_chain_ids[]`; direct invocation input/output artifact edges must remain truthful and transitive ancestors must not be mislabeled as direct producers;
 55. use `failure_card_id` only for the CARD whose unhandled failure actually caused a failure record; pre-CARD failures use an always-present typed failing scope and must not fabricate a CARD culprit;
 56. prefer small, inspectable transformations.
 
@@ -125,6 +125,8 @@ result-determinism scope
 failure-behavior binding
 failure-behavior binding ID
 toolchain invocation
+direct toolchain producer
+toolchain invocation chain
 QSOL-CORE
 Semantic IR
 Semantic-to-Core Lowering
@@ -222,6 +224,8 @@ core_to_vector_numeric_contract_mapping_decisions[]
 core_to_vector_randomness_mapping_decisions[]
 failure_behavior_mapping_decisions[]
 ```
+
+For `machinery_requirement_mapping_decisions[]`, typed scope mappings alone are not enough when one Core scope owns several machinery requirements. Preserve `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` so each target selector/capability set reaches the correct lower region.
 
 A mapping family may be omitted only under a frozen deterministic identity-scope reconstruction rule that actually covers that family.
 
@@ -457,7 +461,9 @@ Backend-specific behavior belongs behind explicit backend or extension boundarie
 
 Generated target code should remain inspectable where practical.
 
-Every generated artifact must be attributable to the exact ordered toolchain invocation chain that produced its bytes. Use identified records such as:
+Toolchain provenance distinguishes the invocation that directly emitted an artifact from the full transitive chain that materially contributed to it.
+
+Use identified invocation records such as:
 
 ```text
 toolchain_invocations[]:
@@ -477,7 +483,9 @@ toolchain_invocations[]:
     backend_selection_scope_id?
 ```
 
-`generated_artifacts[].toolchain_invocation_ids[]` records the ordered invocation IDs that materially produced the artifact, and invocation records reciprocally identify their output artifacts. A run-wide compiler-version list is summary metadata only; it is not sufficient build provenance when different units or stages can use different compiler/linker versions or flags.
+Every generated artifact records one `direct_producer_toolchain_invocation_id` plus ordered `toolchain_invocation_chain_ids[]`. `input_generated_artifact_ids[]` and `output_generated_artifact_ids[]` are direct edges: only an invocation that actually emits an artifact lists it as an output. A transitive ancestor remains in the artifact's chain but must not falsely claim the final artifact as a direct output.
+
+For `compile → object → link → executable`, the compiler directly outputs the object, the linker directly outputs the executable, and the executable's ordered chain may still contain both invocation IDs. A run-wide compiler-version list is summary metadata only; it is not sufficient build provenance when different units or stages can use different compiler/linker versions or flags.
 
 A backend implements frozen semantics. It does not define them.
 
@@ -539,6 +547,7 @@ For every substantive change, ask:
 - Did a result binding disappear or become impossible to map through a split/fusion?
 - Did either lowering lose a cardinality-aware result-binding map?
 - Did either lowering lose extension-, machinery-requirement, or failure-behavior mapping provenance?
+- Did a machinery-requirement mapping lose the stable source/lower requirement IDs and become ambiguous among several requirements sharing one scope?
 - Did Core→Vector/Dataflow lose determinism/numeric/randomness scope mappings?
 - Did an effect become implicit or lose its complete capability-set association?
 - Did a protected-machinery requirement disappear or get misrepresented as an external effect?
@@ -561,7 +570,8 @@ For every substantive change, ask:
 - Did a material input retain only a mutable locator?
 - Did a material external tool retain only a mutable name/endpoint without an explicit identity-unavailable downgrade?
 - Did an optimized artifact lose the optimization record(s) that produced it?
-- Did a generated artifact lose the exact ordered toolchain invocation IDs, tool identity, or build flags/configuration that produced its bytes?
+- Did a generated artifact lose its direct producer, ordered transitive toolchain ancestry, material tool identity, or build flags/configuration?
+- Did a transitive toolchain ancestor get falsely recorded as directly outputting the final artifact?
 - Did an extension get mistaken for a capability grant or leak into core?
 - Did a serializer lose JOB→DECK→CARD containment/order, the canonical tagged sequencing field, or replace it with incomplete parallel arrays?
 - Did a failure record use `card_id` where canonical `failure_card_id` is required, or require `failure_card_id` where no CARD actually failed?
