@@ -267,8 +267,8 @@ Useful trace material includes:
 
 ```text
 semantic_ir_hash
-lowering_spec_version
-lowering_implementation_version
+semantic_to_core_spec_version
+semantic_to_core_implementation_version
 core_ir_hash
 result_binding_map[]
 resolved_extensions[]
@@ -278,6 +278,8 @@ numeric_contract_lowering_decisions[]
 randomness_lowering_decisions[]
 lowering_diagnostics[]
 ```
+
+The canonical identity fields are `semantic_to_core_spec_version` and `semantic_to_core_implementation_version`, matching the flattened trace and run-manifest schemas. Lowering producers and consumers must not substitute unprefixed aliases unless a future frozen schema explicitly defines that alias mapping.
 
 `result_determinism_lowering_decisions[]` and `randomness_lowering_decisions[]` record scope preservation, grouping, identity changes, frozen normalizations, and any permitted requested-to-effective transition mapping needed to explain how source requirements became Core contracts. IR hashes alone cannot establish that correspondence.
 
