@@ -190,6 +190,8 @@ A non-vectorizable operation is not permission to bypass this IR.
 
 Core→Vector/Dataflow provenance records not only result-binding correspondence but also contract-scope mappings for extension requirements, result determinism, numeric behavior, randomness, machinery requirements, and failure behavior whenever Core scopes are split, fused, renamed, relocated, or otherwise remapped into lower execution regions/units.
 
+For machinery mappings, typed scope correspondence alone is insufficient when one Core scope owns several requirements. Provenance also carries `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`, preserving which exact target selector and capability set reached each lower region.
+
 ## Determinism, numerics, and randomness
 
 Result determinism and randomness are separate facets.
@@ -328,7 +330,7 @@ Activating an extension never grants runtime permission by itself.
 
 Machinery selection is also distinct from authorization. `RUN MODEL ON GPU` may select a GPU-backed scope, but protected GPU use begins only after the applicable machinery requirement's capabilities are granted.
 
-`machinery_authorization_records[]` bind the selected backend-selection scope and decision to required/granted/denied machinery capabilities and the capability policy responsible for the decision. `machinery_use_records[]` identify protected-use start/stop and link back to the applicable authorization records in the same frozen event-order domain, so the trace can prove authorization completed before use began. A denied GPU authorization must not launch a kernel, and it must not be represented as a fake external effect.
+`machinery_authorization_records[]` bind the selected backend-selection scope **and concrete backend-selection decision** to the applicable `machinery_requirement_ids[]`, required/granted/denied machinery capabilities, and the capability policy responsible for the decision. `machinery_use_records[]` identify protected-use start/stop and link back to the applicable authorization records in the same frozen event-order domain, so the trace can prove authorization completed before use began. A denied GPU authorization must not launch a kernel, and it must not be represented as a fake external effect.
 
 ## CUDA without ordinary plumbing
 
@@ -391,7 +393,7 @@ failure records
 
 `external_tool_versions[]` must carry immutable/versioned material identity when an external tool/service/model/prover/process materially affects result or evidence. A mutable name or endpoint alone is insufficient. If exact material identity is unavailable, that unavailability is explicit and the replay/evidence claim is weakened according to frozen policy.
 
-Generated artifacts link to ordered `toolchain_invocation_ids[]`. Each identified invocation records the material compiler/assembler/linker/code-generation identity, invocation order, target/ABI context, exact flags/configuration, material inputs, and reciprocal generated-artifact output. Run-wide compiler version lists are summaries, not artifact-level build evidence.
+Generated artifacts identify one `direct_producer_toolchain_invocation_id` plus ordered `toolchain_invocation_chain_ids[]`. Invocation `input_generated_artifact_ids[]` and `output_generated_artifact_ids[]` are direct build-graph edges, so a transitive ancestor in the chain does not falsely claim it directly emitted the final artifact. For `compile → object → link → executable`, the compiler directly emits the object, the linker directly emits the executable, while the executable's ordered ancestry can retain both invocations. Run-wide compiler version lists remain summaries, not artifact-level build evidence.
 
 ### Identified inputs
 
@@ -441,7 +443,7 @@ When present, `evidence_status` is class-discriminated, conceptually carrying `e
 
 `failure_behavior_binding_ids[]` resolves to the exact identified failure-policy records that governed whether the producer path continued, failed, recovered, or compensated. Generic source-scope IDs are not substitutes for the stable binding-record keys.
 
-An optimized generated artifact records its applicable `optimized_ir_hash` and `optimization_record_ids[]`, while each optimization record reciprocally lists the `generated_artifact_ids[]` it produced. Each generated artifact also links to its ordered `toolchain_invocation_ids[]`. This makes the provenance path `output → generated artifact → optimization provenance / toolchain invocation provenance` directly resolvable rather than inferred from `backend_unit_id` or a run-wide compiler list.
+An optimized generated artifact records its applicable `optimized_ir_hash` and `optimization_record_ids[]`, while each optimization record reciprocally lists the `generated_artifact_ids[]` it produced. Each generated artifact also identifies its direct toolchain producer and ordered transitive toolchain ancestry. This makes the provenance path `output → generated artifact → optimization provenance / direct toolchain producer / toolchain ancestry` directly resolvable rather than inferred from `backend_unit_id` or a run-wide compiler list.
 
 A simulation artifact and a separately validated artifact therefore cannot accidentally share one evidence status or machinery/RNG/generated-code provenance record.
 
