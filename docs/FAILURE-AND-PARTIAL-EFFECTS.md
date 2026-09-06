@@ -214,6 +214,7 @@ effect_authorization_record_id
 effect_attempt_id
 declared_effect_id
 card_id
+card_execution_id
 required_capabilities[]
 granted_capabilities[]
 denied_capabilities[]
@@ -222,6 +223,8 @@ capability_policy_version
 authorization_status
 authorization_sequence_index?
 ```
+
+`card_id` identifies the canonical declaration owner. `card_execution_id` identifies the concrete retry, loop iteration, call, or other runtime invocation in which the authorization decision applies.
 
 Authorization ordering and effect-begin ordering use the same frozen monotonic event-order domain. For every protected effect known to begin:
 
@@ -331,13 +334,13 @@ A failed execution should be traceable with enough information to answer:
 - every DECK selected for that JOB run and the outcome of each one, including DECKs prevented from starting;
 - every CARD in those selected DECKs and whether it executed, failed, was on untaken control flow, was blocked by prior fail-stop, or was explicitly skipped under a frozen rule;
 - which identified control decision or failure record caused an untaken or blocked execution path;
-- which CARD produced the enclosing failure;
+- which typed scope failed, and when a CARD execution actually caused the failure, which canonical CARD and concrete CARD execution did so;
 - at what stage the failure occurred;
 - which stable failure class applies;
 - which backend/runtime detail was reported;
 - which declared effects existed;
-- which effect attempts existed, which canonical declared effect produced each one, which authorization decision governed each attempt, the complete capability set governing each attempt, the authorization-before-begin ordering evidence, and the completion state of each attempt;
-- why any declared effect had no runtime attempt and which typed control/failure cause governs that reason when applicable;
+- which effect attempts existed, which canonical declared effect produced each one, which concrete CARD execution owned each attempt, which authorization decision governed each attempt, the complete capability set governing each attempt, the authorization-before-begin ordering evidence, and the completion state of each attempt;
+- why any declared effect had no runtime attempt for a concrete CARD execution and which typed control/failure cause governs that reason when applicable;
 - which protected machinery was actually used, which successful authorization records governed it, and whether every authorization completed before protected use began;
 - whether any output artifact became externally visible and which concrete attempt produced/exposed it;
 - what determinism, numeric, randomness, capability, machinery-authorization, policy, and extension contracts were active.
@@ -353,10 +356,7 @@ deck_executions[]
 card_executions[]
 control_decisions[]
 failure_records[]
-failure_card_id
-failure_class
-failure_stage
-backend_detail?
+primary_failure_record_id?
 effect_requirements[]
 effect_authorization_records[]
 effect_attempts[]
@@ -365,6 +365,8 @@ machinery_authorization_records[]
 machinery_use_records[]
 observable_output_ids[]
 ```
+
+Failure identity is carried by `failure_records[]`; the aggregate record references a `primary_failure_record_id?` when one failure is designated primary rather than duplicating a mandatory CARD field at the top level.
 
 Each selected DECK is represented through an identified record such as:
 
@@ -375,9 +377,7 @@ deck_executions[]:
     deck_status
     card_execution_ids[]
     execution_order_index?
-    failure_card_id?
-    failure_class?
-    failure_stage?
+    failure_record_id?
 ```
 
 A derived `completed_decks[]` summary may be useful, but it is not a substitute for identified per-DECK execution records because it cannot represent the failed DECK and later DECKs that never started.
@@ -395,14 +395,20 @@ control_decisions[]:
 
 failure_records[]:
     failure_record_id
-    failure_card_id
+    failing_scope_kind
+    failing_scope_id
     failure_class
     failure_stage
-    card_execution_id?
+    failure_card_id?
+    failure_card_execution_id?
     deck_execution_id?
     sequence_index?
     backend_detail?
 ```
+
+`failing_scope_kind` plus `failing_scope_id` is always present. It identifies the actual JOB, DECK execution, CARD execution, lowering, backend-selection scope, machinery boundary, or other frozen typed scope where the failure occurred.
+
+For a CARD-caused failure, `failure_card_id` and `failure_card_execution_id` are required and resolve consistently through `card_executions[]`. For a failure before any CARD executes, those CARD-specific fields are absent. A producer must not fabricate a CARD attribution simply to satisfy a schema.
 
 `control_decision_id` and `failure_record_id` are not interchangeable, even if their textual values happen to overlap.
 
@@ -427,7 +433,7 @@ Candidate CARD outcomes may include successful execution, failed execution, unta
 
 Each `effect_requirements[]` entry preserves the canonical declared effect, source CARD, effect kind, and complete required-capability set.
 
-Each `effect_authorization_records[]` entry preserves the contextual policy decision that governed one identified attempt.
+Each `effect_authorization_records[]` entry preserves the contextual policy decision that governed one identified attempt and identifies the concrete `card_execution_id` in which that decision applies.
 
 Each `effect_attempts[]` entry should be independently identifiable and may carry fields such as:
 
@@ -435,6 +441,7 @@ Each `effect_attempts[]` entry should be independently identifiable and may carr
 effect_attempt_id
 declared_effect_id
 card_id
+card_execution_id
 effect_kind
 required_capabilities[]
 effect_authorization_record_id
@@ -447,14 +454,16 @@ observable_output_ids[]
 external_tool_ids[]?
 ```
 
-`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt. They are not interchangeable. `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering.
+`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt; and `card_execution_id` identifies the concrete invocation/path in which it occurred. They are not interchangeable. `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering.
 
-When a declared effect has no runtime attempt, an identified non-attempt record should explain why:
+When a declared effect has no runtime attempt for a concrete CARD execution, an identified non-attempt record explains why:
 
 ```text
 effect_non_attempt_records[]:
+    effect_non_attempt_record_id
     declared_effect_id
     card_id
+    card_execution_id
     effect_kind
     non_attempt_reason
     governing_control_decision_id?
@@ -462,7 +471,9 @@ effect_non_attempt_records[]:
     backend_detail?
 ```
 
-Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. Untaken control flow references a `control_decision_id`; failure-caused non-reach references a `failure_record_id`. A detected backend omission of a reachable effect is instead a structured implementation/conformance failure. A declared effect with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
+Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. Untaken control flow references a `control_decision_id`; failure-caused non-reach references a `failure_record_id`. A detected backend omission of a reachable effect is instead a structured implementation/conformance failure.
+
+Declared-effect accounting is unconditional. For every selected concrete `card_execution_id`, every applicable canonical effect declaration must resolve to one or more attempts, exactly one legitimate identified non-attempt, or structured failure when accounting cannot be established or a reachable required effect was omitted. There is no optional declaration-completeness audit mode and no backend/profile/optimization switch may disable this rule.
 
 The trace must not collapse multiple external actions into one aggregate `partial_effect_state`, must not collapse protected machinery use into authorization outcomes alone, and must not collapse selected DECKs or CARD execution paths into one aggregate status that loses which semantic units actually ran.
 
