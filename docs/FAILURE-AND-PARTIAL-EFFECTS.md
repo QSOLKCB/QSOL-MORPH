@@ -4,6 +4,8 @@ QSOL-MORPH treats failure behavior as part of program semantics.
 
 This document is architectural and non-normative until the invariant freeze. Its purpose is to prevent the reference machine and later backends from inventing incompatible answers to the same failed computation.
 
+Record inventories here are projections of the [canonical trace contract](TRACE-AND-PROVENANCE.md#one-record-contract-not-independent-mirror-schemas), not independent weaker schemas. Conditional field requirements, exact cross-record capability equality, typed non-reach causes, and content-bound rule/evidence validation apply to failure manifests too. Shorter inventories never waive those checks.
+
 ## Core outcome model
 
 A CARD evaluation conceptually produces one of two outcomes:
@@ -52,6 +54,10 @@ Every DECK selected for the JOB execution remains represented in provenance even
 This default deliberately avoids inventing implicit continuation semantics.
 
 If a future JOB construct permits independent DECK continuation, retry, fallback, compensation, or parallel execution after another DECK fails, that behavior must be explicit and frozen, including dependency, cancellation, ordering, artifact-status, and provenance rules.
+
+### Failure-policy authority
+
+A failure-policy binding records immutable/versioned requested and effective behavior definitions. Any semantic change, including fail-stop changed to continue, retry, or compensation, requires `mapping_or_transition_rule_id` resolving to an accepted `CONTRACT_TRANSITION` rule and `transition_evidence_id` resolving to passing evidence for that exact `FAILURE_BEHAVIOR_BINDING` subject before activation or application. A representation-only mapping uses a separate rule kind, `FAILURE_BEHAVIOR_MAPPING`, and must establish unchanged semantics; it cannot authorize a behavioral change. Missing or unverifiable authority/evidence rejects the transition under the unchanged applicable rejection/fail-stop contract. The effective policy cannot authorize itself. These are the [canonical failure-policy transition conditions](TRACE-AND-PROVENANCE.md#failure-policy-transitions), including their subject/context and validation-before-application requirements.
 
 ## Pure CARD failure
 
@@ -102,7 +108,7 @@ UNKNOWN
 
 These names are provisional, but the distinctions are semantic and must be mutually exclusive.
 
-A declared effect does not necessarily have an attempt. Its CARD may be on an untaken branch, may never be reached after an earlier fail-stop failure, or may be explicitly skipped under a frozen rule. The trace must distinguish those legitimate non-attempts from a backend silently omitting a reachable declared effect. An explicit skip must identify its governing frozen rule and passing applicability evidence for the concrete invocation; a reason label alone is not permission.
+A declared effect does not necessarily have an attempt. Its CARD may be on an untaken branch, may never be reached after an earlier fail-stop failure, or may be explicitly skipped under a frozen rule. The trace must distinguish those legitimate non-attempts from a backend silently omitting a reachable declared effect. An explicit skip must identify its governing frozen rule and passing applicability evidence for the concrete invocation; a reason label alone is not permission. Every not-reached reason, including `CARD_NOT_REACHED`, requires a validated typed control/failure cause or verified frozen skip for that exact invocation.
 
 A detected omission of a **reachable required effect** is not an ordinary non-attempt outcome. It is an implementation/conformance failure and must produce a structured failed execution outcome. Recording `BACKEND_OMISSION_DETECTED` (or a frozen equivalent) cannot be used to legitimize success after the backend skipped required semantic behavior.
 
@@ -225,6 +231,8 @@ authorization_sequence_index?
 ```
 
 `card_id` identifies the canonical declaration owner. `card_execution_id` identifies the concrete retry, loop iteration, call, or other runtime invocation in which the authorization decision applies.
+
+Before accepting the authorization, validate exact complete-set equality between the hash-bound canonical declaration, its trace declaration, the attempt, and the authorization record. Also validate their declaration/owner/concrete-execution identities, effect kind, and reciprocal attempt/authorization links. The canonical set must be fully granted with no denied member; granted and denied sets are disjoint. Matching truncated runtime copies are not enough: a declaration requiring `{AI_MODEL, NETWORK}` cannot be authorized by copying and granting only `{AI_MODEL}` in both runtime records. These checks are required in addition to event ordering and follow [Declaration-bound authorization validation](TRACE-AND-PROVENANCE.md#declaration-bound-authorization-validation).
 
 Authorization ordering and effect-begin ordering use the same frozen monotonic event-order domain. For every protected effect known to begin:
 
@@ -383,7 +391,7 @@ observable_output_ids[]
 
 Failure identity is carried by `failure_records[]`; the aggregate record references a `primary_failure_record_id?` when one failure is designated primary rather than duplicating a mandatory CARD field at the top level.
 
-The backend-selection ledgers are required wherever machinery authorization/use records reference their scope or decision IDs. Preserve denied candidates, fallback predecessor chains, and final decisions, not just a selected-backend label. A standalone failure manifest must retain the complete transitive closure of its references, including governing policy bindings, requirements, rules, evidence, and observable outputs, inline or through retrievable content-bound trace records. A dangling ID or an unbound mutable external trace link is incomplete provenance. The ledger definitions are those in [Trace and Provenance](TRACE-AND-PROVENANCE.md#failure-trace), not independent weaker schemas.
+The backend-selection ledgers are required wherever machinery authorization/use records reference their scope or decision IDs. Preserve denied candidates, fallback predecessor chains, and final decisions, not just a selected-backend label. A standalone failure manifest must retain the complete transitive closure of its references, including governing policy bindings, requirements, rules, evidence, and observable outputs, inline or through retrievable content-bound trace records. A dangling ID or an unbound mutable external trace link is incomplete provenance. The ledger definitions are those in [Trace and Provenance](TRACE-AND-PROVENANCE.md#failure-trace), not independent weaker schemas. Fallback decisions retain their applicable `BACKEND_FALLBACK` rule and subject-bound pre-application evidence; a denied candidate and a fallback sharing a scope never share authorization by implication.
 
 Each selected DECK is represented through an identified record such as:
 
@@ -445,13 +453,14 @@ card_executions[]:
     governing_failure_record_id?
     governing_skip_rule_id?
     skip_verification_evidence_id?
-    failure_class?
-    failure_stage?
+    failure_record_id?
 ```
+
+For a failed CARD outcome, `failure_record_id` is required and resolves to the exact `failure_records[]` entry governing that concrete outcome, directly or through an explicitly frozen and validated propagation relation. Multiple same-class failures, retries, or propagation records cannot be distinguished by repeated `failure_class`/`failure_stage` strings. Those optional summaries may be derived only from the referenced record and never replace its stable key. A failed DECK has the same conditional requirement. A CARD merely blocked by prior failure uses its governing cause instead of fabricating a failure caused by that CARD.
 
 An untaken branch points to the identified control decision that selected the other path. Prior fail-stop or another failure-caused non-reach points to the identified failure record that blocked execution. A catch-all `governing_control_or_failure_id` is not valid because it erases the target namespace.
 
-Candidate CARD outcomes may include successful execution, failed execution, untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip. The exact vocabulary remains provisional, but membership in `card_ids[]` must not be mistaken for proof that the CARD ran. Explicit CARD skips require a governing skip rule and passing evidence for that exact `CARD_EXECUTION` subject under the rules below; skipping a parent CARD cannot evade accounting for its effects.
+Candidate CARD outcomes may include successful execution, failed execution, untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip. The exact vocabulary remains provisional, but membership in `card_ids[]` must not be mistaken for proof that the CARD ran. Explicit CARD skips require a governing skip rule and passing evidence for that exact `CARD_EXECUTION` subject under the rules below; skipping a parent CARD cannot evade accounting for its effects. Every `CARD_NOT_REACHED` outcome also requires a validated typed control/failure cause or verified skip for the exact invocation under [Required causes for non-reach](TRACE-AND-PROVENANCE.md#required-causes-for-non-reach).
 
 Each `effect_requirements[]` entry preserves the canonical declared effect, source CARD, effect kind, and complete required-capability set.
 
@@ -495,7 +504,7 @@ effect_non_attempt_records[]:
     backend_detail?
 ```
 
-Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. Untaken control flow references a `control_decision_id`; failure-caused non-reach references a `failure_record_id`. A detected backend omission of a reachable effect is instead a structured implementation/conformance failure.
+Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip, subject to mandatory cause validation. Untaken control flow requires an applicable `governing_control_decision_id`; failure-caused non-reach requires an applicable `governing_failure_record_id`; explicit skip requires the rule/evidence pair below. `CARD_NOT_REACHED` requires one of these same validated cause forms and has no cause-free exception. The cause must actually prevent the exact invocation under the active control/dependency/failure contract. An unrelated decision, another loop iteration's cause, a handled nonblocking failure, or a dangling/circular cause chain is invalid. Missing or unverifiable causes force structured conformance failure. A detected backend omission of a reachable effect is likewise a structured implementation/conformance failure, not a legitimate status label.
 
 An explicit frozen skip requires both `governing_skip_rule_id` and `skip_verification_evidence_id`. They resolve to `rule_records[].rule_id` of kind `EFFECT_SKIP` and passing `validation_evidence[].validation_evidence_id` for this exact non-attempt record, declaration, concrete CARD execution, and active semantic/policy context. Definitions, authority versions/content identities, evidence subjects, and same-domain validation-before-application ordering follow [Referenced rules and validation evidence](TRACE-AND-PROVENANCE.md#referenced-rules-and-validation-evidence). A reason label, optional control/failure link, or evidence for a different invocation is insufficient. Missing, unresolved, inapplicable, or unverifiable skip authority/evidence forces structured conformance failure rather than legitimizing an omitted reachable effect.
 
@@ -523,7 +532,7 @@ FAILED PROOF ATTEMPT != PROOF
 PARTIAL SIMULATION != COMPLETE SIMULATION RESULT
 ```
 
-Partial artifacts may still be scientifically useful, but their status must reflect the execution that actually occurred.
+Partial artifacts may still be scientifically useful, but their status must reflect the execution that actually occurred. Any non-class-preserving evidence claim requires the accepted frozen `EPISTEMIC_TRANSITION` rule and passing, content-bound substantive evidence for that exact output before claim publication, as defined by [Evidence status](TRACE-AND-PROVENANCE.md#evidence-status). A successful authorization record, model confidence, or relabeled output status cannot turn failed TEST or simulation output into PROOF.
 
 ## Backend rule
 
@@ -532,6 +541,8 @@ Backends may translate failure into native mechanisms such as return codes, tagg
 Those are implementation choices.
 
 They must map back to the same QSOL CARD/DECK/JOB success/failure semantics, the same per-CARD/per-DECK execution ledger, the same typed control/failure causality and governing failure-policy bindings, the same per-effect authorization/attempt/non-attempt ordering semantics, the same protected-machinery selection/authorization/use ledger, and the rule that a reachable declared-effect omission is failure rather than successful execution.
+
+The [future trace-validator conformance cases](TRACE-AND-PROVENANCE.md#conformance-cases-for-the-future-trace-validator) also apply to failure-domain projections. In particular, matching failure summaries, matching truncated capability sets, or a cause-free not-reached label are rejection cases, not sufficient evidence.
 
 ## Principle
 
