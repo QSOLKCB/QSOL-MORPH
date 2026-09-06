@@ -5,21 +5,23 @@ QSOL-MORPH treats provenance as part of execution semantics for research workflo
 The goal is not merely to say that a program ran. The trace should make it possible to answer:
 
 - what source and canonical Semantic IR were executed;
-- which JOB, DECKs, and CARDs were selected and which of them actually executed;
+- which JOB, DECKs, and CARDs were selected and which actually executed;
 - how Semantic IR lowered into QSOL-CORE;
 - how QSOL-CORE lowered into the mandatory Vector/Dataflow IR;
-- how result bindings and execution-contract scopes were preserved, mapped, split, fused, or renamed at each lowering boundary;
+- how result bindings and execution-contract scopes were preserved, renamed, split, fused, grouped, or otherwise mapped at each lowering boundary;
+- which protected-machinery requirements survived each lowering and which authorization decisions governed their eventual use;
 - which machinery governed each CARD, region, kernel, or generated execution unit;
 - why automatic machinery selection chose that target;
 - whether protected machinery was authorized before use;
 - what exact immutable inputs were consumed;
-- what result-determinism, numeric, and randomness contracts governed each relevant scope;
+- what result-determinism, numeric, randomness, and failure-behavior contracts governed each relevant scope;
 - what extension contracts were resolved;
 - which external tools, services, models, provers, processes, or instruments materially contributed;
-- what protected effects were declared, which capability sets belonged to those effects, which runtime attempts occurred, and why any declaration had no attempt;
-- what generated artifacts were produced, which backend units/scopes produced them, and which exact generated artifacts produced each applicable output;
+- what protected effects were declared, which capability sets belonged to them, which runtime attempts occurred, and why any declaration had no attempt;
+- which concrete effect attempts produced or exposed each applicable output;
+- what generated artifacts were produced and which exact artifacts produced each applicable output;
 - what optimizations actually ran and under which legality evidence;
-- what identified outputs were produced and what semantic class/status belongs to each one;
+- what identified outputs were produced, what semantic class/status belongs to each one, and what evidence-status claim is valid for each output;
 - whether cache reuse occurred and what was reused;
 - whether execution failed and what prior effects or artifacts were already observable.
 
@@ -71,13 +73,12 @@ machinery_requirements[]
 result_determinism_bindings[]
 numeric_contract_bindings[]
 randomness_contract_bindings[]
+failure_behavior_bindings[]
 ```
 
 ### Epistemic class bindings
 
-The semantic trace binds epistemic meaning directly to stable CARD identity rather than storing an unassociated class list.
-
-Conceptually:
+The semantic trace binds epistemic meaning directly to stable CARD identity.
 
 ```text
 epistemic_class_bindings[]:
@@ -85,13 +86,11 @@ epistemic_class_bindings[]:
     semantic_class
 ```
 
-Every applicable semantic class is paired with the canonical `card_id` that owns it. Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association: ordering, filtering, or partial serialization must not be able to detach a class from its CARD. Any class transition requires a frozen evidence-transition rule and provenance; a trace must not silently swap, promote, or inherit epistemic classes between CARDs.
+Every applicable semantic class is paired with the canonical `card_id` that owns it. Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association. Any class transition requires a frozen evidence-transition rule and provenance.
 
 ### Declared effect requirements
 
-The semantic trace preserves the canonical effect-to-capability association rather than replacing it with one execution-wide or CARD-wide capability union.
-
-A conceptual entry is:
+The semantic trace preserves the canonical effect-to-capability association.
 
 ```text
 effect_requirements[]:
@@ -101,23 +100,13 @@ effect_requirements[]:
     required_capabilities[]
 ```
 
-`declared_effect_id` corresponds to canonical `EffectRequirement.effect_id`. The complete `required_capabilities[]` set belongs to that specific protected effect.
+`declared_effect_id` corresponds to canonical `EffectRequirement.effect_id`. The complete capability set belongs to that specific protected effect.
 
-A CARD may declare several effects with different permission sets. For example:
-
-```text
-CARD @050
-    AI_MODEL effect   -> [AI_MODEL, NETWORK]
-    WRITE_FILE effect -> [FILESYSTEM_WRITE]
-```
-
-An ambiguous union such as `[AI_MODEL, NETWORK, FILESYSTEM_WRITE]` does not replace those two associations. Runtime authorization and runtime attempt provenance must remain checkable against the declared effect that actually owns each capability set.
+A CARD may declare several effects with different permission sets. An ambiguous CARD-wide capability union does not replace those associations.
 
 ### Protected machinery requirements
 
 Protected machinery permission is represented separately from external effects.
-
-Conceptually:
 
 ```text
 machinery_requirements[]:
@@ -129,22 +118,50 @@ machinery_requirements[]:
     required_capabilities[]
 ```
 
-A `GPU` machinery requirement does not turn GPU selection into a Semantic-IR effect. It states that if the governed computation resolves to that protected machinery class, the required machinery capabilities must be authorized before the machinery is used.
+A `GPU` machinery requirement does not turn GPU selection into a Semantic-IR effect. It says that if the governed computation resolves to that protected machinery class, the required machinery capabilities must be authorized before the machinery is used.
+
+Every canonical machinery requirement that can affect target legality or authorization must remain traceable through both mandatory lowerings. A later authorization record references these stable requirement IDs rather than reconstructing requirements from target names.
 
 ### Source contract bindings
 
-`result_determinism_bindings[]`, `numeric_contract_bindings[]`, and `randomness_contract_bindings[]` represent the canonical source scopes at which those requirements are attached. The owning scope may be a JOB, DECK, CARD, or another scope explicitly frozen by the semantic model.
+Result determinism, numeric behavior, randomness, and failure behavior remain scoped.
 
-A conceptual result-determinism source binding may contain:
+Conceptually:
 
 ```text
-scope_kind
-scope_id
-source_card_ids[]
-requested_result_determinism
+result_determinism_bindings[]:
+    scope_kind
+    scope_id
+    source_card_ids[]
+    requested_result_determinism
+
+numeric_contract_bindings[]:
+    scope_kind
+    scope_id
+    source_card_ids[]
+    numeric_contract_id
+    numeric_contract_hash
+
+randomness_contract_bindings[]:
+    scope_kind
+    scope_id
+    source_card_ids[]
+    requested_randomness_mode
+
+failure_behavior_bindings[]:
+    scope_kind
+    scope_id
+    source_card_ids[]
+    requested_failure_behavior_id
+    effective_failure_behavior_id
+    mapping_or_transition_rule_id?
 ```
 
-Numeric and randomness source bindings follow the same scoping principle. A trace must not collapse distinct source requirements into one execution-wide declaration unless a frozen normalization rule proves that the collapse is lossless and provenance-visible.
+The owning source scope may be a JOB, DECK, CARD, or another scope explicitly frozen by the semantic model.
+
+When no explicit source failure policy exists, the frozen default fail-stop behavior has a stable specification identity and may be recorded as the requested/effective failure behavior when it materially governs the execution path. A trace must not leave default behavior implicit when doing so would prevent reconstruction of why later CARDs or DECKs did not execute.
+
+A trace must not collapse distinct source requirements into one execution-wide declaration unless a frozen normalization rule proves that the collapse is lossless and provenance-visible.
 
 ## Semantic-to-Core trace
 
@@ -160,34 +177,51 @@ core_ir_hash
 result_binding_map[]
 resolved_extensions[]
 qualifier_lowering_decisions[]
+machinery_requirement_lowering_decisions[]
 result_determinism_lowering_decisions[]
 numeric_contract_lowering_decisions[]
 randomness_lowering_decisions[]
+failure_behavior_lowering_decisions[]
 lowering_diagnostics[]
 ```
 
 The canonical identity field names are `semantic_to_core_spec_version` and `semantic_to_core_implementation_version`. Unprefixed aliases must not be invented unless a future frozen schema explicitly defines them.
 
-### Result binding map
+### Cardinality-aware result-binding maps
 
-A conceptual entry may contain:
+A result-binding map must represent mapping cardinality explicitly.
+
+One candidate conceptual shape is:
 
 ```text
-source_card_id
-source_result_binding
-lower_result_binding
-mapping_rule_id?
+result_binding_map[]:
+    mapping_group_id
+    source_bindings[]:
+        source_card_id?
+        binding_id
+    lower_bindings[]:
+        binding_id
+    mapping_rule_id?
 ```
 
-A result binding map is required whenever result identities are preserved or transformed unless a frozen rule permits deterministic reconstruction of the identity mapping. This requirement applies to preserved names as well as renamed, split, or fused names.
+This supports:
 
-IR hashes identify representations; they do not by themselves establish which lower value corresponds to a source result binding.
+- one source binding to one lower binding for preservation or rename;
+- one source binding to several lower bindings for a split;
+- several source bindings to one lower binding for a frozen legal fusion;
+- several source bindings to several lower bindings only when a frozen rule explicitly permits that mapping.
+
+`source_bindings[]` and `lower_bindings[]` must use deterministic canonical ordering. Positional parallel arrays are not sufficient. A consumer must be able to identify all lower identities originating from a source binding and all source identities contributing to a fused lower binding without guessing from array position or value equality.
+
+A result-binding map is required whenever result identities are preserved or transformed unless a frozen rule permits deterministic reconstruction of the complete identity mapping. IR hashes alone do not establish binding correspondence.
 
 ### First-lowering contract decisions
 
-The qualifier, result-determinism, numeric, randomness, and extension decision records explain scope preservation, grouping, normalization, identity changes, and other frozen lowering choices. A backend must never be the first component to decide how semantic CARD contracts acquire QSOL-CORE meaning.
+Qualifier, machinery-requirement, result-determinism, numeric, randomness, failure-behavior, and extension decision records explain scope preservation, grouping, normalization, identity changes, and other frozen lowering choices.
 
 A decision record should retain the source scope(s), resulting Core scope(s), source CARD identities, applicable frozen mapping/normalization rule, and any preauthorized transition identity when those details are material.
+
+If a machinery requirement or failure behavior is preserved by identity, a decision record may be omitted only when a frozen deterministic reconstruction rule establishes that preservation. Generic metadata or IR hashes are not such a rule.
 
 ## Core-to-Vector/Dataflow trace
 
@@ -201,19 +235,21 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 result_binding_map[]
+machinery_requirement_mapping_decisions[]
 core_to_vector_result_determinism_mapping_decisions[]
 core_to_vector_numeric_contract_mapping_decisions[]
 core_to_vector_randomness_mapping_decisions[]
+failure_behavior_mapping_decisions[]
 vector_dataflow_lowering_diagnostics[]
 ```
 
-This stage's `result_binding_map[]` links QSOL-CORE result bindings to their Vector/Dataflow identities when bindings are preserved, renamed, split, fused, or otherwise transformed under a frozen rule. Omission is permitted only when a frozen deterministic reconstruction rule applies.
+This stage uses the same frozen cardinality-aware `result_binding_map[]` semantics. A one-to-many lower split must appear as one mapping group containing multiple `lower_bindings[]`, not as a scalar field that can name only one lower result.
 
 ### Second-lowering contract mappings
 
-The second lowering must also preserve how QSOL-CORE execution-contract scopes correspond to lower Vector/Dataflow scopes.
+The second lowering must preserve how QSOL-CORE execution-contract scopes correspond to lower Vector/Dataflow scopes.
 
-Conceptually, each mapping-decision family may contain:
+Each mapping-decision family may conceptually contain:
 
 ```text
 core_scope_ids[]
@@ -224,11 +260,13 @@ backend_unit_ids[]?
 transition_authorized_by?
 ```
 
-Use the applicable family for result determinism, numeric contracts/modes, and randomness. If a Core scope is split into multiple kernels, several Core scopes are fused into a region, or lower scope identity otherwise changes, the mapping must be provenance-visible.
+Use the applicable family for result determinism, numeric contracts/modes, randomness, protected-machinery requirements, and failure behavior.
 
-These arrays may be omitted only when a frozen deterministic identity-scope reconstruction rule proves that the Core and Vector/Dataflow contract scopes correspond without loss. IR hashes alone are not that rule.
+If a Core scope is split into multiple kernels, several Core scopes are fused into a region, or lower scope identity otherwise changes, the mapping must be provenance-visible.
 
-If the Vector/Dataflow lowering implementation, specification, control representation, effect ordering, capability metadata, binding mapping, or numeric/randomness structure changes, provenance must distinguish the resulting lower IR.
+The result-determinism, numeric, and randomness mapping arrays may be omitted only when a frozen deterministic identity-scope reconstruction rule proves that the Core and Vector/Dataflow contract scopes correspond without loss. The same principle applies to machinery/failure mapping decisions. IR hashes alone are not a reconstruction rule.
+
+If the Vector/Dataflow lowering implementation, specification, control representation, effect ordering, machinery requirements, capability metadata, binding mapping, failure behavior, or numeric/randomness structure changes, provenance must distinguish the resulting lower IR.
 
 ## MORPH trace
 
@@ -248,17 +286,16 @@ memory_placement_decisions[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
+failure_behavior_bindings[]
 ```
 
 ## Scoped backend-selection provenance
 
-Backend selection may differ across a JOB. Provenance therefore uses scoped records.
-
-Conceptually:
+Backend selection may differ across a JOB.
 
 ```text
 backend_selection_scopes[]:
-    scope_kind              # EXECUTION / CARD / REGION / KERNEL / GENERATED_UNIT / frozen equivalent
+    scope_kind
     scope_id
     source_card_ids[]
     backend_unit_id?
@@ -276,15 +313,13 @@ backend_selection_scopes[]:
 
 Selection-policy and tuning identity are material when selection is automatic, such as `ON BEST`.
 
-A single execution-wide entry is valid only when one frozen machinery decision genuinely governs the whole execution. Explicit host targeting on one CARD and `ON BEST` on another remain separate scopes even if they eventually resolve to the same backend.
+A single execution-wide entry is valid only when one frozen machinery decision genuinely governs the whole execution. Explicit host targeting on one CARD and `ON BEST` on another remain separate scopes even if they resolve to the same backend.
 
-Selecting a target is not equivalent to authorizing protected use of that target.
+Selecting a target is not equivalent to authorizing protected use of that target. When protected machinery requirements apply, the backend-selection scope directly references the authorization records that govern use of the selected machinery.
 
 ## Machinery authorization provenance
 
 Protected machinery access has a provenance record separate from external effect attempts.
-
-Conceptually:
 
 ```text
 machinery_authorization_records[]:
@@ -302,13 +337,11 @@ machinery_authorization_records[]:
 
 For an automatic target such as `ON BEST`, selection may occur first so the applicable machinery class is known. Every required machinery capability must then be authorized **before protected use of the selected machinery begins**.
 
-A denied GPU authorization, for example, must not launch a GPU kernel and must not be represented as a fake external effect attempt. A fallback to another target is legal only under a frozen pre-execution selection/fallback rule, and both the denied authorization and the later selection decision remain traceable.
+A denied GPU authorization must not launch a GPU kernel and must not be represented as a fake external effect attempt. A fallback to another target is legal only under a frozen pre-execution selection/fallback rule, and both the denied authorization and later selection decision remain traceable.
 
 ## Generated artifact provenance
 
-Generated kernels, binaries, object files, bytecode, or equivalent target artifacts are identified records rather than an unscoped list of hashes.
-
-Conceptually:
+Generated kernels, binaries, object files, bytecode, or equivalent target artifacts are identified records.
 
 ```text
 generated_artifacts[]:
@@ -321,17 +354,13 @@ generated_artifacts[]:
     artifact_location?
 ```
 
-`backend_unit_id` identifies the lower execution/code-generation unit that produced the artifact. `backend_selection_scope_id` links that artifact to the machinery-selection record containing the selected backend, architecture/device, and automatic-selection policy/tuning identity where applicable.
+`backend_unit_id` identifies the lower execution/code-generation unit that produced the artifact. `backend_selection_scope_id` links that artifact to the machinery-selection record containing the selected backend, architecture/device, and selection policy/tuning identity where applicable.
 
-A mixed-backend JOB may produce several same-kind artifacts. Their hashes alone do not establish which target decision produced which artifact, so a bare `kernel_or_binary_hashes[]` list is not sufficient provenance.
+A mixed-backend JOB may produce several same-kind artifacts. Their hashes alone do not establish which target decision produced which artifact.
 
-A backend-selection scope may govern several generated artifacts, including reference and optimized variants. Result provenance therefore also records the applicable `generated_artifact_ids[]` so an output identifies the exact executable, kernel, bytecode image, or other generated artifact that actually produced or supplied it rather than merely the broader machinery-selection scope.
+A backend-selection scope may govern several generated artifacts, including reference and optimized variants. Output provenance therefore records the applicable `generated_artifact_ids[]` so an output identifies the exact generated artifact that actually produced or supplied it.
 
 ## Scoped result-determinism provenance
-
-Result guarantees may differ within one DECK or JOB.
-
-Conceptually:
 
 ```text
 result_determinism_scopes[]:
@@ -344,15 +373,11 @@ result_determinism_scopes[]:
     backend_unit_id?
 ```
 
-A scope may be retained from source or introduced by a semantics-preserving lowering that groups source CARDs. Grouping must preserve the strongest applicable source requirements or follow another frozen normalization rule that is provenance-visible.
+A scope may be retained from source or introduced by a semantics-preserving lowering. Grouping must preserve the strongest applicable requirements or follow another frozen normalization rule that is provenance-visible.
 
-A recorded transition is evidence, not authorization. If a requested scoped guarantee cannot be satisfied and no pre-execution rule authorizes a weaker guarantee, execution fails closed.
+A recorded transition is evidence, not authorization. If a requested guarantee cannot be satisfied and no pre-execution rule authorizes a weaker guarantee, execution fails closed.
 
 ## Scoped numeric provenance
-
-Numeric contracts and effective material modes may differ across CARDs, regions, or kernels.
-
-Conceptually:
 
 ```text
 numeric_execution_scopes[]:
@@ -370,10 +395,6 @@ Material numeric choices may include FMA behavior, denormal handling, effective 
 A single execution-wide numeric scope is valid only when a frozen rule establishes that one contract and one material mode govern the entire execution.
 
 ## Scoped randomness provenance
-
-Randomness requirements may also differ within one DECK or JOB.
-
-Conceptually:
 
 ```text
 randomness_execution_scopes[]:
@@ -406,10 +427,12 @@ deck_executions[]
 card_executions[]
 runtime_compiler_versions[]
 backend_selection_scopes[]
+machinery_requirements[]
 machinery_authorization_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
+failure_behavior_bindings[]
 inputs[]
 required_capabilities[]
 granted_capabilities[]
@@ -418,6 +441,7 @@ capability_policy_id
 capability_policy_version
 capabilities_used[]
 resolved_extensions[]
+effect_requirements[]
 effect_attempts[]
 effect_non_attempt_records[]
 cache_reuse_records[]
@@ -430,8 +454,6 @@ Global capability sets describe the execution-wide decision space, but they do n
 ## Per-DECK and per-CARD execution provenance
 
 Membership in the canonical program does not prove that a semantic unit executed.
-
-A JOB run therefore records every selected DECK:
 
 ```text
 deck_executions[]:
@@ -447,8 +469,6 @@ deck_executions[]:
 
 A DECK prevented from starting by prior fail-stop remains visible with an explicit non-started/skipped status or frozen equivalent.
 
-Every CARD belonging to a selected DECK execution also receives an execution-path/outcome record:
-
 ```text
 card_executions[]:
     card_execution_id
@@ -463,13 +483,9 @@ card_executions[]:
 
 Candidate `card_status` values may include `EXECUTED_SUCCESS`, `EXECUTED_FAILED`, `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, or frozen equivalents.
 
-This matters even for pure CARDs. A TEST on an untaken branch may have no output, effect, or failure record, but it must still be distinguishable from a TEST that executed successfully. `card_ids[]` is an identity/membership list; `card_executions[]` is the execution-path ledger.
+This matters even for pure CARDs. A TEST on an untaken branch may have no output, effect, or failure record, but it must still be distinguishable from a TEST that executed successfully.
 
 ## Identified input provenance
-
-Every material runtime input is bound to the exact immutable value or artifact content actually consumed.
-
-Conceptually:
 
 ```text
 inputs[]:
@@ -491,8 +507,6 @@ If a material input contributes to a research result and the required immutable 
 
 Capability provenance distinguishes requirement, authorization, and use.
 
-For a denied network execution, a trace may record:
-
 ```text
 required_capabilities = [NETWORK]
 granted_capabilities = []
@@ -502,23 +516,18 @@ capability_policy_version = ...
 capabilities_used = []
 ```
 
-This explains why a protected effect did not begin.
-
-The complete required capability set is also carried by the declared effect and by each corresponding runtime attempt. An attempt must not begin until every required capability is granted.
+The complete required capability set is also carried by the declared effect and each corresponding runtime attempt. An attempt must not begin until every required capability is granted.
 
 Protected machinery authorization uses `machinery_authorization_records[]` rather than pretending machinery selection is an effect.
 
 ## Resolved extension provenance
 
-Extensions are independently versionable.
-
-`resolved_extensions[]` should bind, where material:
-
 ```text
-profile_name
-resolved_version
-contract_id_or_hash
-implementation_or_content_identity?
+resolved_extensions[]:
+    profile_name
+    resolved_version
+    contract_id_or_hash
+    implementation_or_content_identity?
 ```
 
 A profile name alone is insufficient if different versions can change lowering, effects, or results.
@@ -526,8 +535,6 @@ A profile name alone is insufficient if different versions can change lowering, 
 ## External-tool provenance
 
 The QSOL extension/profile used to invoke a tool is not the same object as the external tool, service, model, prover, process, or instrument that actually produced evidence or data.
-
-Material external tools therefore use identified records such as:
 
 ```text
 external_tool_versions[]:
@@ -540,13 +547,11 @@ external_tool_versions[]:
     source_card_ids[]?
 ```
 
-The record must preserve enough immutable version/content/model/service identity to distinguish material changes in the external evidence producer. A mutable tool name or endpoint alone is insufficient where the active reproducibility contract requires stronger identity.
+The record must preserve enough immutable version/content/model/service identity to distinguish material changes in the external evidence producer.
 
 ## Per-effect-attempt provenance
 
 Every protected external effect attempt has its own runtime identity and a reference to the declared semantic effect that produced it.
-
-Conceptually:
 
 ```text
 effect_attempts[]:
@@ -558,20 +563,18 @@ effect_attempts[]:
     sequence_index
     completion_state
     backend_detail?
-    observable_artifacts[]
+    observable_output_ids[]
 ```
 
-`declared_effect_id` references canonical `EffectRequirement.effect_id`. `effect_attempt_id` identifies this concrete runtime attempt. They are not interchangeable.
+`declared_effect_id` references canonical `EffectRequirement.effect_id`. `effect_attempt_id` identifies the concrete runtime attempt. They are not interchangeable.
 
-Preserving both identities lets provenance detect duplicate attempts, retries, or several same-kind effects originating from one CARD.
+`observable_output_ids[]` contains the stable output IDs that this attempt actually produced, published, exposed, or materially supplied under the frozen effect/output contract. A vague artifact path or unscoped hash is not a substitute for this relation.
+
+An output produced by an external effect also carries the reciprocal `effect_attempt_ids[]` reference. This bidirectional identity relation makes the effect's authorization and completion state directly attributable to the result.
 
 ### Declared effects with no runtime attempt
 
-A declared effect may legitimately have no runtime attempt because execution never reaches it. Untaken control flow, prior fail-stop failure, an explicitly skipped CARD under a frozen rule, or another frozen execution-path reason must not be confused with a backend silently omitting a reachable effect.
-
-Every declared effect is therefore accounted for by either one or more `effect_attempts[]` records or an explicit non-attempt record when no runtime attempt object exists.
-
-Conceptually:
+Every declared effect is accounted for by either one or more `effect_attempts[]` records or an explicit non-attempt record when no runtime attempt object exists.
 
 ```text
 effect_non_attempt_records[]:
@@ -583,11 +586,11 @@ effect_non_attempt_records[]:
     backend_detail?
 ```
 
-Candidate `non_attempt_reason` values may include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, `BACKEND_OMISSION_DETECTED`, or frozen equivalents. The exact vocabulary is not frozen here.
+Candidate reasons may include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, `BACKEND_OMISSION_DETECTED`, or frozen equivalents.
 
-An effect declaration with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required. This makes a semantically unreachable effect distinguishable from a reachable effect that an implementation failed to attempt.
+An effect declaration with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
 
-Capability denial after a protected attempt has been identified but before the effect begins remains an `effect_attempts[]` record with `completion_state = NOT_STARTED`; it is not silently converted into a non-attempt record.
+Capability denial after an attempt has been identified but before the effect begins remains an `effect_attempts[]` record with `completion_state = NOT_STARTED`; it is not silently converted into a non-attempt record.
 
 ### Completion states
 
@@ -621,15 +624,11 @@ The candidate states are mutually exclusive and evaluated in this order:
    Whether the effect reached its completion boundary cannot be established.
 ```
 
-Known completion takes precedence over uncertainty about broader consequences. A process known to have exited is `COMPLETED` even if the trace cannot enumerate every external consequence of that process.
-
-Successful executions record completed effect attempts too. Per-attempt provenance is not merely a failure-reporting mechanism.
+Known completion takes precedence over uncertainty about broader consequences. Successful executions record completed effect attempts too.
 
 ## Result trace
 
 Results are identified records rather than bare hashes plus one shared semantic class.
-
-Conceptually:
 
 ```text
 outputs[]:
@@ -640,42 +639,42 @@ outputs[]:
     semantic_class
     status
     producer_card_ids[]
+    effect_attempt_ids[]?
     backend_selection_scope_ids[]
     generated_artifact_ids[]?
     result_determinism_scope_ids[]
     numeric_scope_ids[]
     randomness_scope_ids[]
     cache_reuse_record_ids[]?
-    test_status?
-    validation_status?
-    proof_status?
+    evidence_status?
 ```
+
+When present, `evidence_status` is one class-discriminated record rather than several independent booleans/statuses:
+
+```text
+evidence_status:
+    evidence_class      # TEST / VALIDATION / PROOF / frozen equivalent
+    status
+    evidence_rule_id?
+```
+
+`evidence_class` must be compatible with the output's `semantic_class` and the explicit evidence transition that produced it. One output must not simultaneously claim incompatible TEST, VALIDATION, and PROOF statuses merely because several optional fields can be populated.
+
+The generic output `status` describes the result/artifact execution or availability state under the frozen result schema. It is not an epistemic promotion field and cannot by itself convert TEST into VALIDATION or VALIDATION into PROOF.
+
+A future frozen composition rule may permit an output to reference multiple separately identified evidence records, but that must be an explicit model. Independent `test_status`, `validation_status`, and `proof_status` fields are not the candidate default because they admit contradictory combinations.
 
 Each output owns its own epistemic class and status. One validated output must not promote another simulation or TEST output produced by the same JOB.
 
-`backend_selection_scope_ids[]` identifies the machinery-selection decisions governing the output. `generated_artifact_ids[]`, when applicable, identifies the exact generated executable, kernel, bytecode image, object-derived executable unit, or equivalent artifact that actually produced or supplied the output. A shared backend-selection scope is not a substitute when several generated artifacts exist under that scope. The determinism/numeric/randomness scope references identify the execution contracts that governed the output. `cache_reuse_record_ids[]`, when present, identifies legal cache reuse that contributed to producing or supplying that output.
+`effect_attempt_ids[]`, when applicable, identifies the concrete effect attempts that produced, exposed, or materially supplied this output. Each referenced attempt reciprocally names the output in `observable_output_ids[]`. This lets provenance attribute authorization, completion state, backend detail, and partial-effect history to the exact result rather than only to its producing CARD.
 
-Execution-wide failure fields may include:
-
-```text
-run_id
-execution_status
-job_id
-job_status
-deck_executions[]
-card_executions[]
-failure_card_id
-failure_class
-failure_stage
-effect_attempts[]
-effect_non_attempt_records[]
-```
+`backend_selection_scope_ids[]` identifies machinery-selection decisions governing the output. `generated_artifact_ids[]`, when applicable, identifies the exact generated executable, kernel, bytecode image, or equivalent artifact that actually produced or supplied it. The determinism/numeric/randomness references identify the execution contracts that governed it. `cache_reuse_record_ids[]`, when present, identifies legal cache reuse that contributed to it.
 
 ## Failure and partial-effect provenance
 
 A failed execution remains a provenance-bearing execution event.
 
-Capability denial occurs before the protected effect begins and therefore records an already identified attempt as `NOT_STARTED`. A declared effect that was never reached is instead represented by its explicit non-attempt record.
+Capability denial occurs before the protected effect begins and records an already identified attempt as `NOT_STARTED`. A declared effect that was never reached is represented by its explicit non-attempt record.
 
 An unhandled CARD failure stops its DECK by default. An unhandled DECK failure fails the enclosing JOB by default, and no later DECK begins. Dependent consumers or comparisons must not execute against missing or partial failed outputs as though they were complete.
 
@@ -692,11 +691,13 @@ failure_card_id
 failure_class
 failure_stage
 backend_detail?
+failure_behavior_bindings[]
 effect_requirements[]
 effect_attempts[]
 effect_non_attempt_records[]
+machinery_requirements[]
 machinery_authorization_records[]
-observable_artifacts[]
+observable_output_ids[]
 ```
 
 The canonical field for the CARD whose unhandled failure produced the enclosing failure record is `failure_card_id`. `card_id` remains appropriate inside an effect-attempt or effect-non-attempt record that identifies the CARD owning that effect declaration.
@@ -723,8 +724,6 @@ These are different objects and should not be collapsed into one digest.
 
 CARD dependencies naturally form a provenance graph.
 
-For example:
-
 ```text
 @011 OBSERVE MASS 4.2 kg
 @012 SET C 299792458 m/s
@@ -743,26 +742,12 @@ External instruments, network services, benchmarks, AI systems, and formal tools
 
 Cache provenance and cache legality are separate questions.
 
-A cached result may be valid reuse without proving that a cold reconstruction still succeeds. Conversely, merely finding a matching cache entry does not authorize semantic substitution.
-
-A trace should distinguish reuse classifications conceptually such as:
-
-```text
-COLD_EXECUTION
-VERIFIED_CACHE_REUSE
-UNVERIFIED_CACHE_HIT
-```
-
-The exact names are not frozen.
-
-### Identified cache-reuse records
-
-When cache lookup or reuse is material, provenance should record identified entries such as:
+A cached result may be valid reuse without proving that a cold reconstruction still succeeds. Merely finding a matching cache entry does not authorize semantic substitution.
 
 ```text
 cache_reuse_records[]:
     cache_reuse_record_id
-    classification              # COLD_EXECUTION / VERIFIED_CACHE_REUSE / UNVERIFIED_CACHE_HIT / frozen equivalent
+    classification
     source_card_ids[]
     reused_computation_id?
     cache_key_hash?
@@ -774,7 +759,7 @@ cache_reuse_records[]:
     material_cache_identity_hash
 ```
 
-The record identifies **whether** work was executed cold or reused, **what** computation/artifact was reused, **which material cache identity justified the lookup**, and **which legality/verification rule authorized substitution** when reuse occurred.
+Candidate classifications include `COLD_EXECUTION`, `VERIFIED_CACHE_REUSE`, and `UNVERIFIED_CACHE_HIT` or frozen equivalents.
 
 A verified reuse record does not prove cold reconstructability. A separate cold execution or equivalent evidence is needed for that claim.
 
@@ -782,7 +767,7 @@ A verified reuse record does not prove cold reconstructability. A separate cold 
 
 Ordinary result/value substitution from cache is legal only for computations proven safe for reuse under the active contract. The conservative default is effect-free reuse.
 
-An effectful CARD must not be satisfied merely by returning a prior cached value if that would skip a declared external effect. A cached file write, process launch, network request, AI call, clock read, or other protected effect cannot silently stand in for a new required effect attempt.
+An effectful CARD must not be satisfied merely by returning a prior cached value if that would skip a declared external effect.
 
 Effectful reuse requires a separately frozen cache/replay semantic that preserves or explicitly defines:
 
@@ -790,20 +775,17 @@ Effectful reuse requires a separately frozen cache/replay semantic that preserve
 - complete capability authorization boundaries;
 - source/effect/failure ordering;
 - effect-attempt identity and completion-state provenance;
+- output-to-effect-attempt attribution;
 - externally observable artifacts/state;
 - randomness and external-input replay rules;
 - CARD/DECK/JOB failure behavior;
 - per-output semantic class/status and execution-scope links.
 
-Absent such a frozen rule, the implementation executes the effect normally or fails closed; it must not relabel skipped work as verified reuse.
-
-A cached artifact may still be used as an explicit declared input or reference fixture when the semantic contract says so. In that case the cached artifact itself is bound by immutable input provenance.
+Absent such a frozen rule, the implementation executes the effect normally or fails closed.
 
 ## Optimization provenance
 
 An optimization profile names requested/configured policy; it is not a record of the transformations that actually occurred.
-
-Actual optimization provenance should therefore be identified, for example:
 
 ```text
 optimization_provenance[]:
@@ -821,7 +803,7 @@ optimization_provenance[]:
     resource_model_assumptions[]?
 ```
 
-A target-adaptive implementation must preserve the actual transformation sequence and legality evidence rather than only the profile name that permitted a family of choices. An implementation may instead bind a stable content identity for a complete MORPH trace containing equivalent information, but that reference must be sufficient to retrieve and verify the complete decision record.
+A target-adaptive implementation must preserve the actual transformation sequence and legality evidence rather than only the profile name. A stable content identity for a complete MORPH trace may substitute only when it is sufficient to retrieve and verify the complete decision record.
 
 A faster semantics-breaking change is not an optimization.
 
@@ -843,7 +825,21 @@ Correctness and evidence boundaries outrank attractive speed numbers.
 
 Not every execution requires every optional field. The active specification, execution contracts, capability policy, extension set, lowering contracts, backend-selection policy, machinery-authorization policy, and cache/replay rules define the minimum trace required for the claim being made.
 
-However, executable research results must not begin life without enough provenance to bind identified outputs to their canonical program, per-DECK/per-CARD execution path, immutable inputs, semantic class/status, scoped machinery/determinism/numeric/randomness decisions, exact generated artifact identities where applicable, extension set, material external-tool identities, effect and machinery authorization decisions, optimization decisions where material, cache/reuse context where relevant, and execution/failure history. Every declared protected effect must also be accounted for by an attempt or explicit non-attempt reason when declaration-completeness auditing is required.
+However, executable research results must not begin life without enough provenance to bind identified outputs to:
+
+- their canonical program and per-DECK/per-CARD execution path;
+- immutable inputs;
+- semantic class/status and a mutually consistent evidence-status claim;
+- scoped machinery/determinism/numeric/randomness/failure-behavior decisions;
+- exact generated artifact identities where applicable;
+- concrete effect attempts where external effects produced or exposed the result;
+- extension set and material external-tool identities;
+- effect and machinery authorization decisions;
+- optimization decisions where material;
+- cache/reuse context where relevant;
+- execution/failure history.
+
+Every declared protected effect must also be accounted for by an attempt or explicit non-attempt reason when declaration-completeness auditing is required. Every protected machinery requirement that governs an executed scope must remain traceable to the authorization record that permitted or denied its use.
 
 The roadmap therefore places the trace/failure/provenance foundation before the first executable QSOL reference machine.
 
