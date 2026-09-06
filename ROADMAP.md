@@ -79,7 +79,7 @@ Planned scope:
 - result-determinism requirements;
 - numeric contract identity and parameters at the scope where they govern `NUMERIC` execution;
 - randomness/reproducibility requirements;
-- explicit `failure_behavior` where the frozen model permits non-default recovery/continuation behavior;
+- explicit scoped `failure_behavior` on CARD, DECK, or JOB where the frozen model permits non-default recovery/continuation/compensation behavior;
 - dependencies;
 - source-order, effect-order, and failure-order constraints;
 - `extension_requirements[]` binding each profile to its required version/range and contract identity where applicable;
@@ -134,7 +134,8 @@ The initial trace contract should bind, where applicable:
 - identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, governing backend-selection/result-determinism/numeric/randomness scope IDs, and any `cache_reuse_record_ids[]` that contributed to that output;
 - identified `cache_reuse_records[]`, each distinguishing cold execution, verified reuse, unverified cache hit, or frozen equivalent and binding source CARD IDs, material cache identity, reused computation/artifact identity, cache-key/artifact hashes where applicable, legality rule, and verification evidence;
 - active extension profiles plus resolved extension versions/content identities;
-- identified effect attempts, each carrying a runtime attempt identity, its canonical declared `effect_id`, complete required-capability set, and individual completion state;
+- identified `external_tool_versions[]` for material external tools/services/models/provers/processes, binding stable tool/service identity, version/content/model identity, and source CARD IDs where applicable;
+- identified `effect_attempts[]`, each carrying runtime `effect_attempt_id`, canonical `declared_effect_id`, initiating `card_id`, `effect_kind`, complete `required_capabilities[]`, sequence identity/order where applicable, and individual completion state;
 - structured execution-failure records where applicable.
 
 Declared `effect_requirements[]` are required in addition to runtime `effect_attempts[]`. If a backend omits a declared effect entirely, the trace must still expose the missing declaration rather than relying on a nonexistent attempt or an ambiguous execution-wide capability union to reconstruct what should have happened.
@@ -163,7 +164,7 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
 - failure traces identify the CARD, DECK/JOB outcome, failure class/stage, per-attempt declared/runtime identities and states, and whether any output artifact became observable.
 
-This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the selected stable JOB/DECK/CARD execution, immutable material inputs, epistemic class/status, scoped backend-selection/determinism/numeric/randomness execution context, cache-reuse path where applicable, extension set, authorization decisions, and execution/failure context that produced it.
+This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the selected stable JOB/DECK/CARD execution, immutable material inputs, epistemic class/status, scoped backend-selection/determinism/numeric/randomness execution context, cache-reuse path where applicable, extension set, material external-tool identities, authorization decisions, and execution/failure context that produced it.
 
 ## PR #6 — Normative QSOL-CORE Operational Specification
 
@@ -316,7 +317,7 @@ Goals:
 - end-to-end comparison from canonical Semantic IR through the reference machine and C result path;
 - no backend bypass of the mandatory lower IR for control, calls, effects, or scalar operations.
 
-The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity, scoped determinism/numeric/randomness execution information, and generated target hashes where material.
+The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity, scoped determinism/numeric/randomness execution information, and identified `generated_artifacts[]`. Each generated artifact must bind a stable artifact ID/kind/hash to its `backend_unit_id` and governing `backend_selection_scope_id`, plus source CARD/location provenance where material. A bare list of generated target hashes is not sufficient for mixed-unit or mixed-target provenance.
 
 ## PR #13 — Morph Optimization Passes
 
@@ -333,6 +334,8 @@ Introduce semantics-preserving transformations such as:
 No optimization may erase or move an observable failure merely because a computed value is unused. Under fail-stop semantics, an unused potentially failing operation remains observable because its failure can prevent later effects or results.
 
 Ordinary cached result substitution is permitted only for computations proven safe for reuse, conservatively effect-free by default. An effectful CARD may not be satisfied by returning a prior cached value if that would skip a declared effect, capability authorization, effect/failure ordering, or effect-attempt provenance. Effectful reuse requires a separately frozen replay/cache semantic that defines and preserves those boundaries; otherwise the effect executes normally or reuse fails closed.
+
+Actual optimization decisions must be provenance-visible. An `optimization_profile` names requested/configured policy but does not prove which transformations ran. Where optimization is material, `optimization_provenance[]` or an equivalent stable content-bound MORPH-trace reference must bind reference/optimized IR identities, the actual transformation sequence, legality witnesses, relevant vectorization/fusion/memory-placement decisions, and target-context/resource assumptions where applicable.
 
 Every optimization must be testable against the invariant set, both lowering fixture sets, full-IR fixtures, QSOL-CORE reference semantics, and cache/replay legality rules where reuse is involved.
 
@@ -465,6 +468,8 @@ Targets may include:
 - result-binding-map preservation across both mandatory lowering boundaries;
 - cache/replay legality and cache-reuse provenance for a defined effect-free subset;
 - declared-effect completeness and declared-effect/runtime-attempt correspondence for a defined subset;
+- generated-artifact/backend-scope attribution properties;
+- external-tool identity and optimization-provenance binding properties for a defined subset;
 - QX-POSIX contract properties for a defined subset;
 - generic GPU / QX-CUDA contract properties for a defined subset;
 - failure-state, JOB propagation, authorization, declared-effect/attempt identity, and ordering properties for a defined subset.
