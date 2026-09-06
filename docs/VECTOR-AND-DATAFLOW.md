@@ -45,7 +45,7 @@ It must preserve, where applicable:
 - explicit failure behavior not already lowered into core control semantics;
 - source/effect/failure ordering constraints;
 - result-determinism, scoped numeric, and randomness contracts;
-- extension/profile identity required by execution;
+- extension/profile identity **and owning scope** required by execution;
 - failure and totality classification;
 - provenance links to QSOL-CORE and originating semantic CARDs;
 - identities needed for runtime per-effect-attempt tracing, distinct from declared effect identities.
@@ -134,7 +134,7 @@ This representation makes transformation opportunities explicit.
 
 Source order remains semantically relevant for observable effects and for potentially failing operations under fail-stop execution. Only operations proven **pure and total** under the active contract may be freely scheduled from data dependencies.
 
-A Vector/Dataflow lowering must preserve all result/dependency identity, control, call, effect-order, failure-order, effect-capability, machinery-requirement, qualifier, failure-behavior, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
+A Vector/Dataflow lowering must preserve all result/dependency identity, control, call, effect-order, failure-order, effect-capability, machinery-requirement, qualifier, failure-behavior, extension-ownership, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
 
 ## Control flow and calls
 
@@ -215,7 +215,7 @@ provided the active scoped numeric, failure, ordering, and semantic contracts pe
 
 Fusion must not be justified solely by performance. It must be semantically legal.
 
-Fusion may not swallow an effect, control boundary, result/dependency identity, machinery requirement, or potentially failing operation in a way that changes observable ordering, authorization, or failure behavior.
+Fusion may not swallow an effect, control boundary, result/dependency identity, machinery requirement, extension requirement, or potentially failing operation in a way that changes observable ordering, authorization, failure behavior, or profile ownership.
 
 ## Masks
 
@@ -371,6 +371,7 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 result_binding_map[]
+extension_requirement_mapping_decisions[]
 machinery_requirement_mapping_decisions[]
 core_to_vector_result_determinism_mapping_decisions[]
 core_to_vector_numeric_contract_mapping_decisions[]
@@ -383,11 +384,13 @@ vector_dataflow_lowering_diagnostics[]
 
 The three `core_to_vector_*_mapping_decisions[]` families bind Core result-determinism, numeric-contract, and randomness scopes to the Vector/Dataflow scopes that inherit them. If a Core scope splits into several kernels, several scopes fuse into a lower region, or lower identity otherwise changes, the applicable mapping must be recorded.
 
-Those contract-mapping arrays may be omitted only when a frozen deterministic identity-scope reconstruction rule proves the mapping is lossless. IR hashes alone do not establish scope correspondence.
+`extension_requirement_mapping_decisions[]` binds Core extension-requirement ownership to the Vector/Dataflow scope(s) that inherit it. Each material record preserves the relevant Core scope identity, resulting lower scope identities, source CARD provenance, resolved profile/version/content/contract identity, and frozen mapping rule. A JOB-, DECK-, or Core-region-owned extension requirement may not become a lower profile merely by positional or naming inference.
+
+The extension, result-determinism, numeric, and randomness contract-mapping arrays may be omitted only when a frozen deterministic identity-scope reconstruction rule proves the mapping is lossless. IR hashes alone do not establish scope correspondence.
 
 `machinery_requirement_mapping_decisions[]` and `failure_behavior_mapping_decisions[]` similarly record any material change of representation or scope for protected-machinery requirements and failure behavior. Direct identity-preserving carry-through may omit a decision record only under a frozen deterministic reconstruction rule.
 
-MORPH must receive a specific identifiable Vector/Dataflow IR together with every still-applicable execution contract and machinery requirement. It must not be possible for a changed lower graph or authorization requirement to hide behind the same Semantic IR/Core IR/MORPH identities.
+MORPH must receive a specific identifiable Vector/Dataflow IR together with every still-applicable execution contract, extension requirement, and machinery requirement. It must not be possible for a changed lower graph, profile ownership, or authorization requirement to hide behind the same Semantic IR/Core IR/MORPH identities.
 
 ## Conformance requirement
 
@@ -406,6 +409,7 @@ Representative tests should include:
 - mixed scalar/vector regions;
 - multiple scoped numeric contracts and modes;
 - result-determinism/numeric/randomness contract-scope splits and fusions with explicit mapping decisions;
+- extension-requirement scope preservation plus split/fusion/remap cases with explicit mapping decisions;
 - determinism/randomness contract preservation;
 - declared-effect/runtime-attempt provenance identity and completion states;
 - unsupported constructs or machinery requirements failing closed rather than bypassing the IR.
