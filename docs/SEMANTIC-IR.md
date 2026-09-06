@@ -18,7 +18,7 @@ The Semantic IR should preserve information that ordinary compiler IRs often dis
 - result-determinism requirements;
 - numeric-contract requirements;
 - randomness/reproducibility requirements;
-- extension-profile membership and version requirements;
+- extension-profile membership, version, and contract requirements;
 - ordering constraints induced by effects and failure behavior.
 
 The IR should be precise enough for machines while remaining inspectable by humans.
@@ -42,12 +42,14 @@ Program {
 Job {
     id
     decks[]
+    failure_behavior?
     source_location?
 }
 
 Deck {
     id
     cards[]
+    failure_behavior?
     source_location?
 }
 
@@ -66,7 +68,7 @@ Card {
     result_determinism?
     numeric_contract?
     randomness_contract?
-    extensions[]
+    extension_requirements[]
     dependencies[]
     sequencing_constraints[]
     failure_behavior?
@@ -78,13 +80,23 @@ EffectRequirement {
     effect_kind
     required_capabilities[]
 }
+
+ExtensionRequirement {
+    profile_name
+    required_version_or_range
+    contract_id_or_hash?
+}
 ```
 
 `Job.id`, `Deck.id`, and `Card.id` are canonical identities, not serialization-only labels. They must survive canonicalization, lossless transport, lowering provenance, and trace production without being synthesized or renumbered merely because a representation changes.
 
+`failure_behavior?` may exist at JOB, DECK, or CARD scope only where the frozen semantic model defines a policy at that scope. A higher-scope recovery, continuation, compensation, or other failure policy must be represented on the corresponding canonical `Job` or `Deck`; it must not be inferred from CARD fields or invented during serialization, lowering, or execution. In the absence of an explicit scoped policy, the frozen default failure semantics apply.
+
 `effect_requirements[]` is the canonical association between a protected effect and the complete capability set that must authorize that specific effect. A CARD may have zero, one, or multiple effect requirements. Separate unassociated `effects[]` and `capabilities[]` arrays are insufficient once one CARD can initiate multiple effects with different authorization requirements.
 
 A derived CARD-level union of required capabilities may be useful for static preflight or summaries, but that union does not replace the per-effect mapping.
+
+`extension_requirements[]` is the canonical association between an extension profile and the version/contract required to interpret extension-owned syntax, qualifiers, effects, adapters, or lowering hooks. A serializer or lowering stage must not split profile names from their version/contract requirements and later reconstruct the association by position or guesswork.
 
 These enforcement fields belong in the canonical semantic input. They must not be invented only after a backend has already chosen machinery.
 
@@ -267,6 +279,7 @@ The Semantic IR need not encode operating-system-specific error numbers in the c
 - effectful operations must expose the completion state of every identified effect attempt;
 - an effect attempt that begins but is proven to have produced no externally observable change must be distinguishable from both `NOT_STARTED` and `PARTIAL`;
 - an unhandled DECK failure propagates to the enclosing JOB by default unless an explicit frozen JOB-level handler says otherwise;
+- explicit JOB/DECK/CARD failure policies must remain attached to the canonical scope that owns them;
 - later backends must not choose incompatible trap/continue/rollback behavior for the same semantic program.
 
 Explicit recovery syntax, if introduced later, belongs in the semantic model rather than being an implicit backend policy.
@@ -288,7 +301,7 @@ Canonicalization may include:
 - deterministic escaping and encoding;
 - deterministic derivation of effect-order and failure-order constraints;
 - canonical identity for numeric/reproducibility contracts;
-- canonical extension/version requirements.
+- canonical structured extension requirements.
 
 This enables stable hashing and reproducible comparison.
 
@@ -304,7 +317,7 @@ Potential uses:
 - transformation verification;
 - backend comparison.
 
-Hash identity must be defined over canonical semantic content rather than incidental formatting if source formatting is not itself part of the semantic contract. Stable hierarchy IDs, execution-relevant qualifiers, effect requirements, per-effect capability sets, and explicit failure behavior contribute to semantic identity according to the frozen canonicalization rules.
+Hash identity must be defined over canonical semantic content rather than incidental formatting if source formatting is not itself part of the semantic contract. Stable hierarchy IDs, execution-relevant qualifiers, effect requirements, per-effect capability sets, scoped failure behavior, and extension requirements contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Lowering
 
