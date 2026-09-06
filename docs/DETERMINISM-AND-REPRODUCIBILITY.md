@@ -74,7 +74,7 @@ failure_behavior_bindings[]:
     mapping_or_transition_rule_id?
 ```
 
-`failure_behavior_binding_id` is the stable provenance-record key. Outputs reference that record key through `failure_behavior_binding_ids[]`; the generic governed computation `scope_id` is not an alias for the binding record.
+`failure_behavior_binding_id` is the stable provenance-record key. Outputs and failure records reference that record key through `failure_behavior_binding_ids[]`; the generic governed computation `scope_id` is not an alias for the binding record.
 
 The frozen default fail-stop behavior has a stable identity when it materially governs execution. A manifest must not infer effective failure policy merely from skipped CARDs or DECKs.
 
@@ -93,6 +93,7 @@ result_determinism_scopes[]:
     requested_result_determinism
     effective_result_determinism
     transition_authorized_by?
+    transition_evidence_id?
     backend_unit_id?
 ```
 
@@ -109,6 +110,7 @@ randomness_execution_scopes[]:
     requested_randomness_mode
     effective_randomness_mode
     transition_authorized_by?
+    transition_evidence_id?
     rng_algorithm?
     rng_version?
     seed?
@@ -148,6 +150,14 @@ numeric_execution_scopes[]:
 The three record keys above are type-specific on purpose. Overlapping JOB/CARD/region/kernel computation IDs must not make output references ambiguous.
 
 A single execution-wide scope record is legal only when a frozen normalization proves it faithfully represents every governed source requirement.
+
+### Resolvable transition authority and evidence
+
+Whenever requested and effective result-determinism or randomness contracts differ, `transition_authorized_by` and `transition_evidence_id` are mandatory. They resolve respectively to `rule_records[].rule_id` of kind `CONTRACT_TRANSITION` and `validation_evidence[].validation_evidence_id` for this exact type-specific execution-scope record. These ledgers use the complete shared [rule and evidence schemas](TRACE-AND-PROVENANCE.md#referenced-rules-and-validation-evidence), not opaque IDs or separately abbreviated definitions.
+
+The rule is bound to the accepted source/specification or execution-policy authority, its version/content identity, and verifiable rule content. Passing evidence binds the exact requested/effective contracts, governing numeric/randomness context, and actual policy conditions. It must establish authorization before effective-contract activation or use, with same-domain `validation_sequence_index < application_sequence_index`. Missing, unknown, wrong-kind, stale, mismatched, unavailable, or post-execution authority/evidence fails closed. Optional notation permits omission only when there is no transition, not an undocumented downgrade. A transition recorded by a lowering retains this relation into the governed execution scope.
+
+Rule/evidence records neither grant effect or machinery capabilities nor promote research evidence status. A producer's `PASS` label alone is not verification. The manifest retains the referenced definitions, evaluated context, and verification evidence inline or through retrievable content-bound records.
 
 ## Time and floating point
 
@@ -243,10 +253,14 @@ machinery_use_records[]:
     backend_selection_decision_id
     backend_unit_id?
     source_card_ids[]
+    card_execution_ids[]
+    initiating_scope_ref?
     machinery_authorization_record_ids[]
     protected_use_start_sequence_index
     protected_use_stop_sequence_index?
 ```
+
+`card_execution_ids[]` is nonempty for CARD-governed use and resolves to the actual participating CARD invocations in `card_executions[]`, consistently with their canonical CARDs, DECK executions, and this run. Repeated uses under one backend scope/decision cannot collapse retries or iterations into canonical source IDs. Genuine pre-CARD setup may use an empty array only with `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. It must not fabricate a CARD execution. Shared uses list the concrete participating executions under the frozen execution mapping.
 
 Authorization and protected-use indices belong to one frozen monotonic event-order domain. Every protected use references all applicable successful authorization records, each satisfying:
 
@@ -265,7 +279,7 @@ generated_artifacts[]:
     artifact_hash
     backend_unit_id
     backend_selection_scope_id
-    backend_selection_decision_id?
+    backend_selection_decision_id
     source_card_ids[]?
     optimized_ir_hash?
     optimization_record_ids[]?
@@ -273,6 +287,8 @@ generated_artifacts[]:
     toolchain_invocation_chain_ids[]
     artifact_location?
 ```
+
+`backend_selection_decision_id` is required and resolves to the exact production decision in the recorded selection scope, with matching target context. A rejected candidate's artifact remains attributed to that candidate, never implicitly to the scope's final fallback decision. Artifact existence is not machinery-use authorization.
 
 A bare hash list is insufficient. When an artifact is generated from optimized IR, its `optimized_ir_hash` and `optimization_record_ids[]` identify the transformation history that produced it.
 
@@ -292,6 +308,7 @@ toolchain_invocations[]:
     flags[]
     environment_or_config_hash?
     input_ir_hashes[]?
+    input_ids[]
     input_generated_artifact_ids[]?
     output_generated_artifact_ids[]
     backend_unit_id?
@@ -300,13 +317,17 @@ toolchain_invocations[]:
 
 `material_tool_identity` must be an immutable/versioned identity adequate to distinguish the actual tool used for the active reproducibility claim, such as version plus executable/content hash, immutable tool artifact ID, or frozen equivalent.
 
+`input_ids[]` resolves to immutable `inputs[]` records for every material input not generated in this run, including prebuilt objects, static libraries, headers, startup files, sysroots, and implicit toolchain dependencies. It is empty only when no such inputs were consumed. A composite input must bind the complete material dependency set through a frozen content-manifest representation. Mutable paths, library names, flags, and tool versions alone do not identify the actual dependency bytes; missing material input identity invalidates a complete/reproducible build-provenance claim.
+
 `input_generated_artifact_ids[]` and `output_generated_artifact_ids[]` are direct build-graph edges. A generated artifact's `direct_producer_toolchain_invocation_id` must resolve to an invocation whose `output_generated_artifact_ids[]` contains that artifact. Other invocations in `toolchain_invocation_chain_ids[]` are transitive ancestors and are not required to claim the final artifact as a direct output.
 
 For a normal compile/link chain:
 
 ```text
 compile-1: source/IR -> obj-1
-link-1:    obj-1     -> exe-1
+link-1:    obj-1 + prebuilt-lib-1 -> exe-1
+link-1.input_generated_artifact_ids = [obj-1]
+link-1.input_ids = [prebuilt-lib-1]
 
 obj-1.direct_producer_toolchain_invocation_id = compile-1
 obj-1.toolchain_invocation_chain_ids = [compile-1]
@@ -315,11 +336,11 @@ exe-1.direct_producer_toolchain_invocation_id = link-1
 exe-1.toolchain_invocation_chain_ids = [compile-1, link-1]
 ```
 
-The compiler directly outputs `obj-1`; the linker directly outputs `exe-1`. The executable still retains the complete ordered material chain without falsely claiming the compiler directly emitted it.
+The compiler directly outputs `obj-1`; the linker directly outputs `exe-1`. `prebuilt-lib-1` resolves to its consumed immutable identity in `inputs[]`, not a fabricated generated artifact. The executable still retains the complete ordered material chain without falsely claiming the compiler directly emitted it.
 
 Where intermediate generated artifacts are retained, the ordered chain must be consistent with the direct input/output artifact graph. Any future frozen representation that omits intermediates must define how the transitive chain remains content-bound and verifiable.
 
-A run-wide compiler-version list is summary metadata only and cannot substitute for artifact-specific invocation identity, flags, target/ABI, configuration, direct producer, or transitive chain.
+A run-wide compiler-version list is summary metadata only and cannot substitute for artifact-specific invocation identity, flags, target/ABI, configuration, immutable material inputs, direct producer, or transitive chain.
 
 ## Optimization provenance
 
@@ -389,11 +410,13 @@ scope_ref:
     scope_id
 ```
 
+At the first boundary, `machinery_requirement_lowering_decisions[]` uses identified mapping groups with typed `source_scope_refs[]` and `core_scope_refs[]`, plus nonempty, deterministic `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`. The requirement IDs resolve in the hash-bound source Semantic IR and resulting Core IR. Separate requirements sharing a scope must not be inferred from source CARD IDs or paired by position; a frozen rule must define any split/fusion relation unambiguously. The complete shape and rejection rules are shared with [Semantic-to-Core machinery preservation](SEMANTIC-TO-CORE-LOWERING.md#protected-machinery-requirements).
+
 At the second boundary, every applicable mapping family uses typed `core_scope_refs[]` and `vector_dataflow_scope_refs[]`. Bare scope-ID arrays are not sufficient where namespaces can overlap.
 
 For `machinery_requirement_mapping_decisions[]`, typed scope endpoints are necessary but not sufficient: each mapping also carries `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` so several requirements owned by one Core scope cannot be confused. Those arrays preserve the exact requirement/capability-set correspondence through preservation, split, or frozen legal fusion.
 
-This typed-endpoint rule applies to extension requirements, machinery requirements, result determinism, numeric contracts/modes, randomness, and failure behavior. Mapping families may be omitted only under a frozen deterministic identity-scope reconstruction rule covering that family.
+This typed-endpoint rule applies to extension requirements, machinery requirements, result determinism, numeric contracts/modes, randomness, and failure behavior. Mapping families may be omitted only under a frozen deterministic reconstruction rule covering that family; for machinery it must reconstruct every requirement-ID association as well as the owning scopes.
 
 ## Input provenance
 
@@ -438,12 +461,14 @@ card_executions[]:
     execution_order_index?
     governing_control_decision_id?
     governing_failure_record_id?
+    governing_skip_rule_id?
+    skip_verification_evidence_id?
     failure_record_id?
 ```
 
 `card_id` identifies the canonical semantic CARD. `card_execution_id` identifies one concrete runtime execution. This distinction is material for loops, retries, calls, repeated DECK execution, or another construct that can execute the same CARD more than once.
 
-Candidate statuses include executed success/failure, untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip.
+Candidate statuses include executed success/failure, untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. Explicit CARD skips require the same resolvable skip rule and passing applicability evidence as effect skips, with evidence bound to the exact `CARD_EXECUTION` subject. A parent skip cannot evade accounting for its effects.
 
 ## Typed execution-path causality and failure identity
 
@@ -462,6 +487,7 @@ failure_records[]:
     failure_record_id
     failing_scope_kind
     failing_scope_id
+    failure_behavior_binding_ids[]
     failure_class
     failure_stage
     failure_card_id?
@@ -472,6 +498,8 @@ failure_records[]:
 ```
 
 `failing_scope_kind` plus `failing_scope_id` is always present. It identifies the typed runtime or pre-runtime scope where the failure occurred.
+
+`failure_behavior_binding_ids[]` is required and resolves to the exact stable policy bindings active for this failure and its propagation/handling, including the applicable frozen default fail-stop binding. Policies sharing a computation scope or different transitions must not be inferred from observed control flow. A rejected requested policy is not an effective handling policy; pre-CARD rejections retain the applicable setup/rejection-handling binding. Missing or incompatible bindings make the failure trace incomplete.
 
 For a CARD-caused failure, `failure_card_id` and `failure_card_execution_id` are required and must resolve consistently through `card_executions[]`. For a legitimate pre-CARD failure, such as JOB-scoped contract rejection or protected-machinery denial before CARD execution, those CARD fields are absent rather than fabricated.
 
@@ -541,10 +569,14 @@ effect_non_attempt_records[]:
     non_attempt_reason
     governing_control_decision_id?
     governing_failure_record_id?
+    governing_skip_rule_id?
+    skip_verification_evidence_id?
     backend_detail?
 ```
 
 Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip.
+
+An explicit frozen skip requires `governing_skip_rule_id` resolving to `rule_records[].rule_id` of kind `EFFECT_SKIP`, plus `skip_verification_evidence_id` resolving to passing `validation_evidence[]` for this exact non-attempt record, declared effect, concrete CARD execution, and active semantic/policy context. The frozen rule must permit the skip and its applicability must be verified before application. Free-text reasons and optional control/failure references are not substitute authorization. Missing, unresolved, inapplicable, or unverifiable rule/evidence forces conformance failure, not successful omission.
 
 `BACKEND_OMISSION_DETECTED` or frozen equivalent means a reachable required effect was omitted. It forces structured execution/conformance failure and cannot coexist with successful enclosing execution.
 
@@ -610,6 +642,10 @@ cache_reuse_records[]:
     verification_evidence_id?
     material_cache_identity_hash
 ```
+
+Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents. For `VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory and resolve to the shared rule/evidence ledgers. The rule has kind `CACHE_SUBSTITUTION`; passing evidence binds this exact reuse record, reused computation/artifact, checked cache key/artifact content, and current inputs/contracts/context before substitution. Immutable cached-output/producer provenance may supply content identity, but unknown IDs, stale evidence, a hash alone, or the classification label cannot establish verified reuse.
+
+For effectful substitution, the referenced rule must specifically be the applicable separately frozen replay/cache semantic; a generic cache rule is insufficient. An `UNVERIFIED_HIT` cannot satisfy a CARD or produce a verified-reuse output: verify successfully before reuse, execute cold, or fail closed. The optional notation used by other classifications does not waive verified-reuse conditions. See the complete [cache validation contract](TRACE-AND-PROVENANCE.md#cache-reuse-provenance).
 
 Verified cache reuse does not prove cold reconstructability.
 
@@ -684,6 +720,8 @@ primary_failure_record_id?
 execution_status
 job_status
 failure_behavior_bindings[]
+rule_records[]
+validation_evidence[]
 semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
@@ -737,29 +775,33 @@ toolchain_invocations[]
 
 `run_id` identifies the aggregate execution. `job_id` identifies the canonical JOB. `deck_executions[]` and `card_executions[]` identify the concrete runtime path.
 
-`control_decisions[]` and `failure_records[]` provide typed resolvable causes for untaken or blocked CARDs and effect non-attempts. A failure record always identifies its typed failing scope; CARD identity is present only when a CARD execution actually caused that failure.
+`control_decisions[]` and `failure_records[]` provide typed resolvable causes for untaken or blocked CARDs and effect non-attempts. A failure record always identifies its typed failing scope and exact `failure_behavior_binding_ids[]`; CARD identity is present only when a CARD execution actually caused that failure.
 
-Every protected machinery use links to all applicable successful authorization records and preserves authorization-before-use ordering.
+Failure manifests retain `backend_selection_scopes[]` and `backend_selection_decisions[]`, including denied candidates and fallback predecessors referenced by machinery records. They preserve the complete transitive reference closure, including policy bindings, requirements, rules, evidence, and observable outputs, inline or through retrievable content-bound trace records. Dangling IDs do not constitute complete failure provenance.
+
+Every protected machinery use links to all applicable successful authorization records, its concrete participating `card_execution_ids[]` or genuine pre-CARD initiating scope, and preserves authorization-before-use ordering.
 
 Every begun protected effect preserves authorization-before-begin ordering and carries its concrete `card_execution_id`.
 
-Every declared effect is unconditionally accounted for per selected concrete CARD execution by attempt, legitimate identified non-attempt, or structured failure.
+Every declared effect is unconditionally accounted for per selected concrete CARD execution by attempt, legitimate identified non-attempt, or structured failure. Explicit frozen skips require a resolvable skip rule and passing invocation-bound applicability evidence.
+
+Every changed requested/effective result-determinism or randomness contract requires resolvable versioned transition authority and passing evidence established before effective-contract activation or use.
 
 Every EXTERNAL-ENTROPY randomness scope links to the exact protected RANDOM acquisition attempt(s) and immutable entropy input identity where material.
 
 Every output binds canonical producers **and** concrete CARD execution producers, exact material input IDs, applicable effect attempts/tools, exact generated artifacts, stable execution-contract/failure-policy records, cache reuse, and compatible evidence status.
 
-Every generated artifact identifies its direct producer invocation and its exact ordered transitive toolchain ancestry. Direct invocation input/output artifact edges remain truthful; run-wide compiler/version summaries are not a substitute.
+Every generated artifact identifies its exact production backend-selection decision, direct producer invocation, and exact ordered transitive toolchain ancestry. Direct invocation input/output artifact edges remain truthful, and immutable `input_ids[]` identify all material non-generated toolchain dependencies. Run-wide compiler/version summaries are not a substitute.
 
 Every material external tool either has an immutable/versioned identity adequate for the active claim or an explicit identity-unavailable status that weakens that claim.
 
-Every Core-to-Vector/Dataflow machinery mapping identifies the exact source and lower machinery requirement IDs in addition to typed scope endpoints, so multiple requirements owned by one scope cannot be swapped or detached.
+Every machinery mapping at both mandatory lowerings identifies the exact source and lower machinery requirement IDs in addition to typed scope endpoints, so multiple requirements owned by one scope cannot be swapped or detached.
 
 Every Core-to-Vector/Dataflow contract mapping uses typed scope endpoints so overlapping scope namespaces cannot make source/lower ownership ambiguous.
 
-Every optimized generated artifact links reciprocally to the optimization records that produced it.
+Every optimized generated artifact links reciprocally to the optimization records that produced it. Every `VERIFIED_REUSE` record resolves its applicable legality rule and passing context-bound verification evidence; unverified hits do not supply results.
 
-Not every optional field applies to every execution, but no material reproducibility decision may disappear merely because another execution path could have produced the same bytes.
+Not every optional field applies to every execution, but no material reproducibility decision may disappear merely because another execution path could have produced the same bytes. Conditional requirements stated above remain mandatory whenever their condition holds.
 
 ## Reproducibility versus portability
 
@@ -771,7 +813,7 @@ QSOL-MORPH states the strongest reproducibility guarantee actually provided by a
 
 An implementation fails closed when a required determinism, numeric, randomness, effect capability, machinery capability, failure behavior, extension, effect-accounting, material-tool identity, toolchain-build provenance, or other frozen execution contract cannot be satisfied.
 
-Silently weakening `STRICT`, substituting external entropy for required seeded replay, acquiring external entropy without a declared/authorized `RANDOM` effect, failing to attribute external entropy to its concrete acquisition attempt, changing fail-stop into continuation, dropping explicit recovery policy, beginning protected work before authorization, losing typed path causality, fabricating a failing CARD for a pre-CARD failure, omitting a reachable required effect, claiming full replay with unavailable material external-tool identity, or claiming reproducible artifact bytes without a truthful direct producer and material toolchain ancestry is invalid unless a frozen pre-execution contract explicitly permits the applicable weakening. A reachable-effect omission is not such a permitted transition and produces structured failure.
+A permitted weakening of a determinism, randomness, or replay guarantee requires the resolvable frozen pre-execution authority and verification evidence defined above. Recording a weaker effective value is not itself permission. Effect and machinery authorization, declared-effect accounting, truthful failure attribution, and reference integrity remain mandatory: a transition cannot authorize hidden entropy acquisition, work begun before authorization, an omitted reachable required effect, fabricated provenance, or a dangling evidence reference. Such violations produce structured failure. Unavailable material-tool identity or incomplete build-input provenance cannot support a full reproducibility claim.
 
 General execution failure and effect-attempt completion semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
 

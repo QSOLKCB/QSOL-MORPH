@@ -209,6 +209,27 @@ A target-selection qualifier does not replace the machinery requirement, and an 
 
 If lowering consumes, groups, scopes, or otherwise transforms machinery requirements, provenance must record the mapping/decision. Dropping an applicable machinery requirement before MORPH is a conformance failure.
 
+Each first-boundary machinery mapping is an identified cardinality-aware group:
+
+```text
+machinery_requirement_lowering_decisions[]:
+    mapping_group_id
+    source_scope_refs[]:
+        scope_kind
+        scope_id
+    core_scope_refs[]:
+        scope_kind
+        scope_id
+    source_machinery_requirement_ids[]
+    lower_machinery_requirement_ids[]
+    source_card_ids[]
+    mapping_rule_id
+```
+
+The source requirement IDs resolve in the input Semantic IR; the lower requirement IDs resolve in the resulting QSOL-CORE representation. The two IR hashes and typed owning scopes qualify those identities. Both ID sets are nonempty, deterministic, and duplicate-free. Unrelated requirements sharing an owning scope use separate mapping groups; they must not be paired by array position or inferred from shared source CARDs.
+
+One-to-one preservation/rename, one-to-many split, and frozen legal fusion retain the exact source-to-lower requirement relation. A multi-source or multi-target group is valid only when its frozen `mapping_rule_id` defines that relation unambiguously, including which source target selector and complete capability set governs each lower requirement. Ambiguous grouping, swapped requirements, missing endpoints, and unauthorized capability weakening fail conformance. Omission is allowed only under a frozen deterministic reconstruction rule that recovers both the owning scopes and every requirement-ID association, not merely the scope correspondence.
+
 ## Determinism, numeric, and randomness contracts
 
 Lowering must carry execution contracts forward rather than re-infer them later.
@@ -292,6 +313,7 @@ Fixtures should cover at least:
 - execution-relevant qualifiers, including target/adapter/tuning/extension-control qualifiers;
 - single and multiple effects with distinct stable effect IDs and complete capability sets;
 - protected machinery requirements at CARD/DECK/JOB scopes and explicit preservation into the lower representation;
+- multiple machinery requirements sharing one source scope but reaching different Core scopes, plus missing, swapped, ambiguous, split, and frozen-fusion requirement-ID mappings;
 - seeded randomness;
 - multiple scoped numeric contracts and legal normalization/rejection cases;
 - explicit failure behavior and tagged sequencing constraints, including non-effect/failure sequencing kinds;
@@ -327,7 +349,7 @@ The canonical identity fields are `semantic_to_core_spec_version` and `semantic_
 
 `extension_requirement_lowering_decisions[]` binds each materially transformed source extension requirement to the Core scope(s) that inherit it, retaining source scope identity, source CARD provenance, resolved profile/version/content/contract identity, and the frozen mapping rule. It may be omitted only under a frozen deterministic identity-scope reconstruction rule that actually covers extension ownership.
 
-`machinery_requirement_lowering_decisions[]` records any scope grouping, identity change, or frozen representation mapping applied to canonical machinery requirements; omission is permitted only when a frozen deterministic identity-preservation rule makes the mapping reconstructible.
+`machinery_requirement_lowering_decisions[]` uses the identified mapping groups defined in [Protected machinery requirements](#protected-machinery-requirements), including mandatory `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` independently of the typed source/Core scope endpoints. A frozen reconstruction exception must recover every requirement association as well as scope ownership.
 
 `result_determinism_lowering_decisions[]`, `randomness_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]` record scope preservation, grouping, identity changes, frozen normalizations, and any permitted transitions needed to explain how source requirements became Core contracts. IR hashes alone cannot establish that correspondence.
 

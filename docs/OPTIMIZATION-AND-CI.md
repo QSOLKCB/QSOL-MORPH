@@ -95,6 +95,14 @@ A pipeline that always reuses a valid cache may still hide a broken clean-build 
 
 Periodic or gated cold-path validation should exist for claims that depend on reconstructability.
 
+### Verified-reuse evidence
+
+For `cache_reuse_records[].classification = VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory. They resolve to a `rule_records[]` entry of kind `CACHE_SUBSTITUTION` and passing `validation_evidence[]` for the exact reuse record, reused computation/artifact, checked material cache identity, and current inputs/contracts/context. Validate applicability before substitution, with the shared event-order requirement `validation_sequence_index < application_sequence_index`.
+
+The complete [rule and evidence schemas](TRACE-AND-PROVENANCE.md#referenced-rules-and-validation-evidence) and [cache validation contract](TRACE-AND-PROVENANCE.md#cache-reuse-provenance) apply here without weakening. Rules bind the accepted authority and its version/content identity; evidence binds its typed subject, evaluated context, verifier identity, and verifiable content. A classification label, matching hash, unknown ID, stale evidence, or post-substitution check is not sufficient verification.
+
+`UNVERIFIED_HIT` is diagnostic and cannot satisfy a CARD or supply a verified-reuse output. It must be successfully verified before reuse, cause cold execution, or fail closed. Optional rule/evidence fields for other classifications never waive the requirements for `VERIFIED_REUSE`.
+
 ### Effectful cache/replay legality
 
 Ordinary cached result/value substitution is **effect-free by default**.
@@ -110,7 +118,7 @@ An effectful CARD must not be satisfied merely by returning a previously cached 
 - externally observable artifacts or state;
 - randomness or external-input replay semantics.
 
-Effectful reuse is legal only under a separately frozen cache/replay semantic that explicitly defines whether and how the effect executes again and preserves every affected authorization, ordering, failure, and provenance boundary. Absent such a rule, the implementation executes the effect normally or fails closed rather than substituting a cached result.
+Effectful reuse is legal only under a separately frozen cache/replay semantic that explicitly defines whether and how the effect executes again and preserves every affected authorization, ordering, failure, and provenance boundary. The verified-reuse record must reference that specifically applicable rule; a generic cache substitution rule is insufficient. Absent such a rule, the implementation executes the effect normally or fails closed rather than substituting a cached result.
 
 A valid cache key and a previously correct cached value are therefore necessary but not sufficient evidence that semantic substitution is legal.
 
@@ -174,11 +182,12 @@ randomness/reproducibility configuration
 active extension/profile versions
 generated-code options
 relevant toolchain/library versions
+immutable identities of material prebuilt objects/libraries/headers/sysroots
 ```
 
 A semantic source hash by itself is not a safe key for generated target artifacts. If changing an input can change the bytes, semantics, ABI, or required execution contract of the cached artifact, that input must either participate in the cache key or be validated as part of cache acceptance.
 
-Cache metadata should be inspectable enough to explain why a hit was considered compatible.
+Cache metadata should be inspectable enough to explain why a hit was considered compatible. Material non-generated build dependencies resolve through `toolchain_invocations[].input_ids[]` to immutable `inputs[]` records; their paths or library names alone cannot establish cache compatibility or reproducible artifact provenance.
 
 ### Reference/optimized split
 
