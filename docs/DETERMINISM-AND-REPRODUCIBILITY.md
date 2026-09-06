@@ -65,6 +65,7 @@ No serializer, lowering, or backend may silently flatten a JOB/DECK contract int
 
 ```text
 failure_behavior_bindings[]:
+    failure_behavior_binding_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -72,6 +73,8 @@ failure_behavior_bindings[]:
     effective_failure_behavior_id
     mapping_or_transition_rule_id?
 ```
+
+`failure_behavior_binding_id` is the stable provenance-record key. Outputs reference that record key through `failure_behavior_binding_ids[]`; the generic governed computation `scope_id` is not an alias for the binding record.
 
 The frozen default fail-stop behavior has a stable identity when it materially governs execution. A manifest must not infer effective failure policy merely from skipped CARDs or DECKs.
 
@@ -266,10 +269,35 @@ generated_artifacts[]:
     source_card_ids[]?
     optimized_ir_hash?
     optimization_record_ids[]?
+    toolchain_invocation_ids[]
     artifact_location?
 ```
 
-A bare hash list is insufficient. When an artifact is generated from optimized IR, its `optimized_ir_hash` and `optimization_record_ids[]` identify the transformation history that produced it.
+A bare hash list is insufficient. When an artifact is generated from optimized IR, its `optimized_ir_hash` and `optimization_record_ids[]` identify the transformation history that produced it. `toolchain_invocation_ids[]` records the ordered exact compiler/assembler/linker/code-generation invocations that materially produced its bytes.
+
+## Toolchain invocation provenance
+
+```text
+toolchain_invocations[]:
+    toolchain_invocation_id
+    invocation_sequence_index
+    invocation_kind
+    tool_name
+    material_tool_identity
+    target_or_architecture?
+    abi?
+    flags[]
+    environment_or_config_hash?
+    input_ir_hashes[]?
+    input_generated_artifact_ids[]?
+    output_generated_artifact_ids[]
+    backend_unit_id?
+    backend_selection_scope_id?
+```
+
+`material_tool_identity` must be an immutable/versioned identity adequate to distinguish the actual tool used for the active reproducibility claim, such as version plus executable/content hash, immutable tool artifact ID, or frozen equivalent.
+
+Generated artifacts and toolchain invocations are reciprocally linked. If multiple stages materially produce an artifact, its `toolchain_invocation_ids[]` are ordered so compile/assemble/link or equivalent chains remain reconstructable. A run-wide compiler-version list is summary metadata only and cannot substitute for artifact-specific invocation identity, flags, target/ABI, or configuration.
 
 ## Optimization provenance
 
@@ -296,6 +324,7 @@ Every optimized generated artifact links to its applicable optimization record(s
 
 ```text
 output -> generated_artifact -> optimization_provenance
+                         \-> toolchain_invocations
 ```
 
 ## Lowering provenance
@@ -524,13 +553,18 @@ external_tool_versions[]:
     external_tool_id
     tool_kind
     tool_name_or_service
-    version?
-    content_hash_or_model_id?
+    material_identity_status
+    material_identity_kind?
+    material_identity_value?
     endpoint_or_location?
     source_card_ids[]?
     effect_attempt_ids[]?
     output_ids[]?
 ```
+
+A material external tool, service, model, prover, process, or instrument must not be identified only by a display name or mutable endpoint. `material_identity_status = IDENTIFIED` requires an immutable or versioned `material_identity_value`, such as an executable/content hash, tool version adequate for the active claim, model/version ID, immutable artifact ID, or frozen equivalent.
+
+If material identity cannot be established, record `material_identity_status = UNAVAILABLE` (or frozen equivalent). Replay/evidence claims that depend on exact identity must then be weakened or rejected according to frozen policy rather than silently claiming full reproducibility.
 
 Extension resolution identifies the adapter/profile contract. It does not substitute for the actual tool, service, model, prover, process, or instrument identity.
 
@@ -575,6 +609,7 @@ outputs[]:
     result_determinism_scope_ids[]
     numeric_scope_ids[]
     randomness_scope_ids[]
+    failure_behavior_binding_ids[]
     cache_reuse_record_ids[]?
     evidence_status?
 ```
@@ -589,9 +624,11 @@ A canonical CARD ID alone is insufficient when a CARD can execute more than once
 
 `external_tool_ids[]`, where applicable, identifies exact material external tools/services/models/provers.
 
-`generated_artifact_ids[]` identifies the exact generated artifact that executed where applicable and thereby links the output to optimization provenance.
+`generated_artifact_ids[]` identifies the exact generated artifact that executed where applicable and thereby links the output to optimization and toolchain provenance.
 
-The result-determinism, numeric, and randomness arrays resolve directly to the stable type-specific scope-record keys defined above.
+`failure_behavior_binding_ids[]` identifies the exact failure-policy provenance records that governed the producer path.
+
+The result-determinism, numeric, randomness, and failure-policy arrays resolve directly to stable record keys defined above.
 
 ### Evidence status
 
@@ -671,6 +708,7 @@ effect_non_attempt_records[]
 optimization_profile
 optimization_provenance[]
 generated_artifacts[]
+toolchain_invocations[]
 ```
 
 `run_id` identifies the aggregate execution. `job_id` identifies the canonical JOB. `deck_executions[]` and `card_executions[]` identify the concrete runtime path.
@@ -685,7 +723,11 @@ Every declared effect is unconditionally accounted for per selected concrete CAR
 
 Every EXTERNAL-ENTROPY randomness scope links to the exact protected RANDOM acquisition attempt(s) and immutable entropy input identity where material.
 
-Every output binds canonical producers **and** concrete CARD execution producers, exact material input IDs, applicable effect attempts/tools, exact generated artifacts, stable execution-contract scope records, cache reuse, and compatible evidence status.
+Every output binds canonical producers **and** concrete CARD execution producers, exact material input IDs, applicable effect attempts/tools, exact generated artifacts, stable execution-contract/failure-policy records, cache reuse, and compatible evidence status.
+
+Every generated artifact binds the exact ordered toolchain invocation chain that materially produced its bytes; run-wide compiler/version summaries are not a substitute.
+
+Every material external tool either has an immutable/versioned identity adequate for the active claim or an explicit identity-unavailable status that weakens that claim.
 
 Every Core-to-Vector/Dataflow contract mapping uses typed scope endpoints so overlapping scope namespaces cannot make source/lower ownership ambiguous.
 
@@ -701,12 +743,12 @@ QSOL-MORPH states the strongest reproducibility guarantee actually provided by a
 
 ## Failure behavior
 
-An implementation fails closed when a required determinism, numeric, randomness, effect capability, machinery capability, failure behavior, extension, effect-accounting, or other frozen execution contract cannot be satisfied.
+An implementation fails closed when a required determinism, numeric, randomness, effect capability, machinery capability, failure behavior, extension, effect-accounting, material-tool identity, toolchain-build provenance, or other frozen execution contract cannot be satisfied.
 
-Silently weakening `STRICT`, substituting external entropy for required seeded replay, acquiring external entropy without a declared/authorized `RANDOM` effect, failing to attribute external entropy to its concrete acquisition attempt, changing fail-stop into continuation, dropping explicit recovery policy, beginning protected work before authorization, losing typed path causality, fabricating a failing CARD for a pre-CARD failure, or omitting a reachable required effect is invalid unless a frozen pre-execution contract explicitly permits the applicable transition. A reachable-effect omission is not such a permitted transition and produces structured failure.
+Silently weakening `STRICT`, substituting external entropy for required seeded replay, acquiring external entropy without a declared/authorized `RANDOM` effect, failing to attribute external entropy to its concrete acquisition attempt, changing fail-stop into continuation, dropping explicit recovery policy, beginning protected work before authorization, losing typed path causality, fabricating a failing CARD for a pre-CARD failure, omitting a reachable required effect, claiming full replay with unavailable material external-tool identity, or claiming reproducible artifact bytes without the material toolchain invocation chain is invalid unless a frozen pre-execution contract explicitly permits the applicable weakening. A reachable-effect omission is not such a permitted transition and produces structured failure.
 
 General execution failure and effect-attempt completion semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
 
 ## Design principle
 
-> Nondeterminism, failure policy, typed execution path, concrete CARD execution identity, machinery-selection history, authorization order, cache reuse, external tools, optimization decisions, generated-artifact identity, immutable inputs, and entropy acquisition are scientific inputs, not invisible implementation details.
+> Nondeterminism, failure policy, typed execution path, concrete CARD execution identity, machinery-selection history, authorization order, cache reuse, external tools, optimization decisions, toolchain invocations, generated-artifact identity, immutable inputs, and entropy acquisition are scientific inputs, not invisible implementation details.
