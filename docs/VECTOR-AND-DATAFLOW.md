@@ -418,6 +418,23 @@ This typed-endpoint rule applies to:
 - `core_to_vector_randomness_mapping_decisions[]`;
 - `failure_behavior_mapping_decisions[]`.
 
+`machinery_requirement_mapping_decisions[]` additionally identifies the stable machinery-requirement records on both sides of the lowering boundary rather than relying on a shared scope or source CARDs:
+
+```text
+machinery_requirement_mapping_decisions[]:
+    core_scope_refs[]
+    vector_dataflow_scope_refs[]
+    source_machinery_requirement_ids[]
+    lower_machinery_requirement_ids[]
+    source_card_ids[]
+    mapping_rule_id
+    backend_unit_ids[]?
+```
+
+The source/lower requirement-ID arrays are cardinality-aware. They support preservation, a requirement split across lower regions, or a frozen legal fusion while retaining which exact requirement and capability set reached which lower unit. Scope correspondence alone is insufficient when one Core scope owns multiple machinery requirements.
+
+Every `lower_machinery_requirement_id` must resolve to a lower requirement whose target selector/class and complete required-capability set either preserve the source requirement or result from an explicitly frozen, provenance-visible transformation. MORPH must never choose which authorization requirement applies by matching only a common scope ID or source CARD.
+
 The three `core_to_vector_*_mapping_decisions[]` families bind Core result-determinism, numeric-contract, and randomness scopes to the Vector/Dataflow scopes that inherit them. If a Core scope splits into several kernels, several scopes fuse into a lower region, or lower identity otherwise changes, the applicable mapping must be recorded.
 
 `extension_requirement_mapping_decisions[]` additionally preserves resolved profile/version/content/contract identity. A JOB-, DECK-, or Core-region-owned extension requirement may not become a lower profile merely by positional or naming inference.
@@ -444,6 +461,7 @@ Representative tests should include:
 - multiple scoped numeric contracts and modes;
 - result-determinism/numeric/randomness contract-scope splits and fusions with **typed** Core and Vector/Dataflow mapping endpoints;
 - extension-requirement scope preservation plus split/fusion/remap cases with typed endpoint mappings;
+- machinery-requirement identity preservation/split/fusion cases where one Core scope owns multiple requirements with different capability sets;
 - machinery and failure-behavior mapping cases with overlapping textual scope IDs in different namespaces;
 - determinism/randomness contract preservation;
 - declared-effect/runtime-attempt provenance identity and completion states;
