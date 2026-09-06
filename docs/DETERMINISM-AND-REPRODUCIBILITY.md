@@ -83,6 +83,7 @@ A manifest must not infer effective failure policy merely from observed skipped 
 
 ```text
 result_determinism_scopes[]:
+    result_determinism_scope_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -92,6 +93,8 @@ result_determinism_scopes[]:
     backend_unit_id?
 ```
 
+`result_determinism_scope_id` is the stable record key referenced by output `result_determinism_scope_ids[]`. `scope_kind` + `scope_id` identify the governed computation and are not aliases for that provenance-record identity.
+
 A single execution-wide entry is legal only when a frozen normalization rule proves that it faithfully represents every governed source requirement.
 
 A recorded transition is evidence, not authorization. If a source requirement cannot be satisfied and no pre-execution rule authorizes a weaker guarantee, execution fails closed.
@@ -100,6 +103,7 @@ A recorded transition is evidence, not authorization. If a source requirement ca
 
 ```text
 randomness_execution_scopes[]:
+    randomness_scope_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -113,6 +117,8 @@ randomness_execution_scopes[]:
     parallel_partitioning?
     backend_unit_id?
 ```
+
+`randomness_scope_id` is the stable record key referenced by output `randomness_scope_ids[]`; it is distinct from the governed computation `scope_id`.
 
 A single execution-wide randomness entry is legal only when a frozen lossless normalization rule proves that one randomness contract and replay configuration faithfully govern every affected source computation.
 
@@ -134,6 +140,7 @@ QSOL-MORPH must not call a transformation semantically identical under a strict 
 
 ```text
 numeric_execution_scopes[]:
+    numeric_scope_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -143,9 +150,13 @@ numeric_execution_scopes[]:
     backend_unit_id?
 ```
 
+`numeric_scope_id` is the stable record key referenced by output `numeric_scope_ids[]`; it is distinct from the governed computation `scope_id`.
+
 `material_numeric_mode` records contract-permitted choices that can change legal result bytes, such as FMA behavior, denormal handling, effective precision, reduction strategy, or selected math-library mode.
 
 A single execution-wide numeric scope is legal only when a frozen normalization rule proves that one contract and one material numeric mode govern the entire execution.
+
+The three execution-scope record keys above are type-specific on purpose. Overlapping JOB/CARD/region/kernel computation IDs, or multiple provenance records governing one computation scope, must not make output references ambiguous.
 
 ## Parallelism
 
@@ -271,10 +282,14 @@ generated_artifacts[]:
     backend_selection_scope_id
     backend_selection_decision_id?
     source_card_ids[]?
+    optimized_ir_hash?
+    optimization_record_ids[]?
     artifact_location?
 ```
 
 `backend_selection_scope_id` identifies the governed selection scope. `backend_selection_decision_id`, where material, identifies the concrete final selection decision that produced the artifact, which is necessary when fallback history exists.
+
+When an artifact is generated from optimized IR, `optimized_ir_hash` and `optimization_record_ids[]` bind that exact artifact to the transformations and legality evidence that produced it. A reference/no-transform artifact may omit those fields only under a frozen deterministic rule proving that no material optimization decision intervened.
 
 A bare hash list is insufficient provenance. Outputs carry applicable `generated_artifact_ids[]` so reference and optimized executables under the same selection scope remain distinguishable.
 
@@ -289,6 +304,7 @@ semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
 semantic_to_core_result_binding_map[]
+extension_requirement_lowering_decisions[]
 qualifier_lowering_decisions[]
 machinery_requirement_lowering_decisions[]
 result_determinism_lowering_decisions[]
@@ -299,6 +315,7 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 core_to_vector_result_binding_map[]
+extension_requirement_mapping_decisions[]
 machinery_requirement_mapping_decisions[]
 core_to_vector_result_determinism_mapping_decisions[]
 core_to_vector_numeric_contract_mapping_decisions[]
@@ -310,9 +327,9 @@ Result-binding maps use a frozen cardinality-aware representation capable of one
 
 Binding maps are required whenever result identities are preserved or transformed, except under a frozen deterministic rule that reconstructs the complete mapping.
 
-The Semantic→Core decision records identify how qualifiers, machinery requirements, failure behavior, and determinism/numeric/randomness contracts became QSOL-CORE contracts or preserved metadata.
+The Semantic→Core decision records identify how extension ownership, qualifiers, machinery requirements, failure behavior, and determinism/numeric/randomness contracts became QSOL-CORE contracts or preserved metadata.
 
-The Core→Vector/Dataflow mapping records do the same for lower regions/kernels/units. IR hashes identify representations but do not establish binding or contract-scope correspondence by themselves.
+The Core→Vector/Dataflow mapping records do the same for extension ownership and lower regions/kernels/units. Extension mapping records retain resolved profile/version/content/contract identity and source-to-lower scope correspondence. Each extension mapping family may be omitted only under a frozen deterministic identity-scope reconstruction rule that actually covers extension ownership. IR hashes identify representations but do not establish binding or contract-scope correspondence by themselves.
 
 ## Result provenance
 
@@ -357,6 +374,8 @@ Generic output `status` describes result/artifact execution or availability stat
 `effect_attempt_ids[]`, where applicable, identifies the concrete attempts that produced, published, exposed, or materially supplied the output. Each corresponding attempt reciprocally names the output in `observable_output_ids[]`.
 
 `external_tool_ids[]`, where applicable, identifies the exact tools/services/models/provers that supplied the output, not merely the source CARD or adapter profile.
+
+`result_determinism_scope_ids[]`, `numeric_scope_ids[]`, and `randomness_scope_ids[]` resolve directly to the stable type-specific record keys above. They never rely on the generic computation `scope_id` as an implicit alias.
 
 The execution-scope references identify the exact machinery, determinism, numeric, and randomness context governing each output. `generated_artifact_ids[]` identifies the exact generated artifact that ran where applicable.
 
@@ -442,11 +461,14 @@ optimization_provenance[]:
     memory_placement_decisions[]?
     target_context_measurements[]?
     resource_model_assumptions[]?
+    generated_artifact_ids[]
 ```
 
 An optimization profile names requested/configured policy; it is not a record of transformations that actually occurred.
 
-Target-adaptive executions must preserve the actual transformation sequence and legality evidence. A stable content identity for a complete MORPH trace may substitute only when that trace is retrievable and verifiable.
+Target-adaptive executions must preserve the actual transformation sequence and legality evidence. Every optimized generated artifact links to its applicable optimization record(s), and those records reciprocally list `generated_artifact_ids[]`. `backend_unit_id` alone is insufficient when one unit produces reference and optimized variants. The required provenance chain is resolvable as `output → generated_artifact → optimization_provenance`.
+
+A stable content identity for a complete MORPH trace may substitute only when that trace is retrievable and verifiable.
 
 ## Per-effect authorization provenance
 
@@ -469,7 +491,9 @@ effect_authorization_records[]:
     authorization_sequence_index?
 ```
 
-Every required capability must be granted by the authorization record for that attempt before the protected effect begins. If an attempt has been created but authorization is denied, its completion state remains `NOT_STARTED` and the denial record remains provenance-visible.
+Every required capability must be granted by the authorization record for that attempt before the protected effect begins. `authorization_sequence_index` is in the same frozen monotonic event-order domain as the attempt's `effect_begin_sequence_index` when ordering auditability is required.
+
+If an attempt has been created but authorization is denied, its completion state remains `NOT_STARTED`, the denial record remains provenance-visible, and the attempt has no effect-begin event.
 
 External entropy acquisition uses this same effect-authorization model through a declared protected `RANDOM` effect; a randomness mode alone is not authorization to access an entropy source.
 
@@ -493,7 +517,7 @@ Legitimate candidate reasons include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_
 
 `BACKEND_OMISSION_DETECTED` (or frozen equivalent) means a reachable required effect was omitted by the implementation. It is not a successful non-attempt classification: it forces structured execution/conformance failure and cannot coexist with successful enclosing execution status.
 
-Runtime attempts carry contextual authorization and concrete result/tool attribution:
+Runtime attempts carry contextual authorization, explicit begin/end ordering, and concrete result/tool attribution:
 
 ```text
 effect_attempts[]:
@@ -504,11 +528,21 @@ effect_attempts[]:
     required_capabilities[]
     effect_authorization_record_id
     sequence_index
+    effect_begin_sequence_index?
+    effect_end_sequence_index?
     completion_state
     backend_detail?
     observable_output_ids[]
     external_tool_ids[]?
 ```
+
+For every protected attempt known to begin under an ordering-auditable contract:
+
+```text
+authorization_sequence_index < effect_begin_sequence_index
+```
+
+Both values are in one frozen monotonic event-order domain. `sequence_index` is a generic attempt ordering/identity field and is not authorization-order proof unless the frozen schema explicitly defines it in that same domain. `NOT_STARTED` attempts have no begin event.
 
 An effect declaration with neither an attempt nor a non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
 
@@ -571,6 +605,7 @@ semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
 semantic_to_core_result_binding_map[]
+extension_requirement_lowering_decisions[]
 qualifier_lowering_decisions[]
 machinery_requirement_lowering_decisions[]
 result_determinism_lowering_decisions[]
@@ -581,6 +616,7 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 core_to_vector_result_binding_map[]
+extension_requirement_mapping_decisions[]
 machinery_requirement_mapping_decisions[]
 core_to_vector_result_determinism_mapping_decisions[]
 core_to_vector_numeric_contract_mapping_decisions[]
@@ -623,7 +659,7 @@ Each `backend_selection_scopes[]` entry has its own stable `backend_selection_sc
 
 Each canonical `machinery_requirements[]` row independently records the stable requirement and required capabilities. `machinery_authorization_records[]` bind those requirements to specific backend-selection decisions and policy outcomes. `machinery_use_records[]` identify protected-use starts/stops and provide same-order-domain evidence that all applicable successful authorizations completed first.
 
-Each `result_determinism_scopes[]`, `numeric_execution_scopes[]`, and `randomness_execution_scopes[]` entry binds its own scope identity and effective execution contract.
+Each `result_determinism_scopes[]`, `numeric_execution_scopes[]`, and `randomness_execution_scopes[]` entry has a stable type-specific record key distinct from the computation scope it governs. Output scope-ID arrays resolve directly to those record keys.
 
 Each `inputs[]` entry binds a declared material input to the exact immutable value/content/artifact identity consumed.
 
@@ -633,17 +669,17 @@ Each `cache_reuse_records[]` entry makes cold versus reused execution auditable.
 
 Each `effect_requirements[]` entry carries the source CARD ID, declared effect ID, effect kind, and complete capability set. Every declaration must be accounted for by attempts or an explicit legitimate non-attempt reason; a detected reachable-effect omission is itself failure. External entropy acquisition is included in this rule through an explicit `RANDOM` effect requirement and attempt.
 
-Each `effect_authorization_records[]` entry proves which policy evaluated one concrete attempt and which complete capability set was granted or denied.
+Each `effect_authorization_records[]` entry proves which policy evaluated one concrete attempt and which complete capability set was granted or denied. For begun attempts, same-domain event ordering proves authorization completed before `effect_begin_sequence_index`.
 
-Each Semantic→Core lowering-decision record preserves the rule/scope/transition evidence needed to explain consumed qualifiers, machinery requirements, failure behavior, and determinism/numeric/randomness mappings.
+Each Semantic→Core lowering-decision record preserves the rule/scope/transition evidence needed to explain consumed extension requirements, qualifiers, machinery requirements, failure behavior, and determinism/numeric/randomness mappings.
 
-Each Core→Vector/Dataflow mapping record preserves the scope correspondence required to explain how Core machinery/failure/determinism/numeric/randomness contracts became lower execution regions or units.
+Each Core→Vector/Dataflow mapping record preserves the scope correspondence required to explain how Core extension, machinery/failure/determinism/numeric/randomness contracts became lower execution regions or units.
 
 Each `external_tool_versions[]` entry binds a material external evidence/data producer to stable version/content/model/service identity and, where material, to the concrete attempts/outputs it served.
 
-Each `optimization_provenance[]` entry records what transformations actually ran and their legality/evidence context. `optimization_profile` alone is insufficient.
+Each `optimization_provenance[]` entry records what transformations actually ran and their legality/evidence context, and reciprocally links the generated artifacts produced from those optimized IR states. `optimization_profile` alone is insufficient.
 
-Each `generated_artifacts[]` entry binds an artifact to its backend unit, selection scope, and concrete selection decision where fallback history makes that identity material. Applicable outputs link to the exact generated artifacts that actually executed.
+Each `generated_artifacts[]` entry binds an artifact to its backend unit, selection scope, concrete selection decision where material, optimized IR identity where applicable, and the exact optimization record IDs that produced it. Applicable outputs link to the exact generated artifacts that actually executed.
 
 Not every optional field applies to every execution, but no material reproducibility decision may disappear merely because another run could have reached the same bytes by a different path.
 
