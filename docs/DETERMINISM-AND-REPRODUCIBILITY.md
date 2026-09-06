@@ -244,6 +244,8 @@ generated_artifacts[]:
 
 For a mixed-backend JOB, two artifacts may therefore have identical artifact kinds while remaining attributable to different machinery scopes. A bare `kernel_or_binary_hashes[]` list is insufficient provenance because it cannot establish which target decision produced each hash.
 
+A single backend-selection scope may govern more than one generated artifact. Outputs therefore carry applicable `generated_artifact_ids[]` so reference and optimized executables, alternate kernels, or multiple generated units under the same scope cannot be confused.
+
 ## Lowering provenance
 
 Reproducibility binds both mandatory lowering stages.
@@ -285,6 +287,7 @@ outputs[]:
     status
     producer_card_ids[]
     backend_selection_scope_ids[]
+    generated_artifact_ids[]?
     result_determinism_scope_ids[]
     numeric_scope_ids[]
     randomness_scope_ids[]
@@ -296,7 +299,7 @@ outputs[]:
 
 A simulation output and a separately validated output remain distinct records. The validation/proof status of one output must not promote another result from the same JOB.
 
-The scope-reference arrays identify the exact machinery, result guarantee, numeric behavior, and RNG configuration that governed each output.
+The scope-reference arrays identify the exact machinery, result guarantee, numeric behavior, and RNG configuration that governed each output. `generated_artifact_ids[]`, when applicable, identifies the exact generated executable/kernel/bytecode artifact that actually produced or supplied the output, which is necessary when several artifacts share one backend-selection scope.
 
 ## Input provenance
 
@@ -394,20 +397,60 @@ optimization_provenance[]:
 
 Target-adaptive executions must preserve the actual transformation sequence and legality evidence, not merely the profile name that permitted a family of choices. An implementation may instead bind a stable content identity for a complete MORPH trace containing equivalent information, but that reference must be sufficient to retrieve and verify the complete decision record.
 
+## Effect declaration accounting
+
+A declared protected effect does not necessarily produce a runtime attempt. Its CARD may be on an untaken branch, may never be reached after a prior fail-stop failure, or may be explicitly skipped by a frozen execution rule.
+
+Every declaration is therefore accounted for by either one or more `effect_attempts[]` records or, when no attempt object exists, an explicit `effect_non_attempt_records[]` entry:
+
+```text
+effect_non_attempt_records[]:
+    declared_effect_id
+    card_id
+    effect_kind
+    non_attempt_reason
+    governing_control_or_failure_id?
+    backend_detail?
+```
+
+Candidate reasons include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, `BACKEND_OMISSION_DETECTED`, or frozen equivalents. This prevents a legitimate unreachable effect from being mistaken for a backend omission and prevents an implementation omission from hiding behind the mere absence of an attempt row.
+
+An effect declaration with neither an attempt nor a non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
+
+## Multi-DECK JOB execution provenance
+
+A JOB may coordinate more than one DECK, so an aggregate run manifest cannot use one singular `deck_id` / `deck_status` pair as the execution model.
+
+The aggregate execution has a stable `run_id` and `job_id`, plus identified per-DECK execution records:
+
+```text
+deck_executions[]:
+    deck_execution_id
+    deck_id
+    deck_status
+    card_ids[]
+    execution_order_index?
+    failure_card_id?
+    failure_class?
+    failure_stage?
+```
+
+Every DECK selected for that JOB execution remains represented. A later DECK prevented from starting by fail-stop behavior records an explicit non-started/skipped status or frozen equivalent rather than disappearing. This lets one aggregate JOB manifest describe a multi-DECK run while preserving each DECK's individual outcome under the shared `run_id`.
+
 ## Reproducibility manifest
 
 A future run manifest may include:
 
 ```text
 spec_version
+run_id
 source_hash
 semantic_ir_hash
 job_id
-deck_id
+deck_executions[]
 card_ids[]
 execution_status
 job_status
-deck_status
 failure_card_id?
 failure_class?
 failure_stage?
@@ -441,14 +484,15 @@ capability_policy_id
 capability_policy_version
 capabilities_used[]
 effect_attempts[]
+effect_non_attempt_records[]
 optimization_profile
 optimization_provenance[]
 generated_artifacts[]
 ```
 
-`job_id` and `deck_id` identify the stable canonical hierarchy member represented by this execution. `card_ids[]` identifies the stable CARD identities that the manifest's producer, output, failure, scope, effect-attempt, generated-artifact, external-tool, optimization, and cache-reuse references may name. A whole-source hash is not a substitute for the selected JOB/DECK execution identity.
+`run_id` identifies the aggregate execution event. `job_id` identifies the stable canonical JOB selected for that run. `deck_executions[]` identifies each selected DECK and its individual per-run outcome, including DECKs that never start because an earlier DECK failed under fail-stop semantics. `card_ids[]` identifies the stable CARD identities that the manifest's producer, output, failure, scope, effect-attempt, non-attempt, generated-artifact, external-tool, optimization, and cache-reuse references may name. A whole-source hash is not a substitute for this execution hierarchy.
 
-`execution_status`, `job_status`, and `deck_status` record the enclosing run outcome even when no output exists. When a failure occurs, `failure_card_id`, `failure_class`, and `failure_stage` identify the canonical failing CARD and stable semantic failure context. Effect completion alone cannot stand in for the enclosing CARD/DECK/JOB outcome: a process effect may be `COMPLETED` while its CARD and JOB fail because the completed process returned a non-success exit status.
+`execution_status` and `job_status` record the aggregate run outcome even when no output exists. Per-DECK status and failure context live in `deck_executions[]`. When a JOB-level or enclosing failure field applies, `failure_card_id`, `failure_class`, and `failure_stage` identify the canonical failing CARD and stable semantic failure context. Effect completion alone cannot stand in for the enclosing CARD/DECK/JOB outcome: a process effect may be `COMPLETED` while its CARD and JOB fail because the completed process returned a non-success exit status.
 
 Each `backend_selection_scopes[]` entry binds source CARDs/lower execution units to their requested and selected machinery plus automatic-selection policy/tuning identity where applicable.
 
@@ -460,11 +504,11 @@ Each `randomness_execution_scopes[]` entry binds the scope identity, source CARD
 
 Each `inputs[]` entry binds a declared material input to the exact immutable value/content/artifact identity consumed.
 
-Each `outputs[]` entry binds its artifact/result identity to its own semantic class, status, producer provenance, governing execution scopes, and any relevant cache-reuse records.
+Each `outputs[]` entry binds its artifact/result identity to its own semantic class, status, producer provenance, governing execution scopes, applicable exact `generated_artifact_ids[]`, and any relevant cache-reuse records.
 
 Each `cache_reuse_records[]` entry makes cold versus reused execution auditable and binds the material cache identity plus any legality/verification evidence supporting substitution.
 
-Each `effect_requirements[]` entry carries the source CARD ID, canonical declared effect ID, effect kind, and complete `required_capabilities[]` set for that declared protected effect. These declaration rows are required independently of runtime `effect_attempts[]`: an effect omitted by a backend must remain detectable even when no attempt row was emitted.
+Each `effect_requirements[]` entry carries the source CARD ID, canonical declared effect ID, effect kind, and complete `required_capabilities[]` set for that declared protected effect. These declaration rows are required independently of runtime attempts. Every declaration must be accounted for by one or more `effect_attempts[]` or an explicit `effect_non_attempt_records[]` reason when no attempt exists, so untaken control flow and prior fail-stop remain distinguishable from implementation omission.
 
 Each Semantic→Core lowering-decision record preserves the rule/scope/transition evidence needed to explain consumed qualifiers and determinism/numeric/randomness mappings; the manifest must not jump from a Core hash to the next stage and make those decisions implicit.
 
@@ -472,9 +516,9 @@ Each `external_tool_versions[]` entry binds a material external evidence/data pr
 
 Each `optimization_provenance[]` entry records what transformations actually ran and their legality/evidence context. `optimization_profile` alone is insufficient for target-adaptive optimization provenance.
 
-Each `generated_artifacts[]` entry binds a generated kernel/binary or equivalent artifact hash to its `backend_unit_id` and governing `backend_selection_scope_id`, so mixed-backend code generation remains attributable to the machinery and selection policy that produced each artifact.
+Each `generated_artifacts[]` entry binds a generated kernel/binary or equivalent artifact hash to its `backend_unit_id` and governing `backend_selection_scope_id`, so mixed-backend code generation remains attributable to the machinery and selection policy that produced each artifact. Applicable output records then link to the exact generated artifact IDs that actually executed.
 
-Not every optional field applies to every execution, but stable JOB/DECK identity and the enclosing execution outcome are material even when a failed run produces no outputs, and no material reproducibility decision may disappear merely because another run would have reached the same bytes by a different path.
+Not every optional field applies to every execution, but stable JOB and per-DECK execution identity plus the enclosing execution outcome are material even when a failed run produces no outputs, and no material reproducibility decision may disappear merely because another run would have reached the same bytes by a different path.
 
 The manifest should represent independent reproducibility facets independently rather than collapsing them into false execution-wide singletons.
 
@@ -500,4 +544,4 @@ General execution failure and effect-attempt completion semantics are documented
 
 ## Design principle
 
-> Nondeterminism, machinery choice, cache reuse, external tools, optimization decisions, and external inputs are scientific inputs, not invisible implementation details.
+> Nondeterminism, machinery choice, cache reuse, external tools, optimization decisions, generated-artifact identity, execution path, and external inputs are scientific inputs, not invisible implementation details.
