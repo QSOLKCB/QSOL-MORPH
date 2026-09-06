@@ -32,8 +32,18 @@ The shared serialized object model must be able to carry, where applicable:
 ```text
 JOB
   JOB_ID
+  RESULT_DETERMINISM_CONTRACT?
+  NUMERIC_CONTRACT?
+  RANDOMNESS_CONTRACT?
+  MACHINERY_REQUIREMENTS[]
+  FAILURE_BEHAVIOR?
 DECK
   DECK_ID
+  RESULT_DETERMINISM_CONTRACT?
+  NUMERIC_CONTRACT?
+  RANDOMNESS_CONTRACT?
+  MACHINERY_REQUIREMENTS[]
+  FAILURE_BEHAVIOR?
 CARD
   CARD_ID
 VERB
@@ -48,6 +58,10 @@ SEMANTIC_CLASS
 EFFECT_REQUIREMENTS[]
   EFFECT_ID
   EFFECT_KIND
+  REQUIRED_CAPABILITIES[]
+MACHINERY_REQUIREMENTS[]
+  MACHINERY_REQUIREMENT_ID
+  TARGET_SELECTOR_OR_CLASS
   REQUIRED_CAPABILITIES[]
 RESULT_DETERMINISM_CONTRACT
 NUMERIC_CONTRACT
@@ -66,11 +80,15 @@ SCHEMA / SPECIFICATION VERSION
 
 `JOB_ID`, `DECK_ID`, and `CARD_ID` are stable canonical identities, not presentation labels. Dependencies, producer references, failure records, effect attempts, lowering maps, and provenance edges may refer to these identities, so a lossless serializer must preserve them exactly according to the frozen canonical model.
 
+Scoped `RESULT_DETERMINISM_CONTRACT`, `NUMERIC_CONTRACT`, and `RANDOMNESS_CONTRACT` fields remain attached to the canonical JOB, DECK, or CARD that owns them. A serializer must not flatten a DECK-wide requirement into arbitrary CARD records or silently discard a JOB-wide requirement merely because every child happens to be serializable without it.
+
 `RESULT_BINDING` is the canonical `Card.result?` identity naming the value produced by a CARD when that field is present. It is distinct from the produced value itself: a lossless serializer must preserve both the data and the identity that dependent CARDs reference.
 
 `QUALIFIERS` includes canonical CARD modifiers that affect execution or lowering, such as explicit target-selection, adapter, tuning, or extension-control qualifiers. Lossless formats must retain them exactly according to the frozen canonical model.
 
-`EFFECT_REQUIREMENTS[]` preserves the canonical association between each protected effect and the complete capability set required for that effect. A serializer must not flatten several effect-specific capability sets into one ambiguous CARD-level union.
+`EFFECT_REQUIREMENTS[]` preserves the canonical association between each protected external effect and the complete capability set required for that effect. A serializer must not flatten several effect-specific capability sets into one ambiguous CARD-level union.
+
+`MACHINERY_REQUIREMENTS[]` preserves the separate association between protected machinery access and the complete capability set required before that machinery may be used. Each requirement keeps its stable `MACHINERY_REQUIREMENT_ID`, target selector/class, and capability set. Machinery requirements must not be serialized as synthetic external effects merely to reuse the effect schema.
 
 `EXTENSION_REQUIREMENTS[]` preserves each required profile together with the exact version/range and contract identity needed to interpret that profile's syntax, qualifiers, effects, or lowering hooks. Separate parallel lists of extension names and version requirements are not lossless because they can lose which requirement belongs to which profile.
 
@@ -78,7 +96,7 @@ SCHEMA / SPECIFICATION VERSION
 
 A serializer must not invent meaning that does not exist in the semantic model, and a lossless serializer must not discard enforcement fields that determine whether or how a program may execute.
 
-In particular, round-tripping a JOB/DECK must not silently lose stable JOB/DECK/CARD identities, result bindings, qualifiers, effect-to-capability bindings, failure behavior, permissions, determinism requirements, numeric tolerances, randomness requirements, extension-profile/version/contract associations, target/control modifiers, or sequencing constraints.
+In particular, round-tripping a JOB/DECK must not silently lose stable JOB/DECK/CARD identities, scoped determinism/numeric/randomness contracts, result bindings, qualifiers, effect-to-capability bindings, machinery-to-capability bindings, failure behavior, permissions, extension-profile/version/contract associations, target/control modifiers, or sequencing constraints.
 
 ## Human form
 
@@ -120,7 +138,7 @@ JSONL is attractive for:
 - line-addressable transformations;
 - append-oriented traces.
 
-If JSONL claims semantic losslessness, stable JOB/DECK/CARD identities, result bindings, contract metadata, and enforcement metadata must be represented either on the relevant records or through explicitly linked JOB/DECK metadata records whose scope and identity are deterministic.
+If JSONL claims semantic losslessness, stable JOB/DECK/CARD identities, result bindings, scoped contract metadata, machinery requirements, and enforcement metadata must be represented either on the relevant records or through explicitly linked JOB/DECK metadata records whose scope and identity are deterministic.
 
 ## JSON form
 
@@ -138,9 +156,10 @@ If used for hashing, canonical JSON requires strict rules for:
 - map ordering;
 - canonical qualifier maps;
 - deterministic effect-requirement ordering;
+- deterministic machinery-requirement ordering;
 - deterministic ordering of each `required_capabilities[]` set;
 - canonical failure-behavior representation;
-- canonical contract identifiers;
+- canonical scoped contract identifiers;
 - deterministic representation and ordering of `extension_requirements[]`, including each profile's bound version/range and contract identity.
 
 A normal pretty-printed JSON document should not be assumed canonical merely because it parses.
@@ -158,7 +177,7 @@ Illustrative card:
 </card>
 ```
 
-This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including stable JOB/DECK/CARD identities, result bindings, qualifiers, effect/capability bindings, failure behavior, enforcement fields, extension-profile/version/contract associations, and scoped JOB/DECK contracts.
+This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including stable JOB/DECK/CARD identities, result bindings, qualifiers, effect/capability bindings, machinery/capability bindings, failure behavior, enforcement fields, extension-profile/version/contract associations, and scoped JOB/DECK contracts.
 
 XML is an interchange profile, not the preferred human authoring syntax.
 
@@ -166,7 +185,7 @@ XML is an interchange profile, not the preferred human authoring syntax.
 
 A binary representation may eventually improve startup time, storage efficiency, or direct runtime loading.
 
-A binary form should include enough schema, specification, stable JOB/DECK/CARD identity, extension requirement/profile/version/contract association, result-binding, qualifier, effect-binding, failure-behavior, and contract identity to avoid interpreting bytes under the wrong semantic, dependency, target-control, failure, authorization, or provenance model.
+A binary form should include enough schema, specification, stable JOB/DECK/CARD identity, extension requirement/profile/version/contract association, result-binding, qualifier, effect-binding, machinery-requirement, failure-behavior, and scoped contract identity to avoid interpreting bytes under the wrong semantic, dependency, target-control, failure, authorization, or provenance model.
 
 ## Round-trip requirement
 
@@ -182,7 +201,7 @@ semantic object'
 semantic object == semantic object'
 ```
 
-Equality here includes execution-relevant, dependency-relevant, and reference-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any stable JOB/DECK/CARD identity, result binding, qualifier, effect requirement, per-effect capability set, failure behavior, determinism, numeric, randomness, extension requirement/profile-version-contract association, dependency, effect-order, or failure-order contract.
+Equality here includes execution-relevant, dependency-relevant, and reference-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any stable JOB/DECK/CARD identity, result binding, qualifier, effect requirement, machinery requirement, per-requirement capability set, failure behavior, scoped determinism, scoped numeric, scoped randomness, extension requirement/profile-version-contract association, dependency, effect-order, or failure-order contract.
 
 Formatting metadata need not round-trip unless explicitly included in the representation contract.
 
@@ -192,7 +211,7 @@ Hashes should be computed over a defined canonical representation or semantic ca
 
 Do not hash incidental whitespace and then call the digest a semantic identity unless source-text identity is specifically the object being bound.
 
-Stable JOB/DECK/CARD identities, result bindings, qualifiers, effect requirements, per-effect capability sets, explicit failure behavior, contract identities, and extension requirement/profile-version-contract associations that affect execution, dependency, or provenance meaning must contribute to semantic identity according to the frozen canonicalization rules.
+Stable JOB/DECK/CARD identities, result bindings, qualifiers, effect requirements, machinery requirements, per-requirement capability sets, explicit failure behavior, scoped contract identities, and extension requirement/profile-version-contract associations that affect execution, dependency, authorization, or provenance meaning must contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Versioning
 
@@ -217,12 +236,13 @@ A migration tool should ideally report changed cards/fields and distinguish:
 - result-binding/dependency changes;
 - qualifier/target-control changes;
 - effect/capability-binding changes;
+- machinery/capability-binding changes;
 - failure-behavior changes;
 - permission/capability changes;
-- determinism/numeric/randomness contract changes;
+- JOB/DECK/CARD determinism/numeric/randomness contract changes;
 - extension requirement/version/contract changes.
 
-A migration must not silently manufacture, discard, detach, or renumber a stable JOB/DECK/CARD identity, result binding, extension requirement, execution authorization, failure policy, target-control qualifier, or scientific contract merely to make an old deck parse.
+A migration must not silently manufacture, discard, detach, or renumber a stable JOB/DECK/CARD identity, result binding, extension requirement, execution authorization requirement, failure policy, target-control qualifier, machinery requirement, or scientific contract merely to make an old deck parse.
 
 ## Principle
 
