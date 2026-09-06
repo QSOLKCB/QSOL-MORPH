@@ -40,6 +40,7 @@ It must preserve, where applicable:
 - call/return boundaries and call state;
 - explicit effects and their stable declared identities;
 - complete required-capability sets for each protected effect;
+- protected-machinery requirements, including stable `machinery_requirement_id`, owning source scope, target selector/class, and complete required-capability sets;
 - execution-relevant qualifiers not already consumed under a frozen lowering rule;
 - explicit failure behavior not already lowered into core control semantics;
 - source/effect/failure ordering constraints;
@@ -55,19 +56,21 @@ A backend must not bypass this IR merely because a QSOL-CORE operation is not ve
 
 Dependency graphs require stable producer/consumer identity, not only raw values.
 
-A source result binding may be renamed during lower representation, but the mapping must remain deterministic and provenance-bearing. The IR must preserve enough identity to establish:
+A source result binding may be renamed, split, or fused during lower representation, but the mapping must remain deterministic and provenance-bearing. The IR must preserve enough identity to establish:
 
 ```text
-source result binding
+source result binding(s)
     ↓
-QSOL-CORE data identity
+QSOL-CORE data identity/identities
     ↓
-Vector/Dataflow value/node identity
+Vector/Dataflow value/node identity/identities
     ↓
 dependent consumers
 ```
 
 A lowering must not infer dependencies from incidental node order or numeric equality after discarding result identity.
+
+The binding-map representation must be cardinality-aware. It must be able to express one-to-one preservation/rename, one-to-many splits, many-to-one fusion, and any permitted many-to-many mapping under an explicit frozen rule without positional inference.
 
 ## Abstract vectors
 
@@ -131,7 +134,7 @@ This representation makes transformation opportunities explicit.
 
 Source order remains semantically relevant for observable effects and for potentially failing operations under fail-stop execution. Only operations proven **pure and total** under the active contract may be freely scheduled from data dependencies.
 
-A Vector/Dataflow lowering must preserve all result/dependency identity, control, call, effect-order, failure-order, capability, qualifier, failure-behavior, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
+A Vector/Dataflow lowering must preserve all result/dependency identity, control, call, effect-order, failure-order, effect-capability, machinery-requirement, qualifier, failure-behavior, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
 
 ## Control flow and calls
 
@@ -171,6 +174,27 @@ A file write, process launch, network action, clock access, AI call, or other ef
 
 Capability authorization remains an execution boundary. Every capability in the complete required set for an effect must be granted before the corresponding protected effect begins.
 
+## Protected machinery requirements
+
+Protected machinery requirements are carried separately from external effects through the mandatory IR.
+
+A lower machinery-requirement record must preserve or deterministically map, where applicable:
+
+```text
+machinery_requirement_id
+source_scope_kind
+source_scope_id
+source_card_ids[]
+target_selector_or_class
+required_capabilities[]
+```
+
+A `GPU` or other accelerator requirement does **not** create an external effect node. It remains a machinery-authorization requirement that MORPH evaluates after target resolution and before protected machinery use.
+
+The Core→Vector/Dataflow stage may preserve the requirement directly or transform it only under a frozen, provenance-visible mapping. It may not collapse machinery requirements into effect-capability unions, discard them because a region is not yet assigned to a GPU, or leave MORPH to reconstruct permission requirements from target names.
+
+If an applicable machinery requirement cannot be represented without loss, lowering fails closed rather than silently producing an unprotected target path.
+
 ## Chaining and fusion
 
 A backend may fuse a legal chain:
@@ -191,7 +215,7 @@ provided the active scoped numeric, failure, ordering, and semantic contracts pe
 
 Fusion must not be justified solely by performance. It must be semantically legal.
 
-Fusion may not swallow an effect, control boundary, result/dependency identity, or potentially failing operation in a way that changes observable ordering or failure behavior.
+Fusion may not swallow an effect, control boundary, result/dependency identity, machinery requirement, or potentially failing operation in a way that changes observable ordering, authorization, or failure behavior.
 
 ## Masks
 
@@ -262,7 +286,7 @@ A backend may keep intermediate values resident:
 - in GPU device memory;
 - in shared/local accelerator memory;
 
-provided residency choices do not violate observable source semantics.
+provided residency choices do not violate observable source semantics or protected-machinery authorization boundaries.
 
 For accelerator execution, avoiding repeated host/device transfers is a primary optimization opportunity.
 
@@ -347,10 +371,23 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 result_binding_map[]
+machinery_requirement_mapping_decisions[]
+core_to_vector_result_determinism_mapping_decisions[]
+core_to_vector_numeric_contract_mapping_decisions[]
+core_to_vector_randomness_mapping_decisions[]
+failure_behavior_mapping_decisions[]
 vector_dataflow_lowering_diagnostics[]
 ```
 
-MORPH must receive a specific identifiable Vector/Dataflow IR. It must not be possible for a changed lower graph to hide behind the same Semantic IR/Core IR/MORPH identities.
+`result_binding_map[]` must use a frozen cardinality-aware representation that can express preserved/renamed identities, one-to-many splits, many-to-one fusion, and any permitted many-to-many mapping without positional inference.
+
+The three `core_to_vector_*_mapping_decisions[]` families bind Core result-determinism, numeric-contract, and randomness scopes to the Vector/Dataflow scopes that inherit them. If a Core scope splits into several kernels, several scopes fuse into a lower region, or lower identity otherwise changes, the applicable mapping must be recorded.
+
+Those contract-mapping arrays may be omitted only when a frozen deterministic identity-scope reconstruction rule proves the mapping is lossless. IR hashes alone do not establish scope correspondence.
+
+`machinery_requirement_mapping_decisions[]` and `failure_behavior_mapping_decisions[]` similarly record any material change of representation or scope for protected-machinery requirements and failure behavior. Direct identity-preserving carry-through may omit a decision record only under a frozen deterministic reconstruction rule.
+
+MORPH must receive a specific identifiable Vector/Dataflow IR together with every still-applicable execution contract and machinery requirement. It must not be possible for a changed lower graph or authorization requirement to hide behind the same Semantic IR/Core IR/MORPH identities.
 
 ## Conformance requirement
 
@@ -359,17 +396,19 @@ Vector/Dataflow specification and reference-lowering conformance should include 
 Representative tests should include:
 
 - scalar-only QSOL-CORE programs;
-- producer/consumer result-binding preservation;
+- producer/consumer result-binding preservation plus rename/split/fusion mapping cardinalities;
 - branches and calls;
 - multiple same-kind declared effects with distinct `declared_effect_id` values;
 - effectful operations with single and multiple capability requirements;
+- protected machinery requirements at CARD/DECK/JOB scopes, including GPU-target authorization requirements carried intact to MORPH;
 - execution-relevant qualifiers and explicit failure behavior;
 - failing pure operations ordered around effects;
 - mixed scalar/vector regions;
 - multiple scoped numeric contracts and modes;
+- result-determinism/numeric/randomness contract-scope splits and fusions with explicit mapping decisions;
 - determinism/randomness contract preservation;
 - declared-effect/runtime-attempt provenance identity and completion states;
-- unsupported constructs failing closed rather than bypassing the IR.
+- unsupported constructs or machinery requirements failing closed rather than bypassing the IR.
 
 ## Performance principle
 
