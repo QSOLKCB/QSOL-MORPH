@@ -294,10 +294,11 @@ failure_behavior_bindings[]
 
 Backend selection may differ across a JOB, and a governed scope may undergo more than one material selection decision when a frozen fallback rule applies.
 
-The governed computation is represented separately from the ordered decisions made for it:
+The backend-selection scope record has its own stable identity, separate from the computation scope it governs. The governed computation is represented by `scope_kind` + `scope_id`; references from decisions, authorizations, generated artifacts, and outputs use `backend_selection_scope_id`:
 
 ```text
 backend_selection_scopes[]:
+    backend_selection_scope_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -305,6 +306,8 @@ backend_selection_scopes[]:
     selection_decision_ids[]
     final_selection_decision_id?
 ```
+
+`backend_selection_scope_id` is the stable record key referenced by `backend_selection_decisions[]`, `machinery_authorization_records[]`, `generated_artifacts[]`, and output `backend_selection_scope_ids[]`. `scope_id` identifies the source/Core/lower computation scope being governed and must not be treated as an implicit alias for the selection-scope record ID.
 
 Each material decision is independently identified:
 
