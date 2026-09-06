@@ -14,8 +14,8 @@ The goal is not merely to say that a program ran. The trace should make it possi
 - what result-determinism, numeric, and randomness contracts governed each relevant scope;
 - what extension contracts were resolved;
 - which external tools, services, models, provers, processes, or instruments materially contributed;
-- what protected effects were declared, which capability sets belonged to those effects, and which runtime attempts occurred;
-- what generated artifacts were produced and which backend units/scopes produced them;
+- what protected effects were declared, which capability sets belonged to those effects, which runtime attempts occurred, and why any declaration had no attempt;
+- what generated artifacts were produced, which backend units/scopes produced them, and which exact generated artifacts produced each applicable output;
 - what optimizations actually ran and under which legality evidence;
 - what identified outputs were produced and what semantic class/status belongs to each one;
 - whether cache reuse occurred and what was reused;
@@ -249,6 +249,8 @@ generated_artifacts[]:
 
 A mixed-backend JOB may produce several same-kind artifacts. Their hashes alone do not establish which target decision produced which artifact, so a bare `kernel_or_binary_hashes[]` list is not sufficient provenance.
 
+A backend-selection scope may govern several generated artifacts, including reference and optimized variants. Result provenance therefore also records the applicable `generated_artifact_ids[]` so an output identifies the exact executable, kernel, bytecode image, or other generated artifact that actually produced or supplied it rather than merely the broader machinery-selection scope.
+
 ## Scoped result-determinism provenance
 
 Result guarantees may differ within one DECK or JOB.
@@ -336,6 +338,7 @@ capability_policy_version
 capabilities_used[]
 resolved_extensions[]
 effect_attempts[]
+effect_non_attempt_records[]
 cache_reuse_records[]
 external_tool_versions[]
 start_stop_metadata?
@@ -439,7 +442,31 @@ effect_attempts[]:
 
 `declared_effect_id` references canonical `EffectRequirement.effect_id`. `effect_attempt_id` identifies this concrete runtime attempt. They are not interchangeable.
 
-Preserving both identities lets provenance detect missing attempts, duplicate attempts, retries, or several same-kind effects originating from one CARD.
+Preserving both identities lets provenance detect duplicate attempts, retries, or several same-kind effects originating from one CARD.
+
+### Declared effects with no runtime attempt
+
+A declared effect may legitimately have no runtime attempt because execution never reaches it. Untaken control flow, prior fail-stop failure, an explicitly skipped CARD under a frozen rule, or another frozen execution-path reason must not be confused with a backend silently omitting a reachable effect.
+
+Every declared effect is therefore accounted for by either one or more `effect_attempts[]` records or an explicit non-attempt record when no runtime attempt object exists.
+
+Conceptually:
+
+```text
+effect_non_attempt_records[]:
+    declared_effect_id
+    card_id
+    effect_kind
+    non_attempt_reason
+    governing_control_or_failure_id?
+    backend_detail?
+```
+
+Candidate `non_attempt_reason` values may include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, `BACKEND_OMISSION_DETECTED`, or frozen equivalents. The exact vocabulary is not frozen here.
+
+An effect declaration with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required. This makes a semantically unreachable effect distinguishable from a reachable effect that an implementation failed to attempt.
+
+Capability denial after a protected attempt has been identified but before the effect begins remains an `effect_attempts[]` record with `completion_state = NOT_STARTED`; it is not silently converted into a non-attempt record.
 
 ### Completion states
 
@@ -493,6 +520,7 @@ outputs[]:
     status
     producer_card_ids[]
     backend_selection_scope_ids[]
+    generated_artifact_ids[]?
     result_determinism_scope_ids[]
     numeric_scope_ids[]
     randomness_scope_ids[]
@@ -504,18 +532,19 @@ outputs[]:
 
 Each output owns its own epistemic class and status. One validated output must not promote another simulation or TEST output produced by the same JOB.
 
-`backend_selection_scope_ids[]` identifies the machinery that produced the output. The determinism/numeric/randomness scope references identify the execution contracts that governed it. `cache_reuse_record_ids[]`, when present, identifies legal cache reuse that contributed to producing or supplying that output.
+`backend_selection_scope_ids[]` identifies the machinery-selection decisions governing the output. `generated_artifact_ids[]`, when applicable, identifies the exact generated executable, kernel, bytecode image, object-derived executable unit, or equivalent artifact that actually produced or supplied the output. A shared backend-selection scope is not a substitute when several generated artifacts exist under that scope. The determinism/numeric/randomness scope references identify the execution contracts that governed the output. `cache_reuse_record_ids[]`, when present, identifies legal cache reuse that contributed to producing or supplying that output.
 
 Execution-wide failure fields may include:
 
 ```text
 execution_status
 job_status
-deck_status
+deck_executions[]
 failure_card_id
 failure_class
 failure_stage
 effect_attempts[]
+effect_non_attempt_records[]
 ```
 
 ## Failure and partial-effect provenance
@@ -526,22 +555,39 @@ Capability denial occurs before the protected effect begins and therefore record
 
 An unhandled CARD failure stops its DECK by default. An unhandled DECK failure fails the enclosing JOB by default, and no later DECK begins. Dependent consumers or comparisons must not execute against missing or partial failed outputs as though they were complete.
 
+For a JOB that selects or executes multiple DECKs, provenance should use identified per-DECK execution records rather than one singular `deck_status`:
+
+```text
+deck_executions[]:
+    deck_execution_id
+    deck_id
+    deck_status
+    card_ids[]
+    execution_order_index?
+    failure_card_id?
+    failure_class?
+    failure_stage?
+```
+
+A DECK prevented from starting by prior fail-stop behavior should remain visible with an explicit non-started/skipped status or frozen equivalent rather than disappearing. A shared JOB/run identity links all DECK execution records to one aggregate execution event.
+
 Useful failure fields include:
 
 ```text
 execution_status
 job_status
-deck_status
+deck_executions[]
 failure_card_id
 failure_class
 failure_stage
 backend_detail?
 completed_decks[]
 effect_attempts[]
+effect_non_attempt_records[]
 observable_artifacts[]
 ```
 
-The canonical field for the CARD whose unhandled failure produced the enclosing failure record is `failure_card_id`. `card_id` remains appropriate inside an effect-attempt record that identifies the CARD that initiated that attempt.
+The canonical field for the CARD whose unhandled failure produced the enclosing failure record is `failure_card_id`. `card_id` remains appropriate inside an effect-attempt or effect-non-attempt record that identifies the CARD owning that effect declaration.
 
 ## Hash identities
 
@@ -685,7 +731,7 @@ Correctness and evidence boundaries outrank attractive speed numbers.
 
 Not every execution requires every optional field. The active specification, execution contracts, capability policy, extension set, lowering contracts, backend-selection policy, and cache/replay rules define the minimum trace required for the claim being made.
 
-However, executable research results must not begin life without enough provenance to bind identified outputs to their canonical program, immutable inputs, semantic class/status, scoped machinery/determinism/numeric/randomness decisions, extension set, material external-tool identities, authorization decisions, optimization decisions where material, generated target identities where material, cache/reuse context where relevant, and execution/failure history.
+However, executable research results must not begin life without enough provenance to bind identified outputs to their canonical program, immutable inputs, semantic class/status, scoped machinery/determinism/numeric/randomness decisions, exact generated artifact identities where applicable, extension set, material external-tool identities, authorization decisions, optimization decisions where material, cache/reuse context where relevant, and execution/failure history. Every declared protected effect must also be accounted for by an attempt or explicit non-attempt reason when declaration-completeness auditing is required.
 
 The roadmap therefore places the trace/failure/provenance foundation before the first executable QSOL reference machine.
 
