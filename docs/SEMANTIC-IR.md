@@ -47,6 +47,7 @@ Job {
     numeric_contract?
     randomness_contract?
     machinery_requirements[]
+    extension_requirements[]
     failure_behavior?
     source_location?
 }
@@ -58,6 +59,7 @@ Deck {
     numeric_contract?
     randomness_contract?
     machinery_requirements[]
+    extension_requirements[]
     failure_behavior?
     source_location?
 }
@@ -118,7 +120,7 @@ The normative model must freeze composition/inheritance rules before executable 
 
 A derived CARD-level or execution-wide union of capabilities may be useful for preflight or summaries, but such a union does not replace either the per-effect mapping or the per-machinery requirement mapping.
 
-`extension_requirements[]` is the canonical association between an extension profile and the version/contract required to interpret extension-owned syntax, qualifiers, effects, adapters, or lowering hooks. A serializer or lowering stage must not split profile names from their version/contract requirements and later reconstruct the association by position or guesswork.
+`extension_requirements[]` is the canonical association between an extension profile and the version/contract required to interpret extension-owned syntax, qualifiers, effects, adapters, or lowering hooks. It may be attached to JOB, DECK, CARD, or another scope only where the frozen extension model permits that scope. A scope-wide requirement such as a DECK-level `USE QX-NET` must remain attached to the canonical scope that owns it; canonicalization must not drop it or relocate it onto an arbitrary child CARD. A serializer or lowering stage must not split profile names from their version/contract requirements and later reconstruct the association by position or guesswork. Composition and inheritance of parent/child extension requirements must be frozen before execution.
 
 These enforcement fields belong in the canonical semantic input. They must not be invented only after a backend has already begun execution on selected machinery.
 
