@@ -13,11 +13,12 @@ The Semantic IR should preserve information that ordinary compiler IRs often dis
 - units and types;
 - explicit effects;
 - effect-to-capability requirements;
+- protected-machinery capability requirements without misclassifying machinery selection as an external effect;
 - dependencies;
 - source provenance;
-- result-determinism requirements;
-- numeric-contract requirements;
-- randomness/reproducibility requirements;
+- result-determinism requirements at the JOB, DECK, CARD, or other frozen scope that owns them;
+- numeric-contract requirements at their governing scope;
+- randomness/reproducibility requirements at their governing scope;
 - extension-profile membership, version, and contract requirements;
 - ordering constraints induced by effects and failure behavior.
 
@@ -42,6 +43,10 @@ Program {
 Job {
     id
     decks[]
+    result_determinism?
+    numeric_contract?
+    randomness_contract?
+    machinery_requirements[]
     failure_behavior?
     source_location?
 }
@@ -49,6 +54,10 @@ Job {
 Deck {
     id
     cards[]
+    result_determinism?
+    numeric_contract?
+    randomness_contract?
+    machinery_requirements[]
     failure_behavior?
     source_location?
 }
@@ -65,6 +74,7 @@ Card {
     qualifiers{}
     semantic_class?
     effect_requirements[]
+    machinery_requirements[]
     result_determinism?
     numeric_contract?
     randomness_contract?
@@ -81,6 +91,12 @@ EffectRequirement {
     required_capabilities[]
 }
 
+MachineryRequirement {
+    machinery_requirement_id
+    target_selector_or_class
+    required_capabilities[]
+}
+
 ExtensionRequirement {
     profile_name
     required_version_or_range
@@ -90,17 +106,23 @@ ExtensionRequirement {
 
 `Job.id`, `Deck.id`, and `Card.id` are canonical identities, not serialization-only labels. They must survive canonicalization, lossless transport, lowering provenance, and trace production without being synthesized or renumbered merely because a representation changes.
 
+`result_determinism?`, `numeric_contract?`, and `randomness_contract?` may be attached at JOB, DECK, CARD, or another scope only where the frozen semantic model permits that scope. A scope-level requirement must remain attached to the canonical object that owns it. It must not be flattened into an arbitrary CARD, lost during serialization, or reconstructed from execution output.
+
+The normative model must freeze composition/inheritance rules before executable implementation. In particular, a child scope must not silently weaken a parent result-determinism, numeric, or randomness requirement merely because a backend prefers a weaker contract. Effective scope bindings and any permitted transitions remain provenance-visible.
+
 `failure_behavior?` may exist at JOB, DECK, or CARD scope only where the frozen semantic model defines a policy at that scope. A higher-scope recovery, continuation, compensation, or other failure policy must be represented on the corresponding canonical `Job` or `Deck`; it must not be inferred from CARD fields or invented during serialization, lowering, or execution. In the absence of an explicit scoped policy, the frozen default failure semantics apply.
 
-`effect_requirements[]` is the canonical association between a protected effect and the complete capability set that must authorize that specific effect. A CARD may have zero, one, or multiple effect requirements. Separate unassociated `effects[]` and `capabilities[]` arrays are insufficient once one CARD can initiate multiple effects with different authorization requirements.
+`effect_requirements[]` is the canonical association between a protected external effect and the complete capability set that must authorize that specific effect. A CARD may have zero, one, or multiple effect requirements. Separate unassociated `effects[]` and `capabilities[]` arrays are insufficient once one CARD can initiate multiple effects with different authorization requirements.
 
-A derived CARD-level union of required capabilities may be useful for static preflight or summaries, but that union does not replace the per-effect mapping.
+`machinery_requirements[]` is separate canonical state for permission to use a class of protected machinery. A machinery requirement has its own stable identity, names the target selector/class it governs, and binds the complete capability set required before that machinery is actually used. Machinery requirements may be attached to JOB, DECK, or CARD only where the frozen target-selection model permits that scope.
+
+A derived CARD-level or execution-wide union of capabilities may be useful for preflight or summaries, but such a union does not replace either the per-effect mapping or the per-machinery requirement mapping.
 
 `extension_requirements[]` is the canonical association between an extension profile and the version/contract required to interpret extension-owned syntax, qualifiers, effects, adapters, or lowering hooks. A serializer or lowering stage must not split profile names from their version/contract requirements and later reconstruct the association by position or guesswork.
 
-These enforcement fields belong in the canonical semantic input. They must not be invented only after a backend has already chosen machinery.
+These enforcement fields belong in the canonical semantic input. They must not be invented only after a backend has already begun execution on selected machinery.
 
-A `NUMERIC` result-determinism request is incomplete without the numeric contract that defines the permitted tolerance, error metric, domain, precision rules, or other legal variation. The canonical model therefore needs to bind that contract before executable phases begin.
+A `NUMERIC` result-determinism request is incomplete without the numeric contract that defines the permitted tolerance, error metric, domain, precision rules, or other legal variation. The canonical model therefore needs to bind that contract at its governing scope before executable phases begin.
 
 ## Stable identity
 
@@ -173,7 +195,7 @@ may carry a proof-class boundary and an explicit external verification dependenc
 
 ## Effects and capability bindings
 
-Effects describe what an operation does. Capabilities describe what the execution environment must authorize before a protected effect begins.
+Effects describe what an operation does. Capabilities describe what the execution environment must authorize before a protected effect begins or before protected machinery is used.
 
 Candidate effect classes include:
 
@@ -203,7 +225,37 @@ while another effect on the same CARD may require a different set.
 
 All capabilities in the set for a specific effect must be authorized before that effect begins. Lowering and tracing must preserve the effect-to-capability association rather than guessing from a CARD-level union.
 
-GPU selection is intentionally not a Semantic-IR effect. Choosing CPU, SIMD, GPU, CUDA, or another accelerator is machinery selection and belongs in MORPH/execution metadata. GPU access may still require an explicit extension/capability contract.
+## Protected machinery authorization
+
+GPU selection is intentionally **not** a Semantic-IR effect. Choosing CPU, SIMD, GPU, CUDA, or another accelerator is machinery selection and belongs in MORPH/execution metadata.
+
+Protected machinery access may nevertheless require runtime permission. That authorization uses `machinery_requirements[]`, not `effect_requirements[]`.
+
+Conceptually:
+
+```text
+machinery_requirement_id = gpu_access_1
+target_selector_or_class = GPU
+required_capabilities = [GPU]
+```
+
+The actual machinery may need to be resolved before the applicable requirement is known. For example, `ON BEST` may select a GPU-backed scope. Selection and authorization are therefore distinct steps:
+
+```text
+resolve machinery scope
+    ↓
+resolve applicable machinery requirement(s)
+    ↓
+authorize every required machinery capability
+    ↓
+only then begin protected machinery use
+```
+
+A target may be selected for planning/provenance without being authorized for execution. If a required machinery capability is denied or cannot be established, protected use of that machinery must not begin.
+
+A policy must not silently fall back from a denied GPU target to another target unless a frozen pre-execution fallback/selection rule explicitly permits that transition and records it. Likewise, selecting GPU machinery must not create a synthetic external effect merely to obtain a capability-check hook.
+
+Machinery authorization and effect authorization may both apply to one CARD. For example, a GPU computation may require `GPU` machinery permission while a separate network effect on that CARD requires `NETWORK`. These are different semantic boundaries and must remain separately traceable.
 
 ## Capabilities
 
@@ -215,9 +267,11 @@ DENY NETWORK
 
 should allow validation to reject any reachable protected effect whose `required_capabilities[]` includes `NETWORK`.
 
-Extension availability is separate. A deck may `USE QX-NET` because it needs that profile while still denying the `NETWORK` capability at execution time.
+Likewise, if a selected machinery scope requires `GPU` and policy denies that capability, the protected GPU execution must not begin.
 
-Capability authorization for a protected external effect must succeed before that effect begins. The canonical model therefore preserves the complete per-effect capability set independently from later environment grant/deny decisions.
+Extension availability is separate. A deck may `USE QX-NET` because it needs that profile while still denying the `NETWORK` capability at execution time. A deck may understand QX-GPU/QX-CUDA while policy still denies protected accelerator access.
+
+Capability authorization for a protected external effect must succeed before that effect begins. Capability authorization for protected machinery must succeed before that machinery is used. The canonical model therefore preserves per-effect and per-machinery requirement sets independently from later environment grant/deny decisions.
 
 ## Dependencies and sequencing
 
@@ -296,11 +350,12 @@ Canonicalization may include:
 - normalized unit identifiers;
 - normalized keyword case;
 - deterministic ordering for unordered metadata;
-- deterministic ordering of `required_capabilities[]` within each effect requirement;
+- deterministic ordering of `required_capabilities[]` within each effect or machinery requirement;
 - explicit schema/specification version;
 - deterministic escaping and encoding;
 - deterministic derivation of effect-order and failure-order constraints;
-- canonical identity for numeric/reproducibility contracts;
+- canonical identity for scoped determinism/numeric/randomness contracts;
+- canonical machinery-requirement identities;
 - canonical structured extension requirements.
 
 This enables stable hashing and reproducible comparison.
@@ -317,7 +372,7 @@ Potential uses:
 - transformation verification;
 - backend comparison.
 
-Hash identity must be defined over canonical semantic content rather than incidental formatting if source formatting is not itself part of the semantic contract. Stable hierarchy IDs, execution-relevant qualifiers, effect requirements, per-effect capability sets, scoped failure behavior, and extension requirements contribute to semantic identity according to the frozen canonicalization rules.
+Hash identity must be defined over canonical semantic content rather than incidental formatting if source formatting is not itself part of the semantic contract. Stable hierarchy IDs, execution-relevant qualifiers, effect requirements, machinery requirements, scoped result-determinism/numeric/randomness contracts, per-requirement capability sets, scoped failure behavior, and extension requirements contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Lowering
 
