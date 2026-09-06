@@ -13,6 +13,7 @@ QSOL source carries information that a conventional machine-oriented IR often do
 - values, result bindings, types, and units;
 - execution-relevant qualifiers;
 - effects, stable declared effect IDs, and their complete required-capability sets;
+- protected-machinery requirements and their complete required-capability sets;
 - result-determinism requirements;
 - scoped numeric contracts;
 - randomness contracts;
@@ -62,7 +63,10 @@ LoweredCard {
     preserved_qualifiers{}
     preserved_metadata
     effect_requirements[]
+    machinery_requirements[]
+    result_determinism_binding?
     numeric_contract_binding?
+    randomness_contract_binding?
     ordering_constraints
     failure_behavior
     provenance_edges
@@ -71,11 +75,13 @@ LoweredCard {
 
 `failure_behavior` retains the canonical Semantic-IR field name. If a future normative specification introduces a differently named lower representation, that conversion must itself be frozen and provenance-visible rather than being implied by an undocumented alias.
 
+`machinery_requirements[]` retains the canonical protected-machinery requirements that may later govern MORPH target authorization. A generic `preserved_metadata` bucket is not a substitute for this explicit association.
+
 Some semantic CARDs may lower to multiple core operations.
 
 Some semantic CARDs may establish metadata, evidence boundaries, orchestration, trace requirements, target-selection constraints, or adapter/tuning requirements rather than ordinary arithmetic instructions.
 
-A CARD, its dependency-visible result binding, or an execution-relevant qualifier must never disappear merely because a backend does not understand its semantic role.
+A CARD, its dependency-visible result binding, an execution-relevant qualifier, or an applicable machinery requirement must never disappear merely because a backend does not understand its semantic role.
 
 ## Result-binding preservation
 
@@ -91,9 +97,11 @@ result binding
 dependent CARD(s)
 ```
 
-A lower representation may rename a binding only under a deterministic mapping that is preserved in provenance and dependency edges. It must not discard the source binding and leave later stages to reconstruct dependencies from position, value equality, or backend-local naming.
+A lower representation may rename, split, or fuse bindings only under a deterministic cardinality-aware mapping that is preserved in provenance and dependency edges. It must not discard the source binding and leave later stages to reconstruct dependencies from position, value equality, or backend-local naming.
 
-Conformance fixtures must include multiple producer/consumer chains and detect missing, duplicated, or incorrectly rebound result identities.
+A future frozen `result_binding_map[]` representation must be able to express one-to-one, one-to-many, many-to-one, and where permitted many-to-many mappings without positional inference. Identified mapping groups with plural source/lower binding sets are one candidate representation.
+
+Conformance fixtures must include multiple producer/consumer chains plus preserved, renamed, split, and fused result mappings, and must detect missing, duplicated, or incorrectly rebound result identities.
 
 ## Qualifier preservation
 
@@ -173,6 +181,29 @@ A lowering may not collapse multiple effect-specific requirement sets into an am
 
 A lowering may not replace an explicit local operation with a network-backed helper unless the semantic and capability contracts explicitly permit that effect.
 
+## Protected machinery requirements
+
+Protected machinery permission is distinct from an external effect and must survive this lowering boundary explicitly.
+
+A canonical requirement such as:
+
+```text
+machinery_requirement_id = gpu_1
+target_selector_or_class = GPU
+required_capabilities = [GPU]
+```
+
+must remain associated with the JOB/DECK/CARD scope that owns it until MORPH can resolve the applicable target and authorize its protected use.
+
+Semantic-to-Core lowering therefore must either:
+
+1. preserve `machinery_requirements[]` directly in QSOL-CORE/preserved lower metadata; or
+2. transform them into a separately frozen lower representation with a deterministic, provenance-visible mapping back to every canonical `machinery_requirement_id`.
+
+A target-selection qualifier does not replace the machinery requirement, and an effect requirement does not replace it either. Selecting GPU/CUDA remains machinery selection; the separate machinery requirement states what authorization is required before that machinery may actually be used.
+
+If lowering consumes, groups, scopes, or otherwise transforms machinery requirements, provenance must record the mapping/decision. Dropping an applicable machinery requirement before MORPH is a conformance failure.
+
 ## Determinism, numeric, and randomness contracts
 
 Lowering must carry execution contracts forward rather than re-infer them later.
@@ -215,13 +246,15 @@ Effectful CARDs retain their effect-order constraints and per-effect capability 
 
 The lower representation must preserve enough information for QSOL-CORE to reproduce CARD → DECK → JOB failure propagation, explicit `failure_behavior`, and per-effect-attempt completion state.
 
+If explicit JOB/DECK/CARD failure behavior is normalized, grouped, or mapped into lower control semantics, the responsible frozen rule and source-to-lower scope relation must remain provenance-visible.
+
 ## Unsupported semantic constructs
 
 If a semantic construct or execution-relevant qualifier has no legal QSOL-CORE lowering, the lowering phase must fail explicitly.
 
 It must not:
 
-- drop the construct, result binding, or qualifier;
+- drop the construct, result binding, qualifier, or machinery requirement;
 - replace it with a no-op without a frozen rule;
 - silently weaken an execution or scoped numeric contract;
 - translate an unknown epistemic class into ordinary data;
@@ -244,18 +277,19 @@ The future normative lowering specification should publish fixtures pairing cano
 Fixtures should cover at least:
 
 - scalar data and arithmetic;
-- producer/consumer result bindings and dependency identity;
+- producer/consumer result bindings and dependency identity, including preserved, renamed, split, and fused mappings;
 - XOR and other logic;
 - units/types;
 - observations and assumptions;
 - TEST / VALIDATION / PROOF boundaries;
 - execution-relevant qualifiers, including target/adapter/tuning/extension-control qualifiers;
 - single and multiple effects with distinct stable effect IDs and complete capability sets;
+- protected machinery requirements at CARD/DECK/JOB scopes and explicit preservation into the lower representation;
 - seeded randomness;
 - multiple scoped numeric contracts and legal normalization/rejection cases;
 - explicit failure behavior and ordering constraints;
 - extension-owned constructs and qualifiers;
-- unsupported construct/qualifier rejection.
+- unsupported construct/qualifier/machinery-requirement rejection.
 
 A reference lowering implementation should pass those fixtures before backend code generation is considered conforming.
 
@@ -273,15 +307,19 @@ core_ir_hash
 result_binding_map[]
 resolved_extensions[]
 qualifier_lowering_decisions[]
+machinery_requirement_lowering_decisions[]
 result_determinism_lowering_decisions[]
 numeric_contract_lowering_decisions[]
 randomness_lowering_decisions[]
+failure_behavior_lowering_decisions[]
 lowering_diagnostics[]
 ```
 
 The canonical identity fields are `semantic_to_core_spec_version` and `semantic_to_core_implementation_version`, matching the flattened trace and run-manifest schemas. Lowering producers and consumers must not substitute unprefixed aliases unless a future frozen schema explicitly defines that alias mapping.
 
-`result_determinism_lowering_decisions[]` and `randomness_lowering_decisions[]` record scope preservation, grouping, identity changes, frozen normalizations, and any permitted requested-to-effective transition mapping needed to explain how source requirements became Core contracts. IR hashes alone cannot establish that correspondence.
+`machinery_requirement_lowering_decisions[]` records any scope grouping, identity change, or frozen representation mapping applied to canonical machinery requirements; omission is permitted only when a frozen deterministic identity-preservation rule makes the mapping reconstructible.
+
+`result_determinism_lowering_decisions[]`, `randomness_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]` record scope preservation, grouping, identity changes, frozen normalizations, and any permitted transitions needed to explain how source requirements became Core contracts. IR hashes alone cannot establish that correspondence.
 
 This allows a result to be traced through the first representational change rather than beginning provenance only after QSOL-CORE already exists.
 
