@@ -218,15 +218,16 @@ backend_selection_scopes[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
+failure_behavior_bindings[]
 ```
 
-Each execution-scope record has its own stable type-specific record key distinct from the generic computation `scope_id` it governs. Output scope-ID arrays reference those record keys directly.
+Each execution-scope record has its own stable type-specific record key distinct from the generic computation `scope_id` it governs. `failure_behavior_bindings[]` uses stable `failure_behavior_binding_id`; output reference arrays point to those record keys directly.
 
 A single execution-wide scope is valid only when a frozen rule proves one entry genuinely governs every relevant source computation.
 
 Seeded replay records RNG algorithm, version, seed, stream identity, and parallel partitioning/stream mapping where applicable.
 
-`EXTERNAL-ENTROPY` permits fresh entropy but does not authorize hidden entropy access. Each concrete acquisition is a declared protected `RANDOM` effect with its own declared effect ID, complete capability set including `RANDOM` (or frozen equivalent), contextual authorization record, and runtime attempt provenance.
+`EXTERNAL-ENTROPY` permits fresh entropy but does not authorize hidden entropy access. Each concrete acquisition is a declared protected `RANDOM` effect with its own declared effect ID, complete capability set including `RANDOM` (or frozen equivalent), contextual authorization record, and runtime attempt provenance. The randomness scope also links to the exact acquisition attempt(s) and immutable entropy input identity where material.
 
 ## Failure and execution path
 
@@ -258,6 +259,7 @@ Every protected external effect attempt is individually identified and records:
 effect_attempt_id
 declared_effect_id
 card_id
+card_execution_id
 effect_kind
 required_capabilities[]
 effect_authorization_record_id
@@ -269,13 +271,17 @@ observable_output_ids[]
 external_tool_ids[]?
 ```
 
+`card_execution_id` distinguishes retries, loops, calls, and repeated DECK execution that share one canonical `card_id`.
+
 `effect_authorization_record_id` links the concrete attempt to the contextual required/granted/denied capability decision and policy that governed it. Execution-wide capability summaries do not substitute for this per-attempt authorization record.
 
 When ordering auditability is required, the authorization record's `authorization_sequence_index` and the attempt's `effect_begin_sequence_index` are values in the same frozen monotonic event-order domain and must satisfy `authorization_sequence_index < effect_begin_sequence_index`. A denied authorization has no begin event. Generic `sequence_index` is not a substitute for that proof.
 
 `observable_output_ids[]` is the reciprocal side of output `effect_attempt_ids[]`: it identifies the exact outputs this concrete attempt produced, exposed, published, or materially supplied. `external_tool_ids[]`, where material, identifies the exact tool/service/model/prover used by this attempt, so retries or multiple tools invoked by one CARD do not collapse into broad CARD attribution.
 
-A declared effect that has no runtime attempt is accounted for by an explicit `effect_non_attempt_records[]` reason such as untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip.
+A declared effect that has no runtime attempt for a concrete CARD execution is accounted for by an identified `effect_non_attempt_records[]` entry carrying its own stable record ID, canonical effect/CARD identity, concrete `card_execution_id`, legitimate non-attempt reason, and typed control/failure cause where applicable.
+
+Declared-effect accounting is unconditional. Every applicable declaration for every selected concrete CARD execution resolves to attempt(s), exactly one legitimate identified non-attempt, or structured failure. No audit/profile/optimization/deployment switch may disable this rule.
 
 `BACKEND_OMISSION_DETECTED` (or a frozen equivalent) is not an ordinary successful non-attempt reason. It means a reachable required effect was omitted and therefore **forces structured execution/conformance failure**; it cannot coexist with a successful enclosing execution.
 
@@ -291,7 +297,7 @@ UNKNOWN
 
 Known completion takes precedence over uncertainty about broader consequences. Completion belongs to the effect attempt, not the enclosing CARD outcome.
 
-Enclosing failure records use canonical `failure_card_id` for the CARD whose unhandled failure produced the failure record.
+Failure records always carry typed `failing_scope_kind` plus `failing_scope_id`. `failure_card_id?` and `failure_card_execution_id?` are present only when a CARD execution actually caused the failure. JOB/DECK/setup/lowering/machinery failures that occur before CARD execution must not fabricate a CARD culprit.
 
 ## Extensions, capabilities, and machinery authorization
 
@@ -366,6 +372,7 @@ machinery_use_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
+failure_behavior_bindings[]
 identified inputs[]
 identified outputs[]
 resolved extension identities
@@ -376,10 +383,15 @@ declared effect IDs + runtime effect attempts + explicit non-attempt reasons
 cache_reuse_records[]
 optimization_provenance[]
 generated_artifacts[]
+toolchain_invocations[]
 failure records
 ```
 
 `backend_selection_scopes[]` identify governed machinery-selection records; `backend_selection_decisions[]` preserve the ordered decision history within those scopes, including denied/superseded targets and frozen fallback transitions rather than overwriting them with the final backend.
+
+`external_tool_versions[]` must carry immutable/versioned material identity when an external tool/service/model/prover/process materially affects result or evidence. A mutable name or endpoint alone is insufficient. If exact material identity is unavailable, that unavailability is explicit and the replay/evidence claim is weakened according to frozen policy.
+
+Generated artifacts link to ordered `toolchain_invocation_ids[]`. Each identified invocation records the material compiler/assembler/linker/code-generation identity, invocation order, target/ABI context, exact flags/configuration, material inputs, and reciprocal generated-artifact output. Run-wide compiler version lists are summaries, not artifact-level build evidence.
 
 ### Identified inputs
 
@@ -404,6 +416,7 @@ semantic_class
 status
 evidence_status?
 producer_card_ids[]
+producer_card_execution_ids[]
 input_ids[]
 effect_attempt_ids[]?
 external_tool_ids[]?
@@ -412,8 +425,11 @@ generated_artifact_ids[]?
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
+failure_behavior_binding_ids[]
 cache_reuse_record_ids[]?
 ```
+
+`producer_card_ids[]` identifies canonical semantic producers. `producer_card_execution_ids[]` identifies the concrete runtime CARD execution(s) that actually produced or materially supplied the output and resolves through `card_executions[]` to the DECK execution and canonical CARD.
 
 When present, `evidence_status` is class-discriminated, conceptually carrying `evidence_class`, evidence `status`, and optional `evidence_rule_id`. It must be compatible with the output's `semantic_class` and any explicit evidence transition. Generic output `status` remains an execution/artifact state and cannot by itself promote TEST to VALIDATION or VALIDATION to PROOF.
 
@@ -423,7 +439,9 @@ When present, `evidence_status` is class-discriminated, conceptually carrying `e
 
 `backend_selection_scope_ids[]` identifies the machinery-selection scope. `generated_artifact_ids[]`, when applicable, identifies the **exact executable/kernel/bytecode artifact that actually ran or supplied the result**. This distinction matters when reference and optimized artifacts share one backend-selection scope.
 
-An optimized generated artifact records its applicable `optimized_ir_hash` and `optimization_record_ids[]`, while each optimization record reciprocally lists the `generated_artifact_ids[]` it produced. This makes the provenance path `output → generated artifact → optimization provenance` directly resolvable rather than inferred from `backend_unit_id`.
+`failure_behavior_binding_ids[]` resolves to the exact identified failure-policy records that governed whether the producer path continued, failed, recovered, or compensated. Generic source-scope IDs are not substitutes for the stable binding-record keys.
+
+An optimized generated artifact records its applicable `optimized_ir_hash` and `optimization_record_ids[]`, while each optimization record reciprocally lists the `generated_artifact_ids[]` it produced. Each generated artifact also links to its ordered `toolchain_invocation_ids[]`. This makes the provenance path `output → generated artifact → optimization provenance / toolchain invocation provenance` directly resolvable rather than inferred from `backend_unit_id` or a run-wide compiler list.
 
 A simulation artifact and a separately validated artifact therefore cannot accidentally share one evidence status or machinery/RNG/generated-code provenance record.
 
