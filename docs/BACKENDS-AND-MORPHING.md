@@ -34,8 +34,6 @@ QSOL-MORPH may:
 
 - select a backend when policy permits;
 - validate extension requirements at the machinery boundary;
-- identify applicable protected-machinery requirements after target resolution;
-- authorize protected machinery before use;
 - check determinism compatibility;
 - choose legal target-lowering strategies from the already-defined lower IR;
 - vectorize;
@@ -44,7 +42,7 @@ QSOL-MORPH may:
 - place data;
 - specialize for a target;
 - emit inspectable code or binaries;
-- record material transformation, selection, and authorization decisions.
+- record material transformation and selection decisions.
 
 It may not silently redefine scientific meaning or absorb the Semantic IR → QSOL-CORE language-lowering stage into backend-specific code generation.
 
@@ -100,13 +98,11 @@ numeric contracts
 determinism contracts
 ```
 
-Protected accelerator use may additionally require one or more canonical machinery capabilities. Target selection and target authorization remain separate decisions.
-
 ## CUDA backend
 
 **CUDA is a backend/machinery selection.**
 
-Selecting CUDA answers where/how the generic GPU computation is lowered. It does not by itself require vendor-specific source controls or grant permission to use protected accelerator machinery.
+Selecting CUDA answers where/how the generic GPU computation is lowered. It does not by itself require vendor-specific source controls.
 
 Desired simple form:
 
@@ -115,8 +111,6 @@ RUN GRAVITY ON CUDA
 ```
 
 QSOL-MORPH may generate normal CUDA plumbing such as allocation, transfers, launch configuration, synchronization, cleanup, and stable failure mapping. Generated CUDA should remain inspectable.
-
-If the governed source/lower scope carries an applicable machinery requirement, authorization must succeed before CUDA machinery is used.
 
 ## QX-CUDA control profile
 
@@ -156,7 +150,7 @@ RUN MODEL ON BEST
 
 `BEST` requires a declared selection policy.
 
-Backend choice may differ across CARDs, regions, kernels, or generated units. Provenance therefore uses scoped machinery-selection records rather than assuming one execution-wide backend.
+Backend choice may differ across CARDs, regions, kernels, or generated units. Provenance therefore separates the **governed selection scope** from the ordered **selection decisions** made for that scope.
 
 A conceptual `backend_selection_scopes[]` entry may bind:
 
@@ -164,30 +158,44 @@ A conceptual `backend_selection_scopes[]` entry may bind:
 scope_kind
 scope_id
 source_card_ids[]
-backend_unit_id
-requested_target
-selected_backend
-selected_backend_version
-target_architecture
-device
-selection_policy_id?
-selection_policy_version?
-selection_tuning_id?
-selection_tuning_hash?
-machinery_authorization_record_ids[]?
+backend_unit_id?
+selection_decision_ids[]
+final_selection_decision_id?
 ```
 
-Policy/tuning fields are material when selection is automatic, such as `ON BEST`. An explicit target still needs enough scope identity to establish which source computation and generated unit used that machinery.
+Each material selection attempt is an identified decision:
 
-When selected machinery is protected, `machinery_authorization_record_ids[]` directly identifies the authorization decision or decisions governing that selection scope. A consumer must not be forced to infer authorization by matching only source CARDs, capability names, or target strings.
+```text
+backend_selection_decisions[]:
+    backend_selection_decision_id
+    backend_selection_scope_id
+    decision_sequence_index
+    requested_target
+    selected_backend
+    selected_backend_version?
+    target_architecture?
+    device?
+    selection_policy_id?
+    selection_policy_version?
+    selection_tuning_id?
+    selection_tuning_hash?
+    predecessor_selection_decision_id?
+    fallback_rule_id?
+    machinery_authorization_record_ids[]?
+    decision_status
+```
 
-One backend-selection scope may reference zero, one, or several authorization records only as permitted by the frozen authorization/selection contract, for example where several independent machinery requirements apply. Every referenced authorization must be compatible with the selected scope and must succeed before protected use begins.
+`scope_id` identifies the computation governed by target selection; `backend_selection_decision_id` identifies one concrete decision in the selection/fallback history. Decision IDs are unique and ordered. The scope's `final_selection_decision_id`, when execution proceeds, identifies the decision whose machinery was actually used.
 
-A single execution-wide backend-selection record is valid only when one frozen machinery decision genuinely governs the whole run. Mixed-target JOBs keep distinct scope entries.
+Policy/tuning fields are material when selection is automatic, such as `ON BEST`. An explicit target still needs enough scope and decision identity to establish which source computation and generated unit used that machinery.
 
-This allows replay/audit to explain **what** ran, **why** each target was selected, and **which authorization decision permitted or denied its protected use**.
+A denied protected target followed by an authorized fallback must remain represented as **two decisions**, not as one record whose `selected_backend` is overwritten. The fallback decision references its predecessor and the frozen `fallback_rule_id` that permitted the transition. The denied decision retains its machinery-authorization record and status; the later decision retains its own authorization record where required.
 
-For a frozen replay, policy may require the previously selected target rather than re-running an evolved selection/tuning process.
+A single execution-wide selection scope is valid only when one frozen machinery-selection process genuinely governs the whole run. Mixed-target JOBs keep distinct scope entries.
+
+This allows replay/audit to explain **what was considered**, **what was denied or selected**, **why fallback was legal**, and **which final target actually ran**.
+
+For a frozen replay, policy may require the previously final selected target rather than re-running an evolved selection/tuning process.
 
 ## Future backends
 
@@ -228,4 +236,4 @@ The exact CLI is not frozen.
 
 ## Principle
 
-> QSOL programs describe meaning. Semantic lowering defines lower meaning. QSOL-MORPH chooses machinery, authorizes protected use, and must be able to explain both decisions.
+> QSOL programs describe meaning. Semantic lowering defines lower meaning. QSOL-MORPH chooses machinery and must be able to explain the choice.
