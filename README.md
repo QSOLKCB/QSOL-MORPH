@@ -44,7 +44,11 @@ The proposed structural hierarchy is:
 
 ```text
 JOB [JOB ID]
+ ├── SCOPED DETERMINISM / NUMERIC / RANDOMNESS CONTRACTS
+ ├── MACHINERY REQUIREMENTS[]
  └── DECK [DECK ID]
+      ├── SCOPED DETERMINISM / NUMERIC / RANDOMNESS CONTRACTS
+      ├── MACHINERY REQUIREMENTS[]
       └── CARD [CARD ID]
            ├── VERB
            ├── NOUN
@@ -58,6 +62,10 @@ JOB [JOB ID]
            │    ├── DECLARED EFFECT ID
            │    ├── EFFECT KIND
            │    └── REQUIRED CAPABILITIES[]
+           ├── MACHINERY REQUIREMENTS[]
+           │    ├── MACHINERY REQUIREMENT ID
+           │    ├── TARGET SELECTOR / CLASS
+           │    └── REQUIRED CAPABILITIES[]
            ├── RESULT-DETERMINISM CONTRACT
            ├── RANDOMNESS CONTRACT
            ├── NUMERIC CONTRACT
@@ -70,7 +78,11 @@ Stable JOB/DECK/CARD IDs are canonical semantic identities. They survive lossles
 
 `VALUE` carries an immediate or literal value when present. `RESULT BINDING` separately names a value produced for dependent CARDs.
 
-Each protected effect owns its stable declared effect ID, effect kind, and **complete capability set**. A derived CARD-wide capability union may help preflight, but it does not replace the per-effect association.
+Result-determinism, numeric, and randomness contracts remain attached to the JOB, DECK, CARD, or other frozen scope that owns them. A representation may not flatten a DECK/JOB requirement into arbitrary children and silently change its meaning.
+
+Each protected external effect owns its stable declared effect ID, effect kind, and **complete capability set**. A derived CARD-wide capability union may help preflight, but it does not replace the per-effect association.
+
+Protected machinery access is a different boundary. `machinery_requirements[]` can require capabilities such as `GPU` without pretending GPU selection is an external effect.
 
 ## Human–AI semantic anchors
 
@@ -138,8 +150,9 @@ The lowering must preserve or explicitly validate before erasure:
 - types and units;
 - execution-relevant qualifiers;
 - declared effect IDs and complete per-effect capability sets;
+- protected machinery requirements where still material;
 - explicit `failure_behavior`;
-- result-determinism, numeric, and randomness contracts;
+- result-determinism, numeric, and randomness contracts at their governing scopes;
 - extension requirements;
 - dependency/effect/failure ordering.
 
@@ -163,12 +176,15 @@ It carries or represents:
 - result/data identities and dependencies;
 - control flow and calls;
 - explicit effects with declared effect IDs and complete capability sets;
+- protected machinery requirements/metadata where still material;
 - qualifiers and failure behavior where still material;
 - dependency/effect/failure ordering;
 - result-determinism, numeric, randomness, and extension contracts;
 - provenance links back to QSOL-CORE and originating semantic CARDs.
 
 A non-vectorizable operation is not permission to bypass this IR.
+
+Core→Vector/Dataflow provenance records not only result-binding correspondence but also contract-scope mappings for result determinism, numeric behavior, and randomness whenever Core scopes are split, fused, renamed, or otherwise remapped into lower execution regions/units.
 
 ## Determinism, numerics, and randomness
 
@@ -191,7 +207,7 @@ RANDOMNESS
 
 A `NUMERIC` result contract is incomplete without the numeric contract defining legal variation.
 
-Provenance is scoped because different CARDs, regions, kernels, or generated units may use different legal contracts or machinery:
+Provenance is scoped because different JOBs, DECKs, CARDs, regions, kernels, or generated units may use different legal contracts or machinery:
 
 ```text
 backend_selection_scopes[]
@@ -204,7 +220,7 @@ A single execution-wide scope is valid only when a frozen rule proves one entry 
 
 Seeded replay records RNG algorithm, version, seed, stream identity, and parallel partitioning/stream mapping where applicable.
 
-## Failure and effect attempts
+## Failure and execution path
 
 Failure is observable behavior.
 
@@ -217,6 +233,17 @@ FAILURE(record)
 
 An unhandled CARD failure stops its DECK. An unhandled DECK failure fails its JOB and prevents later DECKs from starting. Pure failure commits no semantic state.
 
+A run therefore distinguishes canonical membership from actual execution:
+
+```text
+run_id
+job_id
+deck_executions[]
+card_executions[]
+```
+
+Every selected DECK remains represented, including one prevented from starting by prior fail-stop. Every CARD in those selected DECKs has an execution-path/outcome record, so a pure TEST on an untaken branch cannot be confused with a TEST that executed successfully.
+
 Every protected external effect attempt is individually identified and records:
 
 ```text
@@ -227,6 +254,8 @@ effect_kind
 required_capabilities[]
 completion_state
 ```
+
+A declared effect that has no runtime attempt is accounted for by an explicit `effect_non_attempt_records[]` reason such as untaken branch, prior fail-stop, CARD not reached, explicit skip, or detected backend omission.
 
 Completion state is one of:
 
@@ -242,7 +271,7 @@ Known completion takes precedence over uncertainty about broader consequences. C
 
 Enclosing failure records use canonical `failure_card_id` for the CARD whose unhandled failure produced the failure record.
 
-## Extensions and capabilities
+## Extensions, capabilities, and machinery authorization
 
 Extension availability and runtime authorization are independent.
 
@@ -269,6 +298,10 @@ QX-NET
 
 Activating an extension never grants runtime permission by itself.
 
+Machinery selection is also distinct from authorization. `RUN MODEL ON GPU` may select a GPU-backed scope, but protected GPU use begins only after the applicable machinery requirement's capabilities are granted.
+
+`machinery_authorization_records[]` bind the selected backend scope to required/granted/denied machinery capabilities and the capability policy responsible for the decision. A denied GPU authorization must not launch a kernel, and it must not be represented as a fake external effect.
+
 ## CUDA without ordinary plumbing
 
 A long-term target experience is:
@@ -290,16 +323,22 @@ Core trace material includes:
 ```text
 source identity/hash
 canonical Semantic-IR identity/hash
-stable JOB/DECK/CARD IDs
+stable run/JOB/DECK/CARD IDs
+identified deck_executions[]
+identified card_executions[]
 semantic effect_requirements[]
+semantic machinery_requirements[]
 semantic-to-core spec + implementation identity
 semantic-to-core result_binding_map[]
+semantic-to-core contract decisions[]
 QSOL-CORE IR hash
 core-to-vector/dataflow spec + implementation identity
 core-to-vector result_binding_map[]
+core-to-vector contract-scope mapping decisions[]
 Vector/Dataflow IR hash
 MORPH/compiler identity
 backend_selection_scopes[]
+machinery_authorization_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
@@ -307,9 +346,10 @@ identified inputs[]
 identified outputs[]
 resolved extension identities
 capability authorization policy
-declared effect IDs + runtime effect attempts
+declared effect IDs + runtime effect attempts + explicit non-attempt reasons
 cache_reuse_records[]
 optimization decisions
+generated_artifacts[]
 failure records
 ```
 
@@ -334,13 +374,16 @@ semantic_class
 status
 producer_card_ids[]
 backend_selection_scope_ids[]
+generated_artifact_ids[]?
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
 cache_reuse_record_ids[]?
 ```
 
-A simulation artifact and a separately validated artifact therefore cannot accidentally share one evidence status or machinery/RNG provenance record.
+`backend_selection_scope_ids[]` identifies the machinery decision. `generated_artifact_ids[]`, when applicable, identifies the **exact executable/kernel/bytecode artifact that actually ran or supplied the result**. This distinction matters when reference and optimized artifacts share one backend-selection scope.
+
+A simulation artifact and a separately validated artifact therefore cannot accidentally share one evidence status or machinery/RNG/generated-code provenance record.
 
 ### Cache reuse
 
@@ -363,7 +406,7 @@ Optimization is subordinate to:
 - result-determinism and numeric contracts;
 - randomness/replay requirements;
 - effect/failure ordering;
-- capability authorization;
+- effect and machinery capability authorization;
 - provenance.
 
 Dead-result elimination may remove an operation solely because its result is unused only when the operation is proven pure and total, unless its original failure is explicitly preserved at the same observable point.
