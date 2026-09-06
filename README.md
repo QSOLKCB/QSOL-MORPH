@@ -160,7 +160,7 @@ The lowering must preserve or explicitly validate before erasure:
 - extension requirements at their governing scopes;
 - the canonical tagged `sequencing_constraints[]` relation, including source/effect/failure ordering.
 
-Its provenance records lowering-spec and implementation identities plus qualifier, result-determinism, numeric, randomness, machinery/failure, and result-binding decisions where material.
+Its provenance records lowering-spec and implementation identities plus `extension_requirement_lowering_decisions[]`, qualifier, result-determinism, numeric, randomness, machinery/failure, and result-binding decisions where material. Resolved extension identity alone does not replace the source-to-Core scope mapping that preserves profile ownership.
 
 ### Result-binding maps
 
@@ -183,12 +183,12 @@ It carries or represents:
 - protected machinery requirements/metadata where still material;
 - qualifiers and failure behavior where still material;
 - dependency/effect/failure ordering;
-- result-determinism, numeric, randomness, and extension contracts;
+- result-determinism, numeric, randomness, and extension contracts including extension ownership;
 - provenance links back to QSOL-CORE and originating semantic CARDs.
 
 A non-vectorizable operation is not permission to bypass this IR.
 
-Core→Vector/Dataflow provenance records not only result-binding correspondence but also contract-scope mappings for result determinism, numeric behavior, randomness, machinery requirements, and failure behavior whenever Core scopes are split, fused, renamed, or otherwise remapped into lower execution regions/units.
+Core→Vector/Dataflow provenance records not only result-binding correspondence but also contract-scope mappings for extension requirements, result determinism, numeric behavior, randomness, machinery requirements, and failure behavior whenever Core scopes are split, fused, renamed, relocated, or otherwise remapped into lower execution regions/units.
 
 ## Determinism, numerics, and randomness
 
@@ -219,6 +219,8 @@ result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
 ```
+
+Each execution-scope record has its own stable type-specific record key distinct from the generic computation `scope_id` it governs. Output scope-ID arrays reference those record keys directly.
 
 A single execution-wide scope is valid only when a frozen rule proves one entry genuinely governs every relevant source computation.
 
@@ -259,10 +261,19 @@ card_id
 effect_kind
 required_capabilities[]
 effect_authorization_record_id
+sequence_index
+effect_begin_sequence_index?
+effect_end_sequence_index?
 completion_state
+observable_output_ids[]
+external_tool_ids[]?
 ```
 
 `effect_authorization_record_id` links the concrete attempt to the contextual required/granted/denied capability decision and policy that governed it. Execution-wide capability summaries do not substitute for this per-attempt authorization record.
+
+When ordering auditability is required, the authorization record's `authorization_sequence_index` and the attempt's `effect_begin_sequence_index` are values in the same frozen monotonic event-order domain and must satisfy `authorization_sequence_index < effect_begin_sequence_index`. A denied authorization has no begin event. Generic `sequence_index` is not a substitute for that proof.
+
+`observable_output_ids[]` is the reciprocal side of output `effect_attempt_ids[]`: it identifies the exact outputs this concrete attempt produced, exposed, published, or materially supplied. `external_tool_ids[]`, where material, identifies the exact tool/service/model/prover used by this attempt, so retries or multiple tools invoked by one CARD do not collapse into broad CARD attribution.
 
 A declared effect that has no runtime attempt is accounted for by an explicit `effect_non_attempt_records[]` reason such as untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip.
 
@@ -341,11 +352,11 @@ semantic effect_requirements[]
 semantic machinery_requirements[]
 semantic-to-core spec + implementation identity
 semantic-to-core result_binding_map[]
-semantic-to-core contract decisions[]
+semantic-to-core extension/contract decisions[]
 QSOL-CORE IR hash
 core-to-vector/dataflow spec + implementation identity
 core-to-vector result_binding_map[]
-core-to-vector contract-scope mapping decisions[]
+core-to-vector extension/contract-scope mapping decisions[]
 Vector/Dataflow IR hash
 MORPH/compiler identity
 backend_selection_scopes[]
@@ -363,7 +374,7 @@ capability authorization policy
 effect_authorization_records[]
 declared effect IDs + runtime effect attempts + explicit non-attempt reasons
 cache_reuse_records[]
-optimization decisions
+optimization_provenance[]
 generated_artifacts[]
 failure records
 ```
@@ -408,9 +419,11 @@ When present, `evidence_status` is class-discriminated, conceptually carrying `e
 
 `input_ids[]` identifies the exact immutable input records that materially contributed to the output under the frozen provenance-dependency rule. It is not a copy of all inputs available during the run.
 
-`effect_attempt_ids[]`, when applicable, identifies the concrete authorized effect attempts that produced, exposed, or materially supplied the output. `external_tool_ids[]`, when applicable, identifies the exact material tool/service/model/prover records that contributed to it. These links prevent retries or multiple tools invoked by one CARD from collapsing into one ambiguous producer attribution.
+`effect_attempt_ids[]`, when applicable, identifies the concrete authorized effect attempts that produced, exposed, or materially supplied the output. Each referenced attempt reciprocally names the output in `observable_output_ids[]`. `external_tool_ids[]`, when applicable, identifies the exact material tool/service/model/prover records that contributed to it, and those tools/attempts retain reciprocal links where material. These joins prevent retries or multiple tools invoked by one CARD from collapsing into one ambiguous producer attribution.
 
 `backend_selection_scope_ids[]` identifies the machinery-selection scope. `generated_artifact_ids[]`, when applicable, identifies the **exact executable/kernel/bytecode artifact that actually ran or supplied the result**. This distinction matters when reference and optimized artifacts share one backend-selection scope.
+
+An optimized generated artifact records its applicable `optimized_ir_hash` and `optimization_record_ids[]`, while each optimization record reciprocally lists the `generated_artifact_ids[]` it produced. This makes the provenance path `output → generated artifact → optimization provenance` directly resolvable rather than inferred from `backend_unit_id`.
 
 A simulation artifact and a separately validated artifact therefore cannot accidentally share one evidence status or machinery/RNG/generated-code provenance record.
 
