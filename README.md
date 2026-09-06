@@ -224,6 +224,8 @@ A single execution-wide scope is valid only when a frozen rule proves one entry 
 
 Seeded replay records RNG algorithm, version, seed, stream identity, and parallel partitioning/stream mapping where applicable.
 
+`EXTERNAL-ENTROPY` permits fresh entropy but does not authorize hidden entropy access. Each concrete acquisition is a declared protected `RANDOM` effect with its own declared effect ID, complete capability set including `RANDOM` (or frozen equivalent), contextual authorization record, and runtime attempt provenance.
+
 ## Failure and execution path
 
 Failure is observable behavior.
@@ -309,7 +311,7 @@ Activating an extension never grants runtime permission by itself.
 
 Machinery selection is also distinct from authorization. `RUN MODEL ON GPU` may select a GPU-backed scope, but protected GPU use begins only after the applicable machinery requirement's capabilities are granted.
 
-`machinery_authorization_records[]` bind the selected backend-selection scope and decision to required/granted/denied machinery capabilities and the capability policy responsible for the decision. A denied GPU authorization must not launch a kernel, and it must not be represented as a fake external effect.
+`machinery_authorization_records[]` bind the selected backend-selection scope and decision to required/granted/denied machinery capabilities and the capability policy responsible for the decision. `machinery_use_records[]` identify protected-use start/stop and link back to the applicable authorization records in the same frozen event-order domain, so the trace can prove authorization completed before use began. A denied GPU authorization must not launch a kernel, and it must not be represented as a fake external effect.
 
 ## CUDA without ordinary plumbing
 
@@ -349,6 +351,7 @@ MORPH/compiler identity
 backend_selection_scopes[]
 backend_selection_decisions[]
 machinery_authorization_records[]
+machinery_use_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
@@ -373,6 +376,8 @@ Material inputs bind stable `input_id` values to the exact canonical value, cont
 
 A mutable path, URL, dataset name, or model name is retrieval context, not content identity.
 
+Applicable outputs reference the exact materially contributing input records through `input_ids[]`; execution-wide input availability is not itself proof that every input contributed to every output.
+
 ### Identified outputs
 
 Outputs are **not** bare hashes.
@@ -388,6 +393,7 @@ semantic_class
 status
 evidence_status?
 producer_card_ids[]
+input_ids[]
 effect_attempt_ids[]?
 external_tool_ids[]?
 backend_selection_scope_ids[]
@@ -399,6 +405,8 @@ cache_reuse_record_ids[]?
 ```
 
 When present, `evidence_status` is class-discriminated, conceptually carrying `evidence_class`, evidence `status`, and optional `evidence_rule_id`. It must be compatible with the output's `semantic_class` and any explicit evidence transition. Generic output `status` remains an execution/artifact state and cannot by itself promote TEST to VALIDATION or VALIDATION to PROOF.
+
+`input_ids[]` identifies the exact immutable input records that materially contributed to the output under the frozen provenance-dependency rule. It is not a copy of all inputs available during the run.
 
 `effect_attempt_ids[]`, when applicable, identifies the concrete authorized effect attempts that produced, exposed, or materially supplied the output. `external_tool_ids[]`, when applicable, identifies the exact material tool/service/model/prover records that contributed to it. These links prevent retries or multiple tools invoked by one CARD from collapsing into one ambiguous producer attribution.
 
