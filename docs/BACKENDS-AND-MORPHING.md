@@ -155,6 +155,7 @@ Backend choice may differ across CARDs, regions, kernels, or generated units. Pr
 A conceptual `backend_selection_scopes[]` entry may bind:
 
 ```text
+backend_selection_scope_id
 scope_kind
 scope_id
 source_card_ids[]
@@ -162,6 +163,8 @@ backend_unit_id?
 selection_decision_ids[]
 final_selection_decision_id?
 ```
+
+`backend_selection_scope_id` is the stable identity of the selection-scope record itself. `scope_kind` + `scope_id` identify the computation governed by that record. They are distinct identities and must not be treated as aliases. Decisions, machinery-authorization records, generated artifacts, and outputs reference the stable `backend_selection_scope_id`.
 
 Each material selection attempt is an identified decision:
 
@@ -185,7 +188,7 @@ backend_selection_decisions[]:
     decision_status
 ```
 
-`scope_id` identifies the computation governed by target selection; `backend_selection_decision_id` identifies one concrete decision in the selection/fallback history. Decision IDs are unique and ordered. The scope's `final_selection_decision_id`, when execution proceeds, identifies the decision whose machinery was actually used.
+`scope_id` identifies the computation governed by target selection; `backend_selection_scope_id` identifies the selection-scope record that governs it; `backend_selection_decision_id` identifies one concrete decision in the selection/fallback history. Decision IDs are unique and ordered. The scope's `final_selection_decision_id`, when execution proceeds, identifies the decision whose machinery was actually used.
 
 Policy/tuning fields are material when selection is automatic, such as `ON BEST`. An explicit target still needs enough scope and decision identity to establish which source computation and generated unit used that machinery.
 
