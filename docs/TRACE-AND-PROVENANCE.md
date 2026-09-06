@@ -2,7 +2,7 @@
 
 QSOL-MORPH treats provenance as part of execution semantics for research workflows.
 
-This document is architectural and non-normative until the relevant contracts are frozen. Its purpose is to ensure that later implementations can explain not only what bytes were produced, but which semantic units, lowerings, machinery decisions, authorization decisions, execution paths, external tools, and evidence transitions produced them.
+This document is architectural and non-normative until the relevant contracts are frozen. Its purpose is to ensure that later implementations can explain not only what bytes were produced, but which semantic units, concrete executions, lowerings, machinery decisions, authorization decisions, execution paths, entropy acquisitions, external tools, and evidence transitions produced them.
 
 ## Trace questions
 
@@ -18,12 +18,13 @@ A complete trace should be able to answer:
 - how extension, machinery, result-determinism, numeric, randomness, and failure-behavior scopes mapped through both mandatory lowerings;
 - which machinery-selection decisions were considered, denied, superseded, or finally used;
 - which protected machinery requirements applied and whether authorization completed before protected use began;
-- which protected effects were declared, authorized, attempted, completed, aborted, partially observed, or never attempted;
+- which protected effects were declared for each concrete CARD execution, authorized, attempted, completed, aborted, partially observed, or legitimately not attempted;
+- which external-entropy acquisition attempt(s) and immutable entropy input(s) governed every applicable EXTERNAL-ENTROPY randomness scope;
 - what exact immutable inputs were consumed and which ones materially contributed to each output;
 - which concrete CARD executions, effect attempts, tools, generated artifacts, optimization records, and execution-contract scopes produced each output;
 - whether cache reuse occurred and under what legality evidence;
 - what epistemic class and evidence status belongs to each output;
-- whether execution failed and what had already become observable.
+- whether execution failed, at what typed scope, and what had already become observable.
 
 ## Trace layers
 
@@ -97,6 +98,8 @@ effect_requirements[]:
 ```
 
 The complete capability set belongs to that specific effect. A CARD-wide capability union may be useful for preflight but cannot replace the per-effect association.
+
+A canonical declaration is source identity. Runtime accounting is performed against each applicable concrete `card_execution_id`, because the same canonical CARD may execute more than once.
 
 ### Protected machinery requirements
 
@@ -194,9 +197,7 @@ This model supports:
 
 ### First-lowering scope mappings
 
-Every decision family that maps a scoped semantic requirement should identify both ends with typed scope references rather than untyped IDs.
-
-A candidate typed scope reference is:
+Every decision family that maps a scoped semantic requirement identifies both ends with typed scope references rather than untyped IDs.
 
 ```text
 scope_ref:
@@ -244,9 +245,7 @@ This boundary uses the same cardinality-aware result-binding map semantics.
 
 ### Typed second-lowering contract mappings
 
-The second lowering must preserve exactly which typed Core scope maps to which typed Vector/Dataflow scope. Bare arrays such as `core_scope_ids[]` and `vector_dataflow_scope_ids[]` are not sufficient because JOB, DECK, CARD, region, kernel, and generated-unit namespaces may overlap.
-
-Each mapping-decision family therefore uses typed endpoints:
+The second lowering preserves exactly which typed Core scope maps to which typed Vector/Dataflow scope. Bare arrays such as `core_scope_ids[]` and `vector_dataflow_scope_ids[]` are not sufficient because JOB, DECK, CARD, region, kernel, and generated-unit namespaces may overlap.
 
 ```text
 core_scope_refs[]:
@@ -376,7 +375,7 @@ machinery_use_records[]:
     protected_use_stop_sequence_index?
 ```
 
-Authorization and use indices live in one frozen monotonic event-order domain. Every applicable successful machinery authorization must satisfy:
+Authorization and use indices live in one frozen monotonic event-order domain. Every applicable successful machinery authorization satisfies:
 
 ```text
 authorization_sequence_index < protected_use_start_sequence_index
@@ -469,10 +468,20 @@ randomness_execution_scopes[]:
     seed?
     stream_id?
     parallel_partitioning?
+    entropy_effect_attempt_ids[]?
+    entropy_input_ids[]?
     backend_unit_id?
 ```
 
 Output references resolve directly to `result_determinism_scope_id`, `numeric_scope_id`, and `randomness_scope_id`. They never infer those records from a generic `scope_id`.
+
+### External-entropy attribution
+
+When `effective_randomness_mode = EXTERNAL-ENTROPY`, the randomness scope must identify the exact protected `RANDOM` acquisition attempt or attempts that supplied entropy through `entropy_effect_attempt_ids[]`. Each referenced attempt must resolve to the ordinary effect authorization/attempt ledger and therefore prove authorization completed before acquisition began.
+
+Where the acquired entropy becomes a material runtime input, `entropy_input_ids[]` identifies the immutable input record(s), such as a canonical captured value, content hash, immutable artifact identity, or another frozen identity sufficient to distinguish what was actually consumed. If raw entropy is intentionally not retained, a frozen audit identity may establish what acquisition was used, but the manifest must not claim byte-for-byte replayability unless the consumed entropy value is actually reconstructable.
+
+The randomness mode itself never authorizes entropy access and never substitutes for the protected `RANDOM` effect attempt.
 
 A single execution-wide scope record is valid only when a frozen normalization proves it faithfully represents every governed source requirement.
 
@@ -549,7 +558,7 @@ Canonical `card_id` identifies the semantic CARD. `card_execution_id` identifies
 
 Membership in `card_ids[]` is not proof that a CARD ran.
 
-## Typed execution-path causality
+## Typed execution-path causality and failures
 
 Control decisions and failures have distinct identified namespaces:
 
@@ -564,14 +573,22 @@ control_decisions[]:
 
 failure_records[]:
     failure_record_id
-    failure_card_id
+    failing_scope_kind
+    failing_scope_id
     failure_class
     failure_stage
-    card_execution_id?
+    failure_card_id?
+    failure_card_execution_id?
     deck_execution_id?
     sequence_index?
     backend_detail?
 ```
+
+`failing_scope_kind` plus `failing_scope_id` is the always-present typed identity of the scope where the failure occurred. Frozen scope kinds may include JOB, DECK_EXECUTION, CARD_EXECUTION, BACKEND_SELECTION_SCOPE, LOWERING, or another explicitly specified execution scope.
+
+`failure_card_id` remains the canonical source-CARD identity **when a CARD's unhandled failure caused the record**. `failure_card_execution_id` identifies the corresponding concrete runtime CARD execution. For a CARD-caused failure, both are required and must resolve consistently through `card_executions[]`.
+
+A failure that occurs before any CARD execution, such as JOB-scoped contract rejection, DECK setup failure, protected-machinery denial before CARD use, or another pre-CARD execution failure, must not invent a CARD identity. In that case the typed failing scope is authoritative and `failure_card_id` / `failure_card_execution_id` are absent.
 
 An untaken branch references `governing_control_decision_id`. Prior fail-stop or another failure-caused non-reach references `governing_failure_record_id`. A catch-all control-or-failure ID is invalid because it erases the target namespace.
 
@@ -601,6 +618,7 @@ effect_authorization_records[]:
     effect_attempt_id
     declared_effect_id
     card_id
+    card_execution_id
     required_capabilities[]
     granted_capabilities[]
     denied_capabilities[]
@@ -617,6 +635,7 @@ effect_attempts[]:
     effect_attempt_id
     declared_effect_id
     card_id
+    card_execution_id
     effect_kind
     required_capabilities[]
     effect_authorization_record_id
@@ -628,6 +647,8 @@ effect_attempts[]:
     observable_output_ids[]
     external_tool_ids[]?
 ```
+
+`card_id` identifies the canonical declaration owner. `card_execution_id` identifies the concrete runtime invocation in which this attempt occurred. Attempts from different retries, loop iterations, calls, or repeated DECK executions must never collapse merely because they share one canonical CARD ID.
 
 Authorization and effect-begin indices share one frozen monotonic event-order domain. Every protected attempt known to begin satisfies:
 
@@ -653,12 +674,14 @@ Known completion takes precedence over uncertainty about broader external conseq
 
 ## Effect non-attempt records
 
-A declared effect may legitimately have no runtime attempt when its CARD is not executed.
+A declared effect may legitimately have no runtime attempt for a particular concrete CARD execution when control flow, prior failure, or another frozen rule prevents the effect from being attempted.
 
 ```text
 effect_non_attempt_records[]:
+    effect_non_attempt_record_id
     declared_effect_id
     card_id
+    card_execution_id
     effect_kind
     non_attempt_reason
     governing_control_decision_id?
@@ -666,11 +689,23 @@ effect_non_attempt_records[]:
     backend_detail?
 ```
 
+The stable `effect_non_attempt_record_id` distinguishes separate non-attempt facts even when the same canonical CARD/effect declaration is encountered more than once. `card_execution_id` binds each non-attempt to the exact runtime invocation/path being accounted for.
+
 Candidate legitimate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. Untaken control flow resolves to a `control_decision_id`; failure-caused non-reach resolves to a `failure_record_id`.
 
 `BACKEND_OMISSION_DETECTED` or frozen equivalent means a reachable required effect was omitted. It forces structured execution/conformance failure and cannot coexist with successful enclosing execution.
 
-Every declared effect is accounted for by an attempt or an explicit legitimate non-attempt record when declaration-completeness auditing is required.
+### Unconditional declaration accounting
+
+Declaration completeness is not an optional audit mode.
+
+For every selected concrete `card_execution_id`, every applicable canonical `effect_requirement` owned by that CARD must resolve to exactly one of these provenance outcomes:
+
+1. one or more identified `effect_attempts[]` records for that `card_execution_id` when execution/retry semantics produce attempts;
+2. exactly one identified legitimate `effect_non_attempt_records[]` record for that `card_execution_id` when no attempt occurred; or
+3. a structured execution/conformance failure if complete accounting itself cannot be established or a reachable required effect was omitted.
+
+A declared effect with neither an attempt nor a legitimate non-attempt record is always incomplete provenance and fails closed. Profiles, backends, optimization modes, or deployment settings may not disable this requirement.
 
 ## External-tool provenance
 
@@ -738,9 +773,9 @@ outputs[]:
     evidence_status?
 ```
 
-`producer_card_ids[]` records the canonical semantic producers. `producer_card_execution_ids[]` records the concrete runtime CARD execution(s) that actually produced, materially supplied, or published the output. Every `producer_card_execution_id` resolves to `card_executions[]`, which in turn identifies its `deck_execution_id` and canonical `card_id`.
+`producer_card_ids[]` records the canonical semantic producers. `producer_card_execution_ids[]` records the concrete runtime CARD execution(s) that actually produced, materially supplied, or published the output. Every concrete producer resolves through `card_executions[]` to its `deck_execution_id` and canonical `card_id`.
 
-This concrete producer-execution relation is mandatory whenever the same canonical CARD can execute more than once or when the active provenance contract requires runtime producer attribution. A canonical CARD ID alone is insufficient for loops, retries, repeated calls, or repeated DECK execution.
+The concrete producer-execution relation is required whenever runtime producer attribution is part of the trace contract, including whenever the same canonical CARD can execute more than once. A canonical CARD ID alone is insufficient for loops, retries, repeated calls, or repeated DECK execution.
 
 `input_ids[]` identifies the exact immutable inputs materially contributing to the output. Execution-wide input availability is not a substitute.
 
@@ -767,7 +802,7 @@ The evidence class must be compatible with the output's `semantic_class` and exp
 
 ## Failure trace
 
-A failed execution retains enough information to distinguish the enclosing outcome from prior completed effects or machinery use.
+A failed execution retains enough information to distinguish the enclosing outcome from prior completed effects or machinery use without inventing a CARD culprit.
 
 ```text
 run_id
@@ -778,10 +813,7 @@ deck_executions[]
 card_executions[]
 control_decisions[]
 failure_records[]
-failure_card_id
-failure_class
-failure_stage
-backend_detail?
+primary_failure_record_id?
 effect_requirements[]
 effect_authorization_records[]
 effect_attempts[]
@@ -791,7 +823,7 @@ machinery_use_records[]
 observable_output_ids[]
 ```
 
-The canonical failing-CARD field is `failure_card_id`.
+The primary failure resolves through `failure_records[]` to an always-present typed failing scope. `failure_card_id` is canonical only for CARD-caused failures and is absent for legitimate pre-CARD failures.
 
 Effect-attempt completion is independent of CARD success. A completed process effect may coexist with a failed CARD if the process completed and returned a non-success status under the active contract.
 
@@ -810,12 +842,18 @@ At minimum, a future validator should reject or fail closed when:
 - a required extension ownership mapping becomes positional or implicit;
 - a requested execution contract is silently weakened without prior authorization;
 - output scope IDs do not resolve to stable type-specific scope records;
-- a concrete output cannot be joined to the CARD execution that produced it when runtime producer attribution is required;
+- a concrete output cannot be joined to the CARD execution that produced it;
+- an EXTERNAL-ENTROPY randomness scope cannot resolve to the exact protected RANDOM acquisition attempt(s), and to immutable entropy input identity where required by the audit/replay contract;
+- an effect attempt or non-attempt cannot be joined to its concrete `card_execution_id`;
+- a non-attempt record has no stable identity;
+- any applicable declared effect lacks both attempt and legitimate non-attempt accounting for a selected concrete CARD execution;
 - an effect begins before its authorization completed;
 - protected machinery begins before every applicable authorization completed;
 - denied protected machinery nevertheless has a use-start record;
 - a reachable required effect is omitted;
 - an effect non-attempt record points to an untyped or unresolved cause;
+- a failure lacks a typed failing-scope identity;
+- a pre-CARD failure fabricates `failure_card_id`, or a CARD-caused failure omits the matching canonical/concrete CARD identities;
 - cold execution and cache reuse become indistinguishable;
 - an optimized artifact cannot be joined to its optimization record;
 - output evidence status contradicts semantic class;
@@ -824,4 +862,4 @@ At minimum, a future validator should reject or fail closed when:
 
 ## Principle
 
-> Trace meaning, not just bytes. Preserve stable semantic identity, typed scope correspondence, concrete execution identity, authorization-before-use ordering, and the exact evidence chain from immutable inputs through lowerings and machinery to each output or failure.
+> Trace meaning, not just bytes. Preserve stable semantic identity, typed scope correspondence, concrete execution identity, unconditional declared-effect accounting, authorization-before-use ordering, and the exact evidence chain from immutable inputs through lowerings and machinery to each output or failure.
