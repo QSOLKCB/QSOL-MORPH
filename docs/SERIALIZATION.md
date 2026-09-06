@@ -25,65 +25,81 @@ The initial canonical-serialization implementation phase must **not** invent the
 
 ## Canonical semantic object
 
-All supported **lossless** serialization formats must map to the same complete canonical semantic objects.
+All supported **lossless** serialization formats must map to the same complete canonical semantic objects, including their containment and canonical source/order relationships.
 
 The shared serialized object model must be able to carry, where applicable:
 
 ```text
-JOB
-  JOB_ID
-  RESULT_DETERMINISM_CONTRACT?
-  NUMERIC_CONTRACT?
-  RANDOMNESS_CONTRACT?
-  MACHINERY_REQUIREMENTS[]
-  EXTENSION_REQUIREMENTS[]
-  FAILURE_BEHAVIOR?
-DECK
-  DECK_ID
-  RESULT_DETERMINISM_CONTRACT?
-  NUMERIC_CONTRACT?
-  RANDOMNESS_CONTRACT?
-  MACHINERY_REQUIREMENTS[]
-  EXTENSION_REQUIREMENTS[]
-  FAILURE_BEHAVIOR?
-CARD
-  CARD_ID
-VERB
-NOUN
-OPERANDS
-RESULT_BINDING
-VALUES
-TYPES
-UNITS
-QUALIFIERS
-SEMANTIC_CLASS
-EFFECT_REQUIREMENTS[]
-  EFFECT_ID
-  EFFECT_KIND
-  REQUIRED_CAPABILITIES[]
-MACHINERY_REQUIREMENTS[]
-  MACHINERY_REQUIREMENT_ID
-  TARGET_SELECTOR_OR_CLASS
-  REQUIRED_CAPABILITIES[]
-RESULT_DETERMINISM_CONTRACT
-NUMERIC_CONTRACT
-RANDOMNESS_CONTRACT
-DEPENDENCIES
-SEQUENCING_CONSTRAINTS[]
-  CONSTRAINT_ID?
-  CONSTRAINT_KIND
-  PREDECESSOR_ID_OR_SCOPE
-  SUCCESSOR_ID_OR_SCOPE
-  RULE_ID?
-  METADATA?
-FAILURE_BEHAVIOR
-EXTENSION_REQUIREMENTS[]
-  PROFILE_NAME
-  REQUIRED_VERSION_OR_RANGE
-  CONTRACT_ID_OR_HASH?
-SOURCE_IDENTITY / LOCATIONS
+PROGRAM
+  JOBS[]
+    JOB
+      JOB_ID
+      RESULT_DETERMINISM_CONTRACT?
+      NUMERIC_CONTRACT?
+      RANDOMNESS_CONTRACT?
+      MACHINERY_REQUIREMENTS[]
+      EXTENSION_REQUIREMENTS[]
+      FAILURE_BEHAVIOR?
+      DECKS[]
+        DECK
+          DECK_ID
+          RESULT_DETERMINISM_CONTRACT?
+          NUMERIC_CONTRACT?
+          RANDOMNESS_CONTRACT?
+          MACHINERY_REQUIREMENTS[]
+          EXTENSION_REQUIREMENTS[]
+          FAILURE_BEHAVIOR?
+          CARDS[]
+            CARD
+              CARD_ID
+              VERB
+              NOUN
+              OPERANDS
+              RESULT_BINDING
+              VALUES
+              TYPES
+              UNITS
+              QUALIFIERS
+              SEMANTIC_CLASS
+              EFFECT_REQUIREMENTS[]
+                EFFECT_ID
+                EFFECT_KIND
+                REQUIRED_CAPABILITIES[]
+              MACHINERY_REQUIREMENTS[]
+                MACHINERY_REQUIREMENT_ID
+                TARGET_SELECTOR_OR_CLASS
+                REQUIRED_CAPABILITIES[]
+              RESULT_DETERMINISM_CONTRACT
+              NUMERIC_CONTRACT
+              RANDOMNESS_CONTRACT
+              DEPENDENCIES
+              SEQUENCING_CONSTRAINTS[]
+                CONSTRAINT_ID?
+                CONSTRAINT_KIND
+                PREDECESSOR_ID_OR_SCOPE
+                SUCCESSOR_ID_OR_SCOPE
+                RULE_ID?
+                METADATA?
+              FAILURE_BEHAVIOR
+              EXTENSION_REQUIREMENTS[]
+                PROFILE_NAME
+                REQUIRED_VERSION_OR_RANGE
+                CONTRACT_ID_OR_HASH?
+              SOURCE_IDENTITY / LOCATION
 SCHEMA / SPECIFICATION VERSION
 ```
+
+`JOBS[]`, `DECKS[]`, and `CARDS[]` are not decorative nesting. They preserve the canonical containment relation and, where the frozen semantic model makes order observable or canonical, the deterministic order of children within their parent. Stable IDs alone do not establish which DECK belongs to which JOB, which CARD belongs to which DECK, or the canonical order of siblings.
+
+A lossless flattened or streaming representation may encode the same relation without physical nesting only if it carries an explicit frozen equivalent, for example:
+
+```text
+JOB_ID
+DECK_ID + PARENT_JOB_ID + DECK_ORDER_INDEX
+CARD_ID + PARENT_DECK_ID + CARD_ORDER_INDEX
+```
+
+or another normative representation that permits unique deterministic reconstruction of the same containment and order. Record adjacency, parse order, filename, or coincidental ID sorting is not a valid implicit parent/order rule unless a future frozen serialization profile explicitly defines it as canonical.
 
 `JOB_ID`, `DECK_ID`, and `CARD_ID` are stable canonical identities, not presentation labels. Dependencies, producer references, failure records, effect attempts, lowering maps, and provenance edges may refer to these identities, so a lossless serializer must preserve them exactly according to the frozen canonical model.
 
@@ -107,7 +123,7 @@ Scoped `EXTENSION_REQUIREMENTS[]` likewise remain attached to the JOB, DECK, or 
 
 A serializer must not invent meaning that does not exist in the semantic model, and a lossless serializer must not discard enforcement fields that determine whether or how a program may execute.
 
-In particular, round-tripping a JOB/DECK must not silently lose stable JOB/DECK/CARD identities, scoped determinism/numeric/randomness contracts, scoped extension requirements, result bindings, qualifiers, effect-to-capability bindings, machinery-to-capability bindings, failure behavior, permissions, extension-profile/version/contract associations, target/control modifiers, dependencies, or canonical sequencing constraints.
+In particular, round-tripping a JOB/DECK must not silently lose JOB→DECK→CARD containment/order, stable JOB/DECK/CARD identities, scoped determinism/numeric/randomness contracts, scoped extension requirements, result bindings, qualifiers, effect-to-capability bindings, machinery-to-capability bindings, failure behavior, permissions, extension-profile/version/contract associations, target/control modifiers, dependencies, or canonical sequencing constraints.
 
 ## Human form
 
@@ -126,7 +142,7 @@ The human form should optimize readability and semantic regularity.
 
 This syntax is **not** an implementation target for the initial canonical-serialization phase. A future normative QSOL text-profile specification must freeze lexical/grammar rules, shorthand/default reconstruction, source-to-Semantic-IR mapping, diagnostics, and canonical text rendering before `.qsl` parsing/serialization is implemented.
 
-Human-readable shorthand may omit fields only when the parser can reconstruct them unambiguously from that active frozen text-profile specification. Canonical serialization must retain the resolved semantic values, stable object identities, and result bindings.
+Human-readable shorthand may omit fields only when the parser can reconstruct them unambiguously from that active frozen text-profile specification. Canonical serialization must retain the resolved semantic values, stable object identities, containment/order, and result bindings.
 
 ## JSONL form
 
@@ -149,7 +165,7 @@ JSONL is attractive for:
 - line-addressable transformations;
 - append-oriented traces.
 
-If JSONL claims semantic losslessness, stable JOB/DECK/CARD identities, result bindings, scoped contract metadata, scoped JOB/DECK/CARD extension requirements, machinery requirements, canonical tagged sequencing constraints, and enforcement metadata must be represented either on the relevant records or through explicitly linked JOB/DECK metadata records whose scope and identity are deterministic.
+If JSONL claims semantic losslessness, stable JOB/DECK/CARD identities, explicit parent containment, deterministic sibling/source-order identity, result bindings, scoped contract metadata, scoped JOB/DECK/CARD extension requirements, machinery requirements, canonical tagged sequencing constraints, and enforcement metadata must be represented either on the relevant records or through explicitly linked metadata records. A flat JSONL stream must not infer ownership solely from record adjacency.
 
 ## JSON form
 
@@ -163,6 +179,7 @@ If used for hashing, canonical JSON requires strict rules for:
 - escaping;
 - omitted versus null fields;
 - stable JOB/DECK/CARD identifier representation;
+- deterministic `JOBS[]` / `DECKS[]` / `CARDS[]` containment and ordering, or an explicitly frozen equivalent parent/order encoding;
 - result-binding representation;
 - map ordering;
 - canonical qualifier maps;
@@ -189,7 +206,7 @@ Illustrative card:
 </card>
 ```
 
-This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including stable JOB/DECK/CARD identities, result bindings, qualifiers, effect/capability bindings, machinery/capability bindings, failure behavior, canonical tagged sequencing constraints, enforcement fields, scoped extension-profile/version/contract associations, and scoped JOB/DECK contracts.
+This is an illustrative fragment only. A lossless XML profile must also preserve every applicable canonical field, including explicit JOB→DECK→CARD containment and sibling/source order, stable JOB/DECK/CARD identities, result bindings, qualifiers, effect/capability bindings, machinery/capability bindings, failure behavior, canonical tagged sequencing constraints, enforcement fields, scoped extension-profile/version/contract associations, and scoped JOB/DECK contracts.
 
 XML is an interchange profile, not the preferred human authoring syntax.
 
@@ -197,7 +214,7 @@ XML is an interchange profile, not the preferred human authoring syntax.
 
 A binary representation may eventually improve startup time, storage efficiency, or direct runtime loading.
 
-A binary form should include enough schema, specification, stable JOB/DECK/CARD identity, scoped extension requirement/profile/version/contract association, result-binding, qualifier, effect-binding, machinery-requirement, failure-behavior, canonical sequencing-constraint, and scoped contract identity to avoid interpreting bytes under the wrong semantic, dependency, target-control, failure, authorization, ordering, or provenance model.
+A binary form should include enough schema, specification, explicit JOB→DECK→CARD containment/order, stable JOB/DECK/CARD identity, scoped extension requirement/profile/version/contract association, result-binding, qualifier, effect-binding, machinery-requirement, failure-behavior, canonical sequencing-constraint, and scoped contract identity to avoid interpreting bytes under the wrong semantic, dependency, target-control, failure, authorization, ordering, or provenance model.
 
 ## Round-trip requirement
 
@@ -213,7 +230,7 @@ semantic object'
 semantic object == semantic object'
 ```
 
-Equality here includes execution-relevant, dependency-relevant, and reference-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any stable JOB/DECK/CARD identity, result binding, qualifier, effect requirement, machinery requirement, per-requirement capability set, failure behavior, scoped determinism, scoped numeric, scoped randomness, scoped extension requirement/profile-version-contract association, dependency, or tagged sequencing constraint.
+Equality here includes hierarchy-, execution-, dependency-, and reference-relevant fields. Two representations are not semantically equal if one loses, changes, or defaults any JOB→DECK→CARD containment/order relation, stable JOB/DECK/CARD identity, result binding, qualifier, effect requirement, machinery requirement, per-requirement capability set, failure behavior, scoped determinism, scoped numeric, scoped randomness, scoped extension requirement/profile-version-contract association, dependency, or tagged sequencing constraint.
 
 Formatting metadata need not round-trip unless explicitly included in the representation contract.
 
@@ -223,7 +240,7 @@ Hashes should be computed over a defined canonical representation or semantic ca
 
 Do not hash incidental whitespace and then call the digest a semantic identity unless source-text identity is specifically the object being bound.
 
-Stable JOB/DECK/CARD identities, result bindings, qualifiers, effect requirements, machinery requirements, per-requirement capability sets, explicit failure behavior, canonical sequencing constraints, scoped contract identities, and scoped extension requirement/profile-version-contract associations that affect execution, dependency, authorization, ordering, or provenance meaning must contribute to semantic identity according to the frozen canonicalization rules.
+Canonical JOB→DECK→CARD containment/order, stable JOB/DECK/CARD identities, result bindings, qualifiers, effect requirements, machinery requirements, per-requirement capability sets, explicit failure behavior, canonical sequencing constraints, scoped contract identities, and scoped extension requirement/profile-version-contract associations that affect execution, dependency, authorization, ordering, or provenance meaning must contribute to semantic identity according to the frozen canonicalization rules.
 
 ## Versioning
 
@@ -244,6 +261,7 @@ A migration tool should ideally report changed cards/fields and distinguish:
 
 - pure representation updates;
 - semantic changes requiring human review;
+- JOB/DECK/CARD containment or sibling/source-order changes;
 - JOB/DECK/CARD identity changes;
 - result-binding/dependency changes;
 - qualifier/target-control changes;
@@ -255,8 +273,8 @@ A migration tool should ideally report changed cards/fields and distinguish:
 - JOB/DECK/CARD determinism/numeric/randomness contract changes;
 - scoped extension requirement/version/contract changes.
 
-A migration must not silently manufacture, discard, detach, relocate, or renumber a stable JOB/DECK/CARD identity, result binding, extension requirement, execution authorization requirement, failure policy, sequencing constraint, target-control qualifier, machinery requirement, or scientific contract merely to make an old deck parse.
+A migration must not silently manufacture, discard, detach, relocate, reorder, or renumber a JOB→DECK→CARD hierarchy relation, stable JOB/DECK/CARD identity, result binding, extension requirement, execution authorization requirement, failure policy, sequencing constraint, target-control qualifier, machinery requirement, or scientific contract merely to make an old deck parse.
 
 ## Principle
 
-> One meaning, many transports. Freeze source grammar before implementing it, round-trip every semantic field, canonicalize before you hash, and version before you freeze.
+> One meaning, many transports. Preserve hierarchy as well as identity, freeze source grammar before implementing it, round-trip every semantic field, canonicalize before you hash, and version before you freeze.
