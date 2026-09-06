@@ -115,10 +115,9 @@ Implement the minimum execution-contract schema required before any QSOL phase i
 
 The initial trace contract should bind, where applicable:
 
-- source identity/hash;
-- canonical semantic IR identity/hash;
-- stable `job_id`, `deck_id`, and the `card_ids[]` referenced by this execution and its provenance records;
-- enclosing `execution_status`, `job_status`, and `deck_status`, plus `failure_card_id`, failure class, and failure stage when an enclosing failure occurs;
+- stable aggregate `run_id`, source identity/hash, and canonical semantic IR identity/hash;
+- stable `job_id`, identified `deck_executions[]` for every DECK selected by that JOB run, and the stable `card_ids[]` referenced by execution/provenance records;
+- enclosing `execution_status` and `job_status`, plus per-DECK status/failure context inside `deck_executions[]` and aggregate `failure_card_id`, failure class, and failure stage when applicable;
 - active specification version;
 - implementation/MORPH version;
 - canonical `effect_requirements[]`, each carrying source CARD ID, declared `effect_id`, effect kind, and the complete `required_capabilities[]` set for that declared protected effect;
@@ -131,14 +130,17 @@ The initial trace contract should bind, where applicable:
 - capability-policy identity/version responsible for authorization decisions;
 - capabilities actually used;
 - identified `inputs[]`, each binding a stable `input_id` to the exact canonical value, content hash, immutable artifact/version identity, or equivalent frozen identity actually consumed, with any location/schema/media metadata needed for retrieval or interpretation;
-- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, governing backend-selection/result-determinism/numeric/randomness scope IDs, and any `cache_reuse_record_ids[]` that contributed to that output;
+- identified `outputs[]`, each binding its own output/result identity, optional result binding, artifact hash/location, semantic class, status, producer CARD IDs, governing backend-selection/result-determinism/numeric/randomness scope IDs, applicable exact `generated_artifact_ids[]` where generated code supplied the output, and any `cache_reuse_record_ids[]` that contributed to that output;
 - identified `cache_reuse_records[]`, each distinguishing cold execution, verified reuse, unverified cache hit, or frozen equivalent and binding source CARD IDs, material cache identity, reused computation/artifact identity, cache-key/artifact hashes where applicable, legality rule, and verification evidence;
 - active extension profiles plus resolved extension versions/content identities;
 - identified `external_tool_versions[]` for material external tools/services/models/provers/processes, binding stable tool/service identity, version/content/model identity, and source CARD IDs where applicable;
 - identified `effect_attempts[]`, each carrying runtime `effect_attempt_id`, canonical `declared_effect_id`, initiating `card_id`, `effect_kind`, complete `required_capabilities[]`, sequence identity/order where applicable, and individual completion state;
+- identified `effect_non_attempt_records[]` for declared effects that have no runtime attempt, each carrying `declared_effect_id`, `card_id`, `effect_kind`, an explicit non-attempt reason, and governing control/failure identity where applicable;
 - structured execution-failure records where applicable.
 
-Declared `effect_requirements[]` are required in addition to runtime `effect_attempts[]`. If a backend omits a declared effect entirely, the trace must still expose the missing declaration rather than relying on a nonexistent attempt or an ambiguous execution-wide capability union to reconstruct what should have happened.
+Every selected DECK must remain visible in `deck_executions[]`. A DECK prevented from starting by prior fail-stop behavior records an explicit non-started/skipped status or frozen equivalent rather than disappearing. One singular `deck_id` / `deck_status` pair is insufficient for a JOB that coordinates multiple DECKs.
+
+Declared `effect_requirements[]` are required in addition to runtime attempt accounting. Every declared effect must be accounted for by either one or more `effect_attempts[]` or an explicit `effect_non_attempt_records[]` reason when no attempt object exists. Candidate reasons include untaken branch, prior fail-stop, CARD not reached, explicit frozen skip, and detected backend omission. An effect declaration with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required. This prevents legitimate unreachable effects from being misclassified as backend omissions and prevents implementation omissions from hiding behind absence of an attempt row.
 
 A mutable input locator such as a path, URL, dataset name, or model name is retrieval context, not sufficient provenance by itself. Every material input must have a stable input identity plus an immutable value/content/artifact identity that distinguishes exactly what was consumed; otherwise replay and audit fail closed rather than guessing from the locator.
 
@@ -162,9 +164,9 @@ Before PR #7 may execute a program, this phase must also define the reference fa
 - completion-state classification is mutually exclusive and ordered: `NOT_STARTED` if no begin occurred; otherwise `COMPLETED` if the effect reached its completion boundary; for a known-incomplete attempt use `ABORTED_CLEAN` when no external change occurred, `PARTIAL` when some incomplete portion became observable, and `UNKNOWN` only when clean-vs-partial cannot be established; use `UNKNOWN` also when completion itself cannot be established;
 - known completion takes precedence over uncertainty about broader external consequences;
 - division/modulo by zero and other defined arithmetic-domain errors produce structured failure rather than backend-chosen undefined behavior;
-- failure traces identify the CARD, DECK/JOB outcome, failure class/stage, per-attempt declared/runtime identities and states, and whether any output artifact became observable.
+- failure traces identify the CARD, per-DECK/JOB outcome, failure class/stage, per-effect attempt or non-attempt accounting, and whether any output artifact became observable.
 
-This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the selected stable JOB/DECK/CARD execution, immutable material inputs, epistemic class/status, scoped backend-selection/determinism/numeric/randomness execution context, cache-reuse path where applicable, extension set, material external-tool identities, authorization decisions, and execution/failure context that produced it.
+This phase is a gate for PR #7 and every later executable implementation. No executable QSOL path should emit a research result without enough provenance to bind each identified output to the selected stable JOB/per-DECK/CARD execution, immutable material inputs, epistemic class/status, exact generated target where applicable, scoped backend-selection/determinism/numeric/randomness execution context, cache-reuse path where applicable, extension set, material external-tool identities, authorization decisions, and execution/failure context that produced it.
 
 ## PR #6 — Normative QSOL-CORE Operational Specification
 
@@ -232,7 +234,7 @@ The reference lowering must:
 - consume canonical Semantic IR rather than hand-built QSOL-CORE only;
 - produce QSOL-CORE plus preserved result bindings, qualifiers, scoped contracts, effect bindings/IDs, failure behavior, metadata, and provenance required by later stages;
 - fail closed for unsupported or contract-breaking semantic constructs/qualifiers;
-- bind semantic IR identity, lowering-spec identity, lowering implementation identity, resolved extension identities, resulting QSOL-CORE identity, and `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
+- bind semantic IR identity, canonical `semantic_to_core_spec_version`, canonical `semantic_to_core_implementation_version`, resolved extension identities, resulting QSOL-CORE identity, and `result_binding_map[]` whenever result identities are preserved or transformed; omission is allowed only under a frozen deterministic identity-map reconstruction rule;
 - record `qualifier_lowering_decisions[]`, `result_determinism_lowering_decisions[]`, `numeric_contract_lowering_decisions[]`, and `randomness_lowering_decisions[]` whenever lowering consumes, groups, remaps, normalizes, or otherwise materially transforms those source requirements, including the frozen rule or transition authority responsible;
 - pass all frozen lowering conformance and rejection fixtures.
 
@@ -317,7 +319,7 @@ Goals:
 - end-to-end comparison from canonical Semantic IR through the reference machine and C result path;
 - no backend bypass of the mandatory lower IR for control, calls, effects, or scalar operations.
 
-The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity, scoped determinism/numeric/randomness execution information, and identified `generated_artifacts[]`. Each generated artifact must bind a stable artifact ID/kind/hash to its `backend_unit_id` and governing `backend_selection_scope_id`, plus source CARD/location provenance where material. A bare list of generated target hashes is not sufficient for mixed-unit or mixed-target provenance.
+The C backend inherits the PR #5 trace/failure/authorization gate and must record backend/compiler identity, scoped determinism/numeric/randomness execution information, and identified `generated_artifacts[]`. Each generated artifact must bind a stable artifact ID/kind/hash to its `backend_unit_id` and governing `backend_selection_scope_id`, plus source CARD/location provenance where material. Applicable outputs must also record the exact `generated_artifact_ids[]` that actually produced or supplied them. A bare list of generated target hashes or a backend-selection scope alone is not sufficient for mixed-unit, mixed-target, or reference-vs-optimized provenance.
 
 ## PR #13 — Morph Optimization Passes
 
@@ -463,11 +465,12 @@ Targets may include:
 - epistemic-class preservation;
 - canonical serialization properties including stable JOB/DECK/CARD and result-binding preservation;
 - immutable input-provenance binding properties for a defined subset;
+- aggregate `run_id` plus per-DECK execution-record completeness for multi-DECK JOBs;
 - scoped backend-selection, result-determinism, numeric-contract/mode, and randomness provenance properties;
-- per-output epistemic/status and execution-scope binding properties;
+- per-output epistemic/status, execution-scope, and exact generated-artifact binding properties;
 - result-binding-map preservation across both mandatory lowering boundaries;
 - cache/replay legality and cache-reuse provenance for a defined effect-free subset;
-- declared-effect completeness and declared-effect/runtime-attempt correspondence for a defined subset;
+- declared-effect completeness with explicit attempt-or-non-attempt accounting and declared-effect/runtime-attempt correspondence for a defined subset;
 - generated-artifact/backend-scope attribution properties;
 - external-tool identity and optimization-provenance binding properties for a defined subset;
 - QX-POSIX contract properties for a defined subset;
