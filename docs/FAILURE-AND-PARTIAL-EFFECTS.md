@@ -47,6 +47,8 @@ When a DECK fails and no explicit JOB-level recovery rule handles that failure:
 - already completed DECKs and their externally observable effects remain part of provenance;
 - partial artifacts may be retained only with their failed/partial status intact.
 
+Every DECK selected for the JOB execution remains represented in provenance even when it never starts. A later DECK prevented by fail-stop is not deleted from execution history; it receives an explicit non-started/skipped outcome or frozen equivalent.
+
 This default deliberately avoids inventing implicit continuation semantics.
 
 If a future JOB construct permits independent DECK continuation, retry, fallback, compensation, or parallel execution after another DECK fails, that behavior must be explicit and frozen, including dependency, cancellation, ordering, artifact-status, and provenance rules.
@@ -100,6 +102,8 @@ UNKNOWN
 
 These names are provisional, but the distinctions are semantic and must be mutually exclusive.
 
+A declared effect does not necessarily have an attempt. Its CARD may be on an untaken branch, may never be reached after an earlier fail-stop failure, or may be explicitly skipped under a frozen rule. The trace must distinguish those legitimate non-attempts from a backend silently omitting a reachable declared effect.
+
 ## Completion-state decision rule
 
 The state is determined in this order:
@@ -136,11 +140,13 @@ The protected effect never began.
 
 Examples may include:
 
-- denied capability;
+- denied capability after a runtime attempt has been identified but before the protected effect begins;
 - invalid path rejected before opening a file;
 - process launch rejected before a child exists.
 
 `NOT_STARTED` is invalid once the protected effect has actually begun.
+
+A declaration that was never reached is different: if no runtime attempt object exists at all, use an explicit effect non-attempt record rather than inventing a `NOT_STARTED` attempt.
 
 ### COMPLETED
 
@@ -201,9 +207,11 @@ Capability authorization is a hard boundary, not a best-effort preflight.
 
 For example, an operation requiring both `AI_MODEL` and `NETWORK` must not begin its remote model effect unless both capabilities have been granted for that execution.
 
-If authorization is denied or cannot be established for any required capability, the attempt fails with state `NOT_STARTED`.
+If authorization is denied or cannot be established for any required capability after a runtime attempt has been identified, the attempt fails with state `NOT_STARTED`.
 
 This rule is unconditional for capability authorization. A backend may not downgrade it to "where practical" merely because preflight is inconvenient.
+
+Protected machinery authorization is a separate boundary. Selecting GPU/CUDA or another protected target is not an external effect, but every machinery capability required by the applicable canonical machinery requirement must be authorized before that machinery is used. A denied machinery requirement must not be represented as a fake external effect attempt merely to fit this model.
 
 Other non-authorization checks, such as static validation or external-system preconditions that cannot always be known in advance, should occur before an effect begins where practical. Failure of those checks after an effect begins must use the per-attempt effect model rather than pretending the effect never happened.
 
@@ -267,31 +275,72 @@ Exact names are not frozen in this documentation phase.
 
 A failed execution should be traceable with enough information to answer:
 
-- which CARD failed;
-- which DECK failed;
-- whether the JOB failed or an explicit JOB-level handler changed the outcome;
+- which aggregate run/JOB failed;
+- every DECK selected for that JOB run and the outcome of each one, including DECKs prevented from starting;
+- every CARD in those selected DECKs and whether it executed, failed, was on untaken control flow, was blocked by prior fail-stop, or was explicitly skipped under a frozen rule;
+- which CARD produced the enclosing failure;
 - at what stage the failure occurred;
 - which stable failure class applies;
 - which backend/runtime detail was reported;
-- which prior DECKs had completed;
+- which declared effects existed;
 - which effect attempts existed, which canonical declared effect produced each one, the complete capability set governing each attempt, and the completion state of each attempt;
+- why any declared effect had no runtime attempt;
 - whether any output artifact became externally visible;
-- what determinism, numeric, randomness, capability, policy, and extension contracts were active.
+- what determinism, numeric, randomness, capability, machinery-authorization, policy, and extension contracts were active.
 
 A minimal conceptual record may contain:
 
 ```text
+run_id
 execution_status
+job_id
 job_status
-deck_status
+deck_executions[]
+card_executions[]
 failure_card_id
 failure_class
 failure_stage
 backend_detail?
-completed_decks[]
+effect_requirements[]
 effect_attempts[]
+effect_non_attempt_records[]
+machinery_authorization_records[]
 observable_artifacts[]
 ```
+
+Each selected DECK is represented through an identified record such as:
+
+```text
+deck_executions[]:
+    deck_execution_id
+    deck_id
+    deck_status
+    card_execution_ids[]
+    execution_order_index?
+    failure_card_id?
+    failure_class?
+    failure_stage?
+```
+
+A derived `completed_decks[]` summary may be useful, but it is not a substitute for identified per-DECK execution records because it cannot represent the failed DECK and later DECKs that never started.
+
+Each CARD execution is likewise identified, conceptually:
+
+```text
+card_executions[]:
+    card_execution_id
+    deck_execution_id
+    card_id
+    card_status
+    execution_order_index?
+    governing_control_or_failure_id?
+    failure_class?
+    failure_stage?
+```
+
+Candidate CARD outcomes may include successful execution, failed execution, untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip. The exact vocabulary remains provisional, but membership in `card_ids[]` must not be mistaken for proof that the CARD ran.
+
+Each `effect_requirements[]` entry preserves the canonical declared effect, source CARD, effect kind, and complete required-capability set.
 
 Each `effect_attempts[]` entry should be independently identifiable and may carry fields such as:
 
@@ -309,7 +358,21 @@ observable_artifacts[]
 
 `declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt. They are not interchangeable.
 
-The trace must not collapse multiple external actions into one aggregate `partial_effect_state`.
+When a declared effect has no runtime attempt, an identified non-attempt record should explain why:
+
+```text
+effect_non_attempt_records[]:
+    declared_effect_id
+    card_id
+    effect_kind
+    non_attempt_reason
+    governing_control_or_failure_id?
+    backend_detail?
+```
+
+Candidate reasons include untaken branch, prior fail-stop, CARD not reached, explicit frozen skip, and detected backend omission. A declared effect with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
+
+The trace must not collapse multiple external actions into one aggregate `partial_effect_state`, and it must not collapse selected DECKs or CARD execution paths into one aggregate status that loses which semantic units actually ran.
 
 ## Determinism and failure
 
@@ -339,8 +402,8 @@ Backends may translate failure into native mechanisms such as return codes, tagg
 
 Those are implementation choices.
 
-They must map back to the same QSOL CARD/DECK/JOB success/failure semantics and the same per-effect-attempt completion semantics.
+They must map back to the same QSOL CARD/DECK/JOB success/failure semantics, the same per-CARD/per-DECK execution ledger, and the same per-effect-attempt/non-attempt semantics.
 
 ## Principle
 
-> Failure is observable behavior. Effect completion belongs to the effect attempt, not the CARD outcome. Known completion takes precedence over consequence uncertainty. Authorization happens before the effect. Do not leave any of these to backend folklore.
+> Failure is observable behavior. Record every selected DECK, every CARD execution outcome, and every declared effect's attempt or non-attempt reason. Effect completion belongs to the effect attempt, not the CARD outcome. Authorization happens before the protected boundary. Do not leave any of these to backend folklore.
