@@ -77,7 +77,7 @@ When proposing changes:
 37. bind protected-machinery authorization records to the concrete backend-selection decision/scope they govern and preserve same-domain authorization-before-use ordering through identified machinery-use records;
 38. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
 39. bind each effect attempt to its contextual `effect_authorization_record_id` and preserve same-domain authorization-before-effect-begin ordering where required;
-40. account for every declared effect with either an attempt or an explicit legitimate non-attempt reason;
+40. account **unconditionally** for every applicable declared effect for every selected concrete `card_execution_id` with attempt(s), exactly one legitimate identified non-attempt, or structured failure;
 41. treat a detected omission of a reachable required effect as structured execution/conformance failure, never as a successful non-attempt;
 42. define effect-attempt completion independently from the enclosing CARD outcome;
 43. apply completion-state precedence so known `COMPLETED` cannot also be `UNKNOWN`;
@@ -85,13 +85,15 @@ When proposing changes:
 45. record every selected DECK in `deck_executions[]`, including DECKs prevented from starting by prior fail-stop;
 46. record every CARD in a selected DECK execution in `card_executions[]`, distinguishing executed, failed, untaken, fail-stop-blocked, not-reached, and explicit-skip paths;
 47. bind effect-produced/exposed outputs to concrete `effect_attempt_ids[]`, with reciprocal output IDs on attempts;
-48. bind material external-tool identities to concrete effect attempts and/or outputs, not merely to a broad source CARD;
+48. bind material external-tool identities to concrete effect attempts and/or outputs, not merely to a broad source CARD, and require an immutable/versioned material identity or an explicit identity-unavailable status that weakens replay/evidence claims;
 49. do not satisfy an effectful CARD from cached prior output if that skips a declared effect or its authorization/ordering/failure/provenance boundary;
 50. bind every material runtime input to a stable `input_id` plus exact canonical value/content/artifact identity actually consumed;
-51. bind each output to the exact materially contributing `input_ids[]` and exact generated artifact IDs that actually produced or supplied it when generated code is involved;
+51. bind each output to canonical producer CARDs **and concrete `producer_card_execution_ids[]`**, exact materially contributing `input_ids[]`, applicable failure-behavior bindings, and exact generated artifact IDs when generated code is involved;
 52. bind optimized generated artifacts to the exact optimization-record IDs and optimized-IR identity that produced them, with reciprocal generated-artifact IDs on optimization records;
-53. use `failure_card_id` consistently for the CARD whose unhandled failure produced an enclosing failure record;
-54. prefer small, inspectable transformations.
+53. give each failure-behavior provenance record a stable `failure_behavior_binding_id` and make output references resolve to those record IDs rather than a generic computation `scope_id`;
+54. bind every generated artifact to the ordered exact toolchain invocation IDs that produced its bytes, including material tool identity, flags/configuration, target/ABI context, and reciprocal output-artifact links;
+55. use `failure_card_id` only for the CARD whose unhandled failure actually caused a failure record; pre-CARD failures use an always-present typed failing scope and must not fabricate a CARD culprit;
+56. prefer small, inspectable transformations.
 
 ## Vocabulary
 
@@ -121,6 +123,8 @@ machinery authorization record
 machinery use record
 result-determinism scope
 failure-behavior binding
+failure-behavior binding ID
+toolchain invocation
 QSOL-CORE
 Semantic IR
 Semantic-to-Core Lowering
@@ -233,7 +237,20 @@ Randomness provenance binds scope identity to requested/effective randomness mod
 
 Result-determinism, numeric, and randomness execution-scope records use their own stable type-specific record keys. Output scope-ID arrays reference those keys, not the generic governed computation `scope_id`.
 
-Failure behavior provenance binds source and effective failure-policy identity to the JOB/DECK/CARD or other frozen scope it governs. When default fail-stop materially determines the execution path, its stable specification identity may need to be recorded rather than inferred from skipped CARDs.
+Failure behavior provenance uses identified records:
+
+```text
+failure_behavior_bindings[]:
+    failure_behavior_binding_id
+    scope_kind
+    scope_id
+    source_card_ids[]
+    requested_failure_behavior_id
+    effective_failure_behavior_id
+    mapping_or_transition_rule_id?
+```
+
+Outputs reference applicable `failure_behavior_binding_ids[]`. The frozen default fail-stop behavior has a stable identity when it materially governs execution; it must not be inferred only from skipped CARDs or DECKs.
 
 A recorded transition is evidence, not authorization. If a required contract cannot be satisfied and no frozen pre-execution rule authorizes the transition, fail closed.
 
@@ -292,6 +309,8 @@ Every selected DECK remains represented even if prior fail-stop prevents it from
 
 Execution-path cause references must be typed and resolvable. Do not use one untyped catch-all ID namespace for control decisions and failure records.
 
+Failure records always carry `failing_scope_kind` plus `failing_scope_id`. `failure_card_id?` and `failure_card_execution_id?` are present only when a CARD execution actually caused the failure; pre-CARD failure must never synthesize those fields.
+
 ## Input provenance work
 
 Do not treat a mutable locator as the identity of a material input.
@@ -312,6 +331,7 @@ artifact_location?
 semantic_class
 status
 producer_card_ids[]
+producer_card_execution_ids[]
 input_ids[]
 effect_attempt_ids[]?
 external_tool_ids[]?
@@ -320,11 +340,16 @@ generated_artifact_ids[]?
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
+failure_behavior_binding_ids[]
 cache_reuse_record_ids[]?
 evidence_status?
 ```
 
+`producer_card_ids[]` identifies canonical semantic producers. `producer_card_execution_ids[]` identifies the concrete runtime producer executions and must resolve through `card_executions[]` to their canonical CARD and DECK execution. The canonical CARD ID alone is insufficient when a CARD may execute more than once.
+
 `input_ids[]` contains the exact immutable input records that materially contributed to this output under the frozen provenance-dependency rule. It is not the whole execution-wide input inventory by default.
+
+`failure_behavior_binding_ids[]` resolves to the exact failure-policy provenance records that governed the producer path. A generic computation `scope_id` is not a substitute for the stable binding-record key.
 
 `evidence_status`, when present, is class-discriminated:
 
@@ -337,6 +362,12 @@ evidence_rule_id?
 Reject incompatible semantic/evidence-class combinations. Generic output status is not an epistemic promotion mechanism.
 
 When an effect materially produces or exposes an output, link the output to concrete attempt IDs and link those attempts back to the output. When an external tool materially supplies evidence/data, link the tool to concrete attempts and/or outputs rather than only the broad source CARD.
+
+## External-tool provenance work
+
+A tool name, service label, or mutable endpoint is not sufficient material identity when the tool can affect result bytes or evidence.
+
+Each material `external_tool_versions[]` record must either carry at least one immutable/versioned identity such as a tool version, executable/content hash, model/version ID, immutable artifact ID, or frozen equivalent, or explicitly record that material identity is unavailable. Identity unavailability must weaken the replay/evidence claim according to the frozen policy; it must never be silently treated as fully reproducible provenance.
 
 ## Optimization and cache work
 
@@ -374,6 +405,7 @@ Every runtime protected effect attempt must record at least:
 effect_attempt_id
 declared_effect_id
 card_id
+card_execution_id
 effect_kind
 required_capabilities[]
 effect_authorization_record_id
@@ -385,9 +417,25 @@ observable_output_ids[]
 external_tool_ids[]?
 ```
 
-Every contextual effect authorization record must identify the attempt/declaration/CARD, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and `authorization_sequence_index?`. All required capabilities must be granted before effect begin. When ordering auditability is required, `authorization_sequence_index` and `effect_begin_sequence_index` are in one frozen monotonic event-order domain and must satisfy `authorization_sequence_index < effect_begin_sequence_index`. A denied attempt has no begin event. Generic attempt `sequence_index` is not a substitute.
+Every contextual effect authorization record must identify the attempt/declaration/CARD **and concrete `card_execution_id`**, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and `authorization_sequence_index?`. All required capabilities must be granted before effect begin. When ordering auditability is required, `authorization_sequence_index` and `effect_begin_sequence_index` are in one frozen monotonic event-order domain and must satisfy `authorization_sequence_index < effect_begin_sequence_index`. A denied attempt has no begin event. Generic attempt `sequence_index` is not a substitute.
 
-If a declared effect has no attempt because execution never reaches it, record an explicit legitimate non-attempt reason such as untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip.
+If a declared effect has no attempt for a concrete CARD execution, record an identified legitimate non-attempt:
+
+```text
+effect_non_attempt_record_id
+declared_effect_id
+card_id
+card_execution_id
+effect_kind
+non_attempt_reason
+governing_control_decision_id?
+governing_failure_record_id?
+backend_detail?
+```
+
+Legitimate reasons include untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip. Separate invocations of the same canonical CARD require separate non-attempt records.
+
+Declared-effect accounting is unconditional. For every selected concrete `card_execution_id`, every applicable effect declaration must resolve to attempt(s), exactly one legitimate identified non-attempt, or structured failure. No profile, backend, optimization mode, deployment setting, or audit switch may disable this rule.
 
 A detected omission of a reachable required effect is **not** a successful non-attempt reason. It forces structured execution/conformance failure. Do not let `BACKEND_OMISSION_DETECTED` coexist with successful enclosing execution.
 
@@ -408,6 +456,28 @@ Before implementing an extension with material operational semantics, follow the
 Backend-specific behavior belongs behind explicit backend or extension boundaries.
 
 Generated target code should remain inspectable where practical.
+
+Every generated artifact must be attributable to the exact ordered toolchain invocation chain that produced its bytes. Use identified records such as:
+
+```text
+toolchain_invocations[]:
+    toolchain_invocation_id
+    invocation_sequence_index
+    invocation_kind
+    tool_name
+    material_tool_identity
+    target_or_architecture?
+    abi?
+    flags[]
+    environment_or_config_hash?
+    input_ir_hashes[]?
+    input_generated_artifact_ids[]?
+    output_generated_artifact_ids[]
+    backend_unit_id?
+    backend_selection_scope_id?
+```
+
+`generated_artifacts[].toolchain_invocation_ids[]` records the ordered invocation IDs that materially produced the artifact, and invocation records reciprocally identify their output artifacts. A run-wide compiler-version list is summary metadata only; it is not sufficient build provenance when different units or stages can use different compiler/linker versions or flags.
 
 A backend implements frozen semantics. It does not define them.
 
@@ -475,21 +545,26 @@ For every substantive change, ask:
 - Did protected machinery use begin before all required capabilities were authorized, or lose the ordering evidence needed to prove that invariant?
 - Did backend fallback overwrite an earlier denied/failed selection rather than preserve a decision chain?
 - Did a backend-selection decision/reference lose its resolvable `backend_selection_scope_id`?
-- Did a concrete effect attempt lose its contextual authorization record?
+- Did a concrete effect attempt lose its contextual authorization record or concrete `card_execution_id`?
 - Did authorization move until after an effect began, or lose the begin-order evidence needed to prove otherwise?
 - Did a runtime attempt lose its canonical declared-effect link?
-- Did a legitimate non-attempt lose its typed, resolvable execution-path cause?
+- Did a legitimate non-attempt lose its stable record ID, concrete `card_execution_id`, or typed resolvable execution-path cause?
+- Did any applicable declared effect lack attempt/non-attempt/failure accounting for a selected concrete CARD execution?
 - Did a detected reachable-effect omission fail to fail execution/conformance?
 - Did a selected DECK disappear because fail-stop prevented it from starting?
 - Did a CARD membership list get mistaken for execution evidence?
+- Did a pre-CARD failure fabricate a failing CARD identity?
 - Did scoped determinism/numeric/randomness/failure provenance collapse into false globals or lose stable record keys?
-- Did an output lose its material input, backend, RNG, exact generated-artifact, concrete effect-attempt, or external-tool references?
+- Did a failure-behavior binding lose its stable record ID or an output lose the binding IDs that governed its producer path?
+- Did an output lose its canonical producer, concrete producer execution, material input, backend, RNG, exact generated-artifact, concrete effect-attempt, failure-policy, or external-tool references?
 - Did an output gain incompatible TEST/VALIDATION/PROOF status?
 - Did a material input retain only a mutable locator?
+- Did a material external tool retain only a mutable name/endpoint without an explicit identity-unavailable downgrade?
 - Did an optimized artifact lose the optimization record(s) that produced it?
+- Did a generated artifact lose the exact ordered toolchain invocation IDs, tool identity, or build flags/configuration that produced its bytes?
 - Did an extension get mistaken for a capability grant or leak into core?
 - Did a serializer lose JOB→DECK→CARD containment/order, the canonical tagged sequencing field, or replace it with incomplete parallel arrays?
-- Did a failure record use `card_id` where canonical `failure_card_id` is required?
+- Did a failure record use `card_id` where canonical `failure_card_id` is required, or require `failure_card_id` where no CARD actually failed?
 - Did human text implementation invent grammar before normative text-profile freeze?
 - Did reordering/dead-result elimination change failure/effect observability?
 - Did cache reuse skip effect authorization, ordering, failure, or attempt provenance?
