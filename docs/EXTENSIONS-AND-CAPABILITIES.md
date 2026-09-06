@@ -45,7 +45,7 @@ DENY NETWORK
 
 ## Capabilities
 
-A capability is runtime permission to perform a class of protected effect or access a class of protected machinery.
+A capability is runtime permission to perform a class of protected effect **or to use a class of protected machinery**.
 
 Candidate capability families include:
 
@@ -63,13 +63,17 @@ EXTERNAL_TOOL
 
 The final naming scheme is not frozen.
 
-## Effects versus capabilities
+## Effects versus machinery versus capabilities
 
-An **effect** describes what an operation does.
+An **effect** describes an externally/statefully observable operation.
 
-A **capability** describes what the execution environment allows.
+A **machinery selection** describes where/how a computation is executed, such as host, SIMD, GPU, CUDA, or another accelerator/backend target.
+
+A **capability** describes what the execution environment allows, either for a protected effect or for protected machinery access.
 
 An **extension profile** describes optional language/adapter functionality that must be available to interpret or lower the deck.
+
+These are four different boundaries and must not be collapsed.
 
 Example:
 
@@ -106,13 +110,53 @@ NETWORK
 
 Every capability required by that specific effect attempt must be granted before the attempt begins. Trace/provenance therefore records the complete per-attempt required-capability set rather than one optional capability label.
 
+A protected machinery requirement may likewise require one or more capabilities. For example, a computation whose selected target class is GPU may require:
+
+```text
+GPU
+```
+
+through a distinct `machinery_requirements[]` record. That requirement does not turn GPU selection into an external effect.
+
+## Protected machinery authorization
+
+Machinery selection and machinery authorization are separate operations.
+
+Canonical semantic state may carry a machinery requirement such as:
+
+```text
+machinery_requirement_id = gpu_access_1
+target_selector_or_class = GPU
+required_capabilities = [GPU]
+```
+
+For automatic selection such as `ON BEST`, the actual target may need to be resolved before the applicable machinery requirement is known. The execution rule is:
+
+```text
+resolve target
+    ↓
+resolve applicable machinery requirement(s)
+    ↓
+authorize every required machinery capability
+    ↓
+begin protected machinery use
+```
+
+Target resolution for planning/provenance is not permission to execute on that target. If machinery authorization fails, the protected machinery execution must not begin.
+
+A backend or selection policy may not silently evade a denial by switching to another target unless a frozen pre-execution fallback rule permits that transition and records it. Likewise, no synthetic effect attempt should be created solely to represent machinery permission.
+
+Trace/provenance should bind machinery authorization to the backend-selection scope it governs, including required/granted/denied capabilities and the responsible policy identity/version.
+
 ## Fail closed
 
 Capability checking should reject rather than silently escalate.
 
 A program denied network access must not have a backend quietly substitute a network-backed helper because that helper is convenient.
 
-Likewise, an unavailable extension must not be treated as equivalent to a denied capability. The diagnostic should say which boundary failed.
+A program denied protected GPU access must not launch GPU work merely because target selection already chose CUDA or another accelerator.
+
+Likewise, an unavailable extension must not be treated as equivalent to a denied capability. The diagnostic should say which boundary failed: extension availability, effect authorization, machinery authorization, or another frozen contract.
 
 ## Extension versioning
 
@@ -146,7 +190,7 @@ RUN MODEL ON CUDA WITH:
 
 A generic backend should not be required to understand CUDA-specific launch syntax.
 
-GPU access may require an execution capability/profile, but selecting GPU machinery is not itself an externally observable Semantic-IR effect. Device selection belongs in MORPH/execution trace metadata.
+GPU access may require a machinery capability/profile, but selecting GPU machinery is not itself an externally observable Semantic-IR effect. Device selection belongs in MORPH/execution trace metadata; protected device use is authorized through the machinery-authorization boundary.
 
 ## POSIX profile
 
@@ -181,4 +225,4 @@ A QSOL card can retain stable semantics while QX-MIDI maps relevant events or pr
 
 ## Principle
 
-> Keep the core small. Make optional power explicit. An extension defines functionality and requirements; policy grants permissions. Never let one masquerade as the other.
+> Keep the core small. Effects describe external actions. Machinery describes execution placement. Capabilities authorize protected boundaries. Extensions define optional functionality. Never let one masquerade as another.
