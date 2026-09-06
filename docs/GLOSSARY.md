@@ -76,7 +76,7 @@ A concrete code-generation or execution target such as C, LLVM, Fortran, CUDA, H
 
 ## extension profile
 
-An optional, versioned syntax/adapter/execution surface such as `QX-POSIX`, `QX-GPU`, or `QX-NET` that adds functionality without redefining core meaning. Loading or using an extension profile does **not** grant runtime permission for protected effects; authorization remains a separate capability decision.
+An optional, versioned syntax/adapter/execution surface such as `QX-POSIX`, `QX-GPU`, or `QX-NET` that adds functionality without redefining core meaning. Loading or using an extension profile does **not** grant runtime permission for protected effects or protected machinery; authorization remains a separate capability decision.
 
 ## QX-POSIX
 
@@ -88,11 +88,11 @@ The optional versioned CUDA-specific control profile for explicit launch, memory
 
 ## capability
 
-Runtime permission granted to an execution environment for a class of protected effects, such as network, filesystem, process, GPU, or AI-model access. Capability authorization is separate from extension-profile availability.
+Runtime permission granted to an execution environment for a protected effect or protected-machinery boundary. Capabilities such as `NETWORK`, `FILESYSTEM_WRITE`, `PROCESS`, or `AI_MODEL` authorize corresponding external effects through `effect_requirements[]`; capabilities such as `GPU` authorize protected machinery through `machinery_requirements[]` and `machinery_authorization_records[]`. A machinery capability must not be represented by synthesizing a fake external effect. Capability authorization is separate from extension-profile availability.
 
 ## effect
 
-An operation with externally observable or stateful behavior, such as file I/O, network access, process execution, randomness, or an AI-model call.
+An operation with externally observable or stateful behavior, such as file I/O, network access, process execution, randomness, or an AI-model call. Machinery selection or permission to use GPU/CUDA is not itself an effect.
 
 ## effect attempt
 
