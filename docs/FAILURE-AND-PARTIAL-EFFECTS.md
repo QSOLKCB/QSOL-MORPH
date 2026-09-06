@@ -223,6 +223,14 @@ authorization_status
 authorization_sequence_index?
 ```
 
+Authorization ordering and effect-begin ordering use the same frozen monotonic event-order domain. For every protected effect known to begin:
+
+```text
+authorization_sequence_index < effect_begin_sequence_index
+```
+
+A denied authorization has no effect-begin event. A generic attempt counter or source-order index is not a substitute for this authorization-before-begin proof.
+
 Execution-wide granted/denied capability summaries are useful diagnostics, but they do not prove which policy decision governed one particular attempt.
 
 For example, an operation requiring both `AI_MODEL` and `NETWORK` must not begin its remote model effect unless both capabilities have been granted by the authorization record for that attempt.
@@ -232,6 +240,30 @@ If authorization is denied or cannot be established for any required capability 
 This rule is unconditional for capability authorization. A backend may not downgrade it to "where practical" merely because preflight is inconvenient.
 
 Protected machinery authorization is a separate boundary. Selecting GPU/CUDA or another protected target is not an external effect, but every machinery capability required by the applicable canonical machinery requirement must be authorized before that machinery is used. A denied machinery requirement must not be represented as a fake external effect attempt merely to fit this model.
+
+Protected machinery use is represented by identified `machinery_use_records[]`. Each use record references the applicable successful machinery authorization records and records the protected-use start/stop event in the same frozen ordering domain:
+
+```text
+machinery_use_records[]:
+    machinery_use_record_id
+    backend_selection_scope_id
+    machinery_requirement_ids[]
+    machinery_authorization_record_ids[]
+    protected_use_kind
+    protected_use_start_sequence_index
+    protected_use_end_sequence_index?
+    source_card_ids[]?
+    backend_unit_id?
+```
+
+Every referenced authorization must have completed before protected use begins:
+
+```text
+machinery_authorization.authorization_sequence_index
+    < machinery_use.protected_use_start_sequence_index
+```
+
+A denied machinery authorization must not have a machinery-use start record. A failure that occurs after GPU/CUDA or other protected machinery has begun must retain the concrete use record rather than leaving authorization as an unconnected policy outcome.
 
 Other non-authorization checks, such as static validation or external-system preconditions that cannot always be known in advance, should occur before an effect begins where practical. Failure of those checks after an effect begins must use the per-attempt effect model rather than pretending the effect never happened.
 
@@ -298,13 +330,15 @@ A failed execution should be traceable with enough information to answer:
 - which aggregate run/JOB failed;
 - every DECK selected for that JOB run and the outcome of each one, including DECKs prevented from starting;
 - every CARD in those selected DECKs and whether it executed, failed, was on untaken control flow, was blocked by prior fail-stop, or was explicitly skipped under a frozen rule;
+- which identified control decision or failure record caused an untaken or blocked execution path;
 - which CARD produced the enclosing failure;
 - at what stage the failure occurred;
 - which stable failure class applies;
 - which backend/runtime detail was reported;
 - which declared effects existed;
-- which effect attempts existed, which canonical declared effect produced each one, which authorization decision governed each attempt, the complete capability set governing each attempt, and the completion state of each attempt;
-- why any declared effect had no runtime attempt and whether that reason itself indicates a conformance failure;
+- which effect attempts existed, which canonical declared effect produced each one, which authorization decision governed each attempt, the complete capability set governing each attempt, the authorization-before-begin ordering evidence, and the completion state of each attempt;
+- why any declared effect had no runtime attempt and which typed control/failure cause governs that reason when applicable;
+- which protected machinery was actually used, which successful authorization records governed it, and whether every authorization completed before protected use began;
 - whether any output artifact became externally visible and which concrete attempt produced/exposed it;
 - what determinism, numeric, randomness, capability, machinery-authorization, policy, and extension contracts were active.
 
@@ -317,6 +351,8 @@ job_id
 job_status
 deck_executions[]
 card_executions[]
+control_decisions[]
+failure_records[]
 failure_card_id
 failure_class
 failure_stage
@@ -326,6 +362,7 @@ effect_authorization_records[]
 effect_attempts[]
 effect_non_attempt_records[]
 machinery_authorization_records[]
+machinery_use_records[]
 observable_output_ids[]
 ```
 
@@ -345,6 +382,30 @@ deck_executions[]:
 
 A derived `completed_decks[]` summary may be useful, but it is not a substitute for identified per-DECK execution records because it cannot represent the failed DECK and later DECKs that never started.
 
+Execution-path causes use distinct typed namespaces. A control decision is identified independently from a failure record:
+
+```text
+control_decisions[]:
+    control_decision_id
+    card_execution_id
+    control_kind
+    decision
+    sequence_index?
+    backend_detail?
+
+failure_records[]:
+    failure_record_id
+    failure_card_id
+    failure_class
+    failure_stage
+    card_execution_id?
+    deck_execution_id?
+    sequence_index?
+    backend_detail?
+```
+
+`control_decision_id` and `failure_record_id` are not interchangeable, even if their textual values happen to overlap.
+
 Each CARD execution is likewise identified, conceptually:
 
 ```text
@@ -354,10 +415,13 @@ card_executions[]:
     card_id
     card_status
     execution_order_index?
-    governing_control_or_failure_id?
+    governing_control_decision_id?
+    governing_failure_record_id?
     failure_class?
     failure_stage?
 ```
+
+An untaken branch points to the identified control decision that selected the other path. Prior fail-stop or another failure-caused non-reach points to the identified failure record that blocked execution. A catch-all `governing_control_or_failure_id` is not valid because it erases the target namespace.
 
 Candidate CARD outcomes may include successful execution, failed execution, untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip. The exact vocabulary remains provisional, but membership in `card_ids[]` must not be mistaken for proof that the CARD ran.
 
@@ -375,13 +439,15 @@ effect_kind
 required_capabilities[]
 effect_authorization_record_id
 sequence_index
+effect_begin_sequence_index?
+effect_end_sequence_index?
 completion_state
 backend_detail?
 observable_output_ids[]
 external_tool_ids[]?
 ```
 
-`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt. They are not interchangeable.
+`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt. They are not interchangeable. `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering.
 
 When a declared effect has no runtime attempt, an identified non-attempt record should explain why:
 
@@ -391,13 +457,14 @@ effect_non_attempt_records[]:
     card_id
     effect_kind
     non_attempt_reason
-    governing_control_or_failure_id?
+    governing_control_decision_id?
+    governing_failure_record_id?
     backend_detail?
 ```
 
-Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. A detected backend omission of a reachable effect is instead a structured implementation/conformance failure. A declared effect with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
+Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. Untaken control flow references a `control_decision_id`; failure-caused non-reach references a `failure_record_id`. A detected backend omission of a reachable effect is instead a structured implementation/conformance failure. A declared effect with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
 
-The trace must not collapse multiple external actions into one aggregate `partial_effect_state`, and it must not collapse selected DECKs or CARD execution paths into one aggregate status that loses which semantic units actually ran.
+The trace must not collapse multiple external actions into one aggregate `partial_effect_state`, must not collapse protected machinery use into authorization outcomes alone, and must not collapse selected DECKs or CARD execution paths into one aggregate status that loses which semantic units actually ran.
 
 ## Determinism and failure
 
@@ -427,8 +494,8 @@ Backends may translate failure into native mechanisms such as return codes, tagg
 
 Those are implementation choices.
 
-They must map back to the same QSOL CARD/DECK/JOB success/failure semantics, the same per-CARD/per-DECK execution ledger, the same per-effect authorization/attempt/non-attempt semantics, and the rule that a reachable declared-effect omission is failure rather than successful execution.
+They must map back to the same QSOL CARD/DECK/JOB success/failure semantics, the same per-CARD/per-DECK execution ledger, the same typed control/failure causality, the same per-effect authorization/attempt/non-attempt ordering semantics, the same protected-machinery authorization/use ledger, and the rule that a reachable declared-effect omission is failure rather than successful execution.
 
 ## Principle
 
-> Failure is observable behavior. Record every selected DECK, every CARD execution outcome, every declared effect's authorization/attempt or non-attempt reason, and fail when a reachable required effect is omitted. Effect completion belongs to the effect attempt, not the CARD outcome. Authorization happens before the protected boundary. Do not leave any of these to backend folklore.
+> Failure is observable behavior. Record every selected DECK, every CARD execution outcome, every typed control/failure cause, every declared effect's authorization/attempt or non-attempt reason, and every protected machinery use. Fail when a reachable required effect is omitted. Effect completion belongs to the effect attempt, not the CARD outcome. Authorization happens before the protected boundary. Do not leave any of these to backend folklore.
