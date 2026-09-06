@@ -148,7 +148,26 @@ Target resolution for planning/provenance is not permission to execute on that t
 
 A backend or selection policy may not silently evade a denial by switching to another target unless a frozen pre-execution fallback rule permits that transition and records it. Likewise, no synthetic effect attempt should be created solely to represent machinery permission.
 
-Trace/provenance should bind machinery authorization to the backend-selection scope it governs, including required/granted/denied capabilities and the responsible policy identity/version.
+Trace/provenance binds each machinery authorization record to both the stable `backend_selection_scope_id` **and the concrete `backend_selection_decision_id` it governs**, plus the applicable `machinery_requirement_ids[]`, complete required/granted/denied capability sets, and responsible policy identity/version. The selection scope alone is not enough when several candidate decisions share that scope.
+
+Conceptually:
+
+```text
+machinery_authorization_records[]:
+    machinery_authorization_record_id
+    backend_selection_scope_id
+    backend_selection_decision_id
+    machinery_requirement_ids[]
+    required_capabilities[]
+    granted_capabilities[]
+    denied_capabilities[]
+    capability_policy_id
+    capability_policy_version
+    authorization_status
+    authorization_sequence_index?
+```
+
+For example, if `ON BEST` first chooses GPU and that concrete decision is denied, then a frozen fallback rule chooses CPU and that second decision is authorized, the two authorization outcomes remain separate records keyed to their two different `backend_selection_decision_id` values. A later fallback must never overwrite or detach the denial that governed the earlier candidate.
 
 ## Fail closed
 
