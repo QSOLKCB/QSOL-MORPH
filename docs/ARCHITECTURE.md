@@ -80,7 +80,15 @@ The proposed structural hierarchy is:
 
 ```text
 JOB [JOB ID]
+ ├── MACHINERY REQUIREMENTS[]
+ │    ├── MACHINERY REQUIREMENT ID
+ │    ├── TARGET SELECTOR / CLASS
+ │    └── REQUIRED CAPABILITIES[]
  └── DECK [DECK ID]
+      ├── MACHINERY REQUIREMENTS[]
+      │    ├── MACHINERY REQUIREMENT ID
+      │    ├── TARGET SELECTOR / CLASS
+      │    └── REQUIRED CAPABILITIES[]
       └── CARD [CARD ID]
            ├── VERB
            ├── NOUN
@@ -93,6 +101,10 @@ JOB [JOB ID]
            ├── EFFECT REQUIREMENTS[]
            │    ├── EFFECT ID
            │    ├── EFFECT KIND
+           │    └── REQUIRED CAPABILITIES[]
+           ├── MACHINERY REQUIREMENTS[]
+           │    ├── MACHINERY REQUIREMENT ID
+           │    ├── TARGET SELECTOR / CLASS
            │    └── REQUIRED CAPABILITIES[]
            ├── DETERMINISM / RANDOMNESS CONTRACT
            ├── NUMERIC CONTRACT
@@ -112,6 +124,8 @@ The `RESULT BINDING` identifies the value produced by a CARD when one is named. 
 `SEMANTIC CLASS` carries the CARD's epistemic classification where applicable, such as observation, simulation, validation, or proof. It is canonical semantic state and must survive any representation boundary until a frozen rule explicitly validates how it is preserved or safely represented elsewhere.
 
 `EFFECT REQUIREMENTS[]` is the canonical effect/authorization association. Each protected effect has its own stable effect identity and complete capability set. A CARD-level union of capabilities may be useful for preflight, but it does not replace the per-effect mapping and must not be used to guess which permissions govern which action.
+
+`MACHINERY REQUIREMENTS[]` is a distinct canonical authorization association for protected machinery. A requirement retains its stable identity, the JOB/DECK/CARD scope that owns it, the target selector or machinery class to which it applies, and the complete capability set that must be granted before protected use begins. A JOB- or DECK-scoped requirement must not be silently moved onto an arbitrary CARD, and machinery permission must not be encoded as a synthetic external effect merely to reuse the effect schema.
 
 `EXTENSION REQUIREMENTS[]` identifies any versioned profile/contract needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. Extension availability remains separate from runtime capability authorization.
 
@@ -140,6 +154,7 @@ This mapping is itself part of the language contract because Semantic IR contain
 - result bindings;
 - qualifiers;
 - explicit effect requirements with stable effect IDs and complete per-effect capability sets;
+- protected-machinery requirements with stable requirement IDs, owning scopes, target selectors/classes, and complete capability sets;
 - determinism, numeric, and randomness contracts;
 - explicit failure behavior;
 - extension identities;
@@ -242,6 +257,10 @@ Semantic IR → QSOL-CORE and QSOL-CORE → Vector/Dataflow IR are defined trans
 ### Authorization belongs to each effect
 
 An effect's permission requirements are part of the effect declaration itself. If one CARD declares a remote AI call requiring `AI_MODEL + NETWORK` and a separate file write requiring `FILESYSTEM_WRITE`, those capability sets remain associated with their respective effect IDs through lowering and trace provenance. Applying one ambiguous CARD-level capability union to every effect is not conforming behavior.
+
+### Protected machinery authorization is not an effect
+
+A machinery requirement belongs to the canonical scope that requests or constrains protected machinery. Selecting a GPU or CUDA backend remains a machinery decision, while authorization records whether the required machinery capabilities were granted before use. Converting that permission check into a fake external effect would blur two independent semantic boundaries and is not conforming behavior.
 
 ### Optimization is not epistemic promotion
 
