@@ -10,14 +10,14 @@ The goal is not merely to say that a program ran. The trace should make it possi
 - how QSOL-CORE lowered into the mandatory Vector/Dataflow IR;
 - how result bindings and execution-contract scopes were preserved, renamed, split, fused, grouped, or otherwise mapped at each lowering boundary;
 - which protected-machinery requirements survived each lowering and which authorization decisions governed their eventual use;
-- which machinery governed each CARD, region, kernel, or generated execution unit;
-- why automatic machinery selection chose that target;
+- which machinery-selection decisions were considered, denied, superseded, or finally used for each governed scope;
+- why automatic machinery selection or fallback chose each target;
 - whether protected machinery was authorized before use;
 - what exact immutable inputs were consumed;
 - what result-determinism, numeric, randomness, and failure-behavior contracts governed each relevant scope;
 - what extension contracts were resolved;
-- which external tools, services, models, provers, processes, or instruments materially contributed;
-- what protected effects were declared, which capability sets belonged to them, which runtime attempts occurred, and why any declaration had no attempt;
+- which external tools, services, models, provers, processes, or instruments materially contributed to each applicable attempt/output;
+- what protected effects were declared, which capability sets belonged to them, which authorization decision governed each attempt, which runtime attempts occurred, and why any declaration had no attempt;
 - which concrete effect attempts produced or exposed each applicable output;
 - what generated artifacts were produced and which exact artifacts produced each applicable output;
 - what optimizations actually ran and under which legality evidence;
@@ -278,6 +278,7 @@ morph_version
 optimization_profile
 optimization_provenance[]
 backend_selection_scopes[]
+backend_selection_decisions[]
 machinery_authorization_records[]
 generated_artifacts[]
 vectorization_decisions[]
@@ -291,7 +292,9 @@ failure_behavior_bindings[]
 
 ## Scoped backend-selection provenance
 
-Backend selection may differ across a JOB.
+Backend selection may differ across a JOB, and a governed scope may undergo more than one material selection decision when a frozen fallback rule applies.
+
+The governed computation is represented separately from the ordered decisions made for it:
 
 ```text
 backend_selection_scopes[]:
@@ -299,7 +302,18 @@ backend_selection_scopes[]:
     scope_id
     source_card_ids[]
     backend_unit_id?
-    requested_target?
+    selection_decision_ids[]
+    final_selection_decision_id?
+```
+
+Each material decision is independently identified:
+
+```text
+backend_selection_decisions[]:
+    backend_selection_decision_id
+    backend_selection_scope_id
+    decision_sequence_index
+    requested_target
     selected_backend
     selected_backend_version?
     target_architecture?
@@ -308,14 +322,19 @@ backend_selection_scopes[]:
     selection_policy_version?
     selection_tuning_id?
     selection_tuning_hash?
+    predecessor_selection_decision_id?
+    fallback_rule_id?
     machinery_authorization_record_ids[]?
+    decision_status
 ```
 
 Selection-policy and tuning identity are material when selection is automatic, such as `ON BEST`.
 
-A single execution-wide entry is valid only when one frozen machinery decision genuinely governs the whole execution. Explicit host targeting on one CARD and `ON BEST` on another remain separate scopes even if they resolve to the same backend.
+A single execution-wide selection scope is valid only when one frozen machinery-selection process genuinely governs the whole execution. Explicit host targeting on one CARD and `ON BEST` on another remain separate scopes even if they eventually resolve to the same backend.
 
-Selecting a target is not equivalent to authorizing protected use of that target. When protected machinery requirements apply, the backend-selection scope directly references the authorization records that govern use of the selected machinery.
+A denied protected target followed by an authorized fallback remains two ordered decisions. The first decision retains its authorization denial/status; the second references the predecessor and frozen fallback rule. `final_selection_decision_id` identifies which decision actually governed execution. A producer must not overwrite the denied decision with the fallback target.
+
+Selecting a target is not equivalent to authorizing protected use of that target.
 
 ## Machinery authorization provenance
 
@@ -325,6 +344,7 @@ Protected machinery access has a provenance record separate from external effect
 machinery_authorization_records[]:
     machinery_authorization_record_id
     backend_selection_scope_id
+    backend_selection_decision_id
     source_card_ids[]
     machinery_requirement_ids[]
     required_capabilities[]
@@ -337,7 +357,7 @@ machinery_authorization_records[]:
 
 For an automatic target such as `ON BEST`, selection may occur first so the applicable machinery class is known. Every required machinery capability must then be authorized **before protected use of the selected machinery begins**.
 
-A denied GPU authorization must not launch a GPU kernel and must not be represented as a fake external effect attempt. A fallback to another target is legal only under a frozen pre-execution selection/fallback rule, and both the denied authorization and later selection decision remain traceable.
+A denied GPU authorization must not launch a GPU kernel and must not be represented as a fake external effect attempt. A fallback to another target is legal only under a frozen pre-execution selection/fallback rule and appears as a later backend-selection decision with its own authorization where applicable.
 
 ## Generated artifact provenance
 
@@ -350,15 +370,16 @@ generated_artifacts[]:
     artifact_hash
     backend_unit_id
     backend_selection_scope_id
+    backend_selection_decision_id?
     source_card_ids[]?
     artifact_location?
 ```
 
-`backend_unit_id` identifies the lower execution/code-generation unit that produced the artifact. `backend_selection_scope_id` links that artifact to the machinery-selection record containing the selected backend, architecture/device, and selection policy/tuning identity where applicable.
+`backend_unit_id` identifies the lower execution/code-generation unit that produced the artifact. `backend_selection_scope_id` identifies the governed machinery-selection scope. `backend_selection_decision_id`, when material, identifies the final concrete decision whose target produced the artifact, which is required to disambiguate fallback histories.
 
 A mixed-backend JOB may produce several same-kind artifacts. Their hashes alone do not establish which target decision produced which artifact.
 
-A backend-selection scope may govern several generated artifacts, including reference and optimized variants. Output provenance therefore records the applicable `generated_artifact_ids[]` so an output identifies the exact generated artifact that actually produced or supplied it.
+A backend-selection scope may govern several generated artifacts, including reference and optimized variants. Output provenance therefore records applicable `generated_artifact_ids[]` so an output identifies the exact generated artifact that actually produced or supplied it.
 
 ## Scoped result-determinism provenance
 
@@ -427,6 +448,7 @@ deck_executions[]
 card_executions[]
 runtime_compiler_versions[]
 backend_selection_scopes[]
+backend_selection_decisions[]
 machinery_requirements[]
 machinery_authorization_records[]
 result_determinism_scopes[]
@@ -442,6 +464,7 @@ capability_policy_version
 capabilities_used[]
 resolved_extensions[]
 effect_requirements[]
+effect_authorization_records[]
 effect_attempts[]
 effect_non_attempt_records[]
 cache_reuse_records[]
@@ -507,6 +530,8 @@ If a material input contributes to a research result and the required immutable 
 
 Capability provenance distinguishes requirement, authorization, and use.
 
+Execution-wide summaries may record:
+
 ```text
 required_capabilities = [NETWORK]
 granted_capabilities = []
@@ -516,9 +541,32 @@ capability_policy_version = ...
 capabilities_used = []
 ```
 
-The complete required capability set is also carried by the declared effect and each corresponding runtime attempt. An attempt must not begin until every required capability is granted.
+These summaries are not sufficient to prove authorization for an individual protected effect attempt.
 
-Protected machinery authorization uses `machinery_authorization_records[]` rather than pretending machinery selection is an effect.
+### Per-effect authorization provenance
+
+Every identified protected external effect attempt has a contextual authorization record.
+
+```text
+effect_authorization_records[]:
+    effect_authorization_record_id
+    effect_attempt_id
+    declared_effect_id
+    card_id
+    required_capabilities[]
+    granted_capabilities[]
+    denied_capabilities[]
+    capability_policy_id
+    capability_policy_version
+    authorization_status
+    authorization_sequence_index?
+```
+
+The authorization record establishes exactly which policy evaluated this attempt and what complete capability set was granted or denied in that context. An implementation must not infer per-attempt authorization from execution-wide capability unions because the same capability may be permitted for one scope/effect and denied for another.
+
+Authorization must complete successfully before the protected effect begins. If an attempt object has already been created and authorization is denied, that attempt remains `NOT_STARTED` and links to the denial record.
+
+Protected machinery authorization remains separate through `machinery_authorization_records[]`; machinery selection is not an external effect.
 
 ## Resolved extension provenance
 
@@ -545,9 +593,13 @@ external_tool_versions[]:
     content_hash_or_model_id?
     endpoint_or_location?
     source_card_ids[]?
+    effect_attempt_ids[]?
+    output_ids[]?
 ```
 
 The record must preserve enough immutable version/content/model/service identity to distinguish material changes in the external evidence producer.
+
+When one source CARD invokes multiple tools, retries against different model/prover versions, or receives distinct evidence from different services, `source_card_ids[]` alone is not sufficient attribution. Material tool records therefore link to the concrete effect attempts and/or outputs they served. The corresponding attempts/outputs carry reciprocal `external_tool_ids[]` where material.
 
 ## Per-effect-attempt provenance
 
@@ -560,17 +612,21 @@ effect_attempts[]:
     card_id
     effect_kind
     required_capabilities[]
+    effect_authorization_record_id
     sequence_index
     completion_state
     backend_detail?
     observable_output_ids[]
+    external_tool_ids[]?
 ```
 
 `declared_effect_id` references canonical `EffectRequirement.effect_id`. `effect_attempt_id` identifies the concrete runtime attempt. They are not interchangeable.
 
-`observable_output_ids[]` contains the stable output IDs that this attempt actually produced, published, exposed, or materially supplied under the frozen effect/output contract. A vague artifact path or unscoped hash is not a substitute for this relation.
+`effect_authorization_record_id` identifies the contextual decision that granted or denied this attempt's complete required capability set. A successful effect attempt cannot exist without a successful applicable authorization record under the frozen authorization contract.
 
-An output produced by an external effect also carries the reciprocal `effect_attempt_ids[]` reference. This bidirectional identity relation makes the effect's authorization and completion state directly attributable to the result.
+`observable_output_ids[]` contains stable output IDs this attempt actually produced, published, exposed, or materially supplied. An output produced by an external effect carries the reciprocal `effect_attempt_ids[]` reference.
+
+`external_tool_ids[]`, when present, identifies the concrete tools/services/models/provers used by this attempt rather than merely the extension adapter or source CARD.
 
 ### Declared effects with no runtime attempt
 
@@ -586,11 +642,13 @@ effect_non_attempt_records[]:
     backend_detail?
 ```
 
-Candidate reasons may include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, `BACKEND_OMISSION_DETECTED`, or frozen equivalents.
+Legitimate candidate reasons may include `UNTAKEN_BRANCH`, `PRIOR_FAIL_STOP`, `CARD_NOT_REACHED`, `EXPLICIT_SKIP`, or frozen equivalents.
+
+`BACKEND_OMISSION_DETECTED` (or a frozen equivalent) is qualitatively different: it means a reachable required effect was not attempted because the implementation/backend failed to honor the semantic program. Recording that reason **must force structured execution/conformance failure**. It cannot be treated as an ordinary successful non-attempt path and cannot coexist with a successful enclosing execution status.
 
 An effect declaration with neither an attempt nor an explicit non-attempt reason is incomplete provenance when declaration-completeness auditing is required.
 
-Capability denial after an attempt has been identified but before the effect begins remains an `effect_attempts[]` record with `completion_state = NOT_STARTED`; it is not silently converted into a non-attempt record.
+Capability denial after an attempt has been identified but before the effect begins remains an `effect_attempts[]` record with `completion_state = NOT_STARTED` plus an identified denial authorization record; it is not silently converted into a non-attempt record.
 
 ### Completion states
 
@@ -640,6 +698,7 @@ outputs[]:
     status
     producer_card_ids[]
     effect_attempt_ids[]?
+    external_tool_ids[]?
     backend_selection_scope_ids[]
     generated_artifact_ids[]?
     result_determinism_scope_ids[]
@@ -668,13 +727,17 @@ Each output owns its own epistemic class and status. One validated output must n
 
 `effect_attempt_ids[]`, when applicable, identifies the concrete effect attempts that produced, exposed, or materially supplied this output. Each referenced attempt reciprocally names the output in `observable_output_ids[]`. This lets provenance attribute authorization, completion state, backend detail, and partial-effect history to the exact result rather than only to its producing CARD.
 
-`backend_selection_scope_ids[]` identifies machinery-selection decisions governing the output. `generated_artifact_ids[]`, when applicable, identifies the exact generated executable, kernel, bytecode image, or equivalent artifact that actually produced or supplied it. The determinism/numeric/randomness references identify the execution contracts that governed it. `cache_reuse_record_ids[]`, when present, identifies legal cache reuse that contributed to it.
+`external_tool_ids[]`, when applicable, identifies the concrete external evidence/data producers that materially supplied this output. Those tool records reciprocally reference the output and/or the effect attempts through which they contributed.
+
+`backend_selection_scope_ids[]` identifies machinery-selection scopes governing the output. `generated_artifact_ids[]`, when applicable, identifies the exact generated executable, kernel, bytecode image, or equivalent artifact that actually produced or supplied it. The determinism/numeric/randomness references identify the execution contracts that governed it. `cache_reuse_record_ids[]`, when present, identifies legal cache reuse that contributed to it.
 
 ## Failure and partial-effect provenance
 
 A failed execution remains a provenance-bearing execution event.
 
-Capability denial occurs before the protected effect begins and records an already identified attempt as `NOT_STARTED`. A declared effect that was never reached is represented by its explicit non-attempt record.
+Capability denial occurs before the protected effect begins and records an already identified attempt as `NOT_STARTED` with its denial authorization record. A declared effect that was never reached is represented by its explicit non-attempt record.
+
+A detected omission of a reachable required effect is itself a structured execution/conformance failure; it is not merely explanatory provenance.
 
 An unhandled CARD failure stops its DECK by default. An unhandled DECK failure fails the enclosing JOB by default, and no later DECK begins. Dependent consumers or comparisons must not execute against missing or partial failed outputs as though they were complete.
 
@@ -692,7 +755,10 @@ failure_class
 failure_stage
 backend_detail?
 failure_behavior_bindings[]
+backend_selection_scopes[]
+backend_selection_decisions[]
 effect_requirements[]
+effect_authorization_records[]
 effect_attempts[]
 effect_non_attempt_records[]
 machinery_requirements[]
@@ -700,7 +766,7 @@ machinery_authorization_records[]
 observable_output_ids[]
 ```
 
-The canonical field for the CARD whose unhandled failure produced the enclosing failure record is `failure_card_id`. `card_id` remains appropriate inside an effect-attempt or effect-non-attempt record that identifies the CARD owning that effect declaration.
+The canonical field for the CARD whose unhandled failure produced the enclosing failure record is `failure_card_id`. `card_id` remains appropriate inside effect-attempt/authorization/non-attempt records that identify the CARD owning that effect declaration.
 
 ## Hash identities
 
@@ -772,14 +838,14 @@ An effectful CARD must not be satisfied merely by returning a prior cached value
 Effectful reuse requires a separately frozen cache/replay semantic that preserves or explicitly defines:
 
 - declared effect identity and whether the effect executes again;
-- complete capability authorization boundaries;
+- complete per-attempt capability authorization boundaries;
 - source/effect/failure ordering;
 - effect-attempt identity and completion-state provenance;
 - output-to-effect-attempt attribution;
 - externally observable artifacts/state;
 - randomness and external-input replay rules;
 - CARD/DECK/JOB failure behavior;
-- per-output semantic class/status and execution-scope links.
+- per-output semantic class/status/evidence claim and execution-scope links.
 
 Absent such a frozen rule, the implementation executes the effect normally or fails closed.
 
@@ -823,23 +889,23 @@ Correctness and evidence boundaries outrank attractive speed numbers.
 
 ## Trace policy
 
-Not every execution requires every optional field. The active specification, execution contracts, capability policy, extension set, lowering contracts, backend-selection policy, machinery-authorization policy, and cache/replay rules define the minimum trace required for the claim being made.
+Not every execution requires every optional field. The active specification, execution contracts, capability policy, extension set, lowering contracts, backend-selection/fallback policy, machinery-authorization policy, effect-authorization policy, and cache/replay rules define the minimum trace required for the claim being made.
 
 However, executable research results must not begin life without enough provenance to bind identified outputs to:
 
 - their canonical program and per-DECK/per-CARD execution path;
 - immutable inputs;
 - semantic class/status and a mutually consistent evidence-status claim;
-- scoped machinery/determinism/numeric/randomness/failure-behavior decisions;
+- scoped machinery-selection decision history plus determinism/numeric/randomness/failure-behavior decisions;
 - exact generated artifact identities where applicable;
-- concrete effect attempts where external effects produced or exposed the result;
-- extension set and material external-tool identities;
-- effect and machinery authorization decisions;
+- concrete effect attempts and their contextual authorization decisions where external effects produced or exposed the result;
+- extension set and concrete material external-tool identities;
+- machinery authorization decisions;
 - optimization decisions where material;
 - cache/reuse context where relevant;
 - execution/failure history.
 
-Every declared protected effect must also be accounted for by an attempt or explicit non-attempt reason when declaration-completeness auditing is required. Every protected machinery requirement that governs an executed scope must remain traceable to the authorization record that permitted or denied its use.
+Every declared protected effect must also be accounted for by an attempt or explicit non-attempt reason when declaration-completeness auditing is required. A detected omission of a reachable declared effect fails execution/conformance. Every protected machinery requirement that governs an executed scope must remain traceable to the selection decision and authorization record that permitted or denied its use.
 
 The roadmap therefore places the trace/failure/provenance foundation before the first executable QSOL reference machine.
 
