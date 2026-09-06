@@ -12,8 +12,8 @@ The goal is not merely to say that a program ran. The trace should make it possi
 - which protected-machinery requirements survived each lowering and which authorization decisions governed their eventual use;
 - which machinery-selection decisions were considered, denied, superseded, or finally used for each governed scope;
 - why automatic machinery selection or fallback chose each target;
-- whether protected machinery was authorized before use;
-- what exact immutable inputs were consumed;
+- whether protected machinery was authorized before use and what ordered trace evidence proves authorization completed before protected use began;
+- what exact immutable inputs were consumed and which material inputs contributed to each identified output;
 - what result-determinism, numeric, randomness, and failure-behavior contracts governed each relevant scope;
 - what extension contracts were resolved;
 - which external tools, services, models, provers, processes, or instruments materially contributed to each applicable attempt/output;
@@ -280,6 +280,7 @@ optimization_provenance[]
 backend_selection_scopes[]
 backend_selection_decisions[]
 machinery_authorization_records[]
+machinery_use_records[]
 generated_artifacts[]
 vectorization_decisions[]
 fusion_decisions[]
@@ -307,7 +308,7 @@ backend_selection_scopes[]:
     final_selection_decision_id?
 ```
 
-`backend_selection_scope_id` is the stable record key referenced by `backend_selection_decisions[]`, `machinery_authorization_records[]`, `generated_artifacts[]`, and output `backend_selection_scope_ids[]`. `scope_id` identifies the source/Core/lower computation scope being governed and must not be treated as an implicit alias for the selection-scope record ID.
+`backend_selection_scope_id` is the stable record key referenced by `backend_selection_decisions[]`, `machinery_authorization_records[]`, `machinery_use_records[]`, `generated_artifacts[]`, and output `backend_selection_scope_ids[]`. `scope_id` identifies the source/Core/lower computation scope being governed and must not be treated as an implicit alias for the selection-scope record ID.
 
 Each material decision is independently identified:
 
@@ -341,7 +342,7 @@ Selecting a target is not equivalent to authorizing protected use of that target
 
 ## Machinery authorization provenance
 
-Protected machinery access has a provenance record separate from external effect attempts.
+Protected machinery access has provenance separate from external effect attempts.
 
 ```text
 machinery_authorization_records[]:
@@ -356,11 +357,34 @@ machinery_authorization_records[]:
     capability_policy_id
     capability_policy_version
     authorization_status
+    authorization_sequence_index?
 ```
 
 For an automatic target such as `ON BEST`, selection may occur first so the applicable machinery class is known. Every required machinery capability must then be authorized **before protected use of the selected machinery begins**.
 
-A denied GPU authorization must not launch a GPU kernel and must not be represented as a fake external effect attempt. A fallback to another target is legal only under a frozen pre-execution selection/fallback rule and appears as a later backend-selection decision with its own authorization where applicable.
+When that ordering is material, protected use is represented explicitly:
+
+```text
+machinery_use_records[]:
+    machinery_use_record_id
+    backend_selection_scope_id
+    backend_selection_decision_id
+    backend_unit_id?
+    source_card_ids[]
+    machinery_authorization_record_ids[]
+    protected_use_start_sequence_index
+    protected_use_stop_sequence_index?
+```
+
+`authorization_sequence_index` and `protected_use_start_sequence_index` are values in the same frozen monotonic event-order domain. Every protected machinery use references all applicable successful authorization records, and every required authorization must satisfy:
+
+```text
+authorization_sequence_index < protected_use_start_sequence_index
+```
+
+A record that merely says “authorized” without preserving an order relation to protected-use start is insufficient to prove the pre-use authorization invariant. If required ordering evidence cannot be established, execution/conformance fails closed for claims that require protected-machinery auditability.
+
+A denied GPU authorization must not launch a GPU kernel, must not have a corresponding protected-use start record, and must not be represented as a fake external effect attempt. A fallback to another target is legal only under a frozen pre-execution selection/fallback rule and appears as a later backend-selection decision with its own authorization where applicable.
 
 ## Generated artifact provenance
 
@@ -440,6 +464,8 @@ Seeded replay requires more than an integer seed. Where applicable, RNG algorith
 
 A single execution-wide randomness scope is valid only under a frozen lossless normalization rule.
 
+For `EXTERNAL-ENTROPY`, the randomness scope records the permitted/effective randomness mode, while the entropy acquisition itself remains a declared protected `RANDOM` effect with contextual capability authorization and concrete attempt provenance. The scope record is not authorization to access an entropy source.
+
 ## Execution trace
 
 Potential fields include:
@@ -454,6 +480,7 @@ backend_selection_scopes[]
 backend_selection_decisions[]
 machinery_requirements[]
 machinery_authorization_records[]
+machinery_use_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
@@ -529,6 +556,8 @@ A path, URL, dataset name, model name, branch name, or other mutable locator is 
 
 If a material input contributes to a research result and the required immutable identity cannot be established, replay/provenance validation fails closed where the active contract requires auditability.
 
+Identified inputs are execution-wide records, but output attribution is not inferred from mere availability. Each applicable `outputs[]` record references the exact materially contributing inputs through `input_ids[]` under the frozen provenance-dependency rule.
+
 ## Capability provenance
 
 Capability provenance distinguishes requirement, authorization, and use.
@@ -569,7 +598,9 @@ The authorization record establishes exactly which policy evaluated this attempt
 
 Authorization must complete successfully before the protected effect begins. If an attempt object has already been created and authorization is denied, that attempt remains `NOT_STARTED` and links to the denial record.
 
-Protected machinery authorization remains separate through `machinery_authorization_records[]`; machinery selection is not an external effect.
+Protected machinery authorization remains separate through `machinery_authorization_records[]` and ordered `machinery_use_records[]`; machinery selection is not an external effect.
+
+External entropy acquisition, however, is an externally stateful operation and therefore uses the protected-effect model: it must be declared as a `RANDOM` effect, require the `RANDOM` capability or frozen equivalent, and link each concrete acquisition attempt to its authorization record before acquisition begins.
 
 ## Resolved extension provenance
 
@@ -700,6 +731,7 @@ outputs[]:
     semantic_class
     status
     producer_card_ids[]
+    input_ids[]
     effect_attempt_ids[]?
     external_tool_ids[]?
     backend_selection_scope_ids[]
@@ -727,6 +759,8 @@ The generic output `status` describes the result/artifact execution or availabil
 A future frozen composition rule may permit an output to reference multiple separately identified evidence records, but that must be an explicit model. Independent `test_status`, `validation_status`, and `proof_status` fields are not the candidate default because they admit contradictory combinations.
 
 Each output owns its own epistemic class and status. One validated output must not promote another simulation or TEST output produced by the same JOB.
+
+`input_ids[]` identifies the exact immutable `inputs[]` records that materially contributed to this output. It is not a list of every input visible to or available during the run. The frozen provenance-dependency rule defines whether direct and/or transitive material dependencies must be included. When output-level input attribution is required but cannot be established, provenance validation fails closed rather than guessing from the execution-wide input set.
 
 `effect_attempt_ids[]`, when applicable, identifies the concrete effect attempts that produced, exposed, or materially supplied this output. Each referenced attempt reciprocally names the output in `observable_output_ids[]`. This lets provenance attribute authorization, completion state, backend detail, and partial-effect history to the exact result rather than only to its producing CARD.
 
@@ -766,6 +800,7 @@ effect_attempts[]
 effect_non_attempt_records[]
 machinery_requirements[]
 machinery_authorization_records[]
+machinery_use_records[]
 observable_output_ids[]
 ```
 
@@ -897,18 +932,18 @@ Not every execution requires every optional field. The active specification, exe
 However, executable research results must not begin life without enough provenance to bind identified outputs to:
 
 - their canonical program and per-DECK/per-CARD execution path;
-- immutable inputs;
+- the exact immutable material inputs that contributed to each output;
 - semantic class/status and a mutually consistent evidence-status claim;
 - scoped machinery-selection decision history plus determinism/numeric/randomness/failure-behavior decisions;
 - exact generated artifact identities where applicable;
 - concrete effect attempts and their contextual authorization decisions where external effects produced or exposed the result;
 - extension set and concrete material external-tool identities;
-- machinery authorization decisions;
+- machinery authorization decisions plus ordered protected-use evidence where protected machinery was actually used;
 - optimization decisions where material;
 - cache/reuse context where relevant;
 - execution/failure history.
 
-Every declared protected effect must also be accounted for by an attempt or explicit non-attempt reason when declaration-completeness auditing is required. A detected omission of a reachable declared effect fails execution/conformance. Every protected machinery requirement that governs an executed scope must remain traceable to the selection decision and authorization record that permitted or denied its use.
+Every declared protected effect must also be accounted for by an attempt or explicit non-attempt reason when declaration-completeness auditing is required. A detected omission of a reachable declared effect fails execution/conformance. Every protected machinery requirement that governs an executed scope must remain traceable to the selection decision, authorization record, and where material the ordered machinery-use record proving authorization preceded protected use.
 
 The roadmap therefore places the trace/failure/provenance foundation before the first executable QSOL reference machine.
 
