@@ -80,15 +80,25 @@ The proposed structural hierarchy is:
 
 ```text
 JOB [JOB ID]
+ ├── RESULT-DETERMINISM CONTRACT?
+ ├── NUMERIC CONTRACT?
+ ├── RANDOMNESS CONTRACT?
  ├── MACHINERY REQUIREMENTS[]
  │    ├── MACHINERY REQUIREMENT ID
  │    ├── TARGET SELECTOR / CLASS
  │    └── REQUIRED CAPABILITIES[]
+ ├── EXTENSION REQUIREMENTS[]
+ ├── FAILURE BEHAVIOR?
  └── DECK [DECK ID]
+      ├── RESULT-DETERMINISM CONTRACT?
+      ├── NUMERIC CONTRACT?
+      ├── RANDOMNESS CONTRACT?
       ├── MACHINERY REQUIREMENTS[]
       │    ├── MACHINERY REQUIREMENT ID
       │    ├── TARGET SELECTOR / CLASS
       │    └── REQUIRED CAPABILITIES[]
+      ├── EXTENSION REQUIREMENTS[]
+      ├── FAILURE BEHAVIOR?
       └── CARD [CARD ID]
            ├── VERB
            ├── NOUN
@@ -106,11 +116,12 @@ JOB [JOB ID]
            │    ├── MACHINERY REQUIREMENT ID
            │    ├── TARGET SELECTOR / CLASS
            │    └── REQUIRED CAPABILITIES[]
-           ├── DETERMINISM / RANDOMNESS CONTRACT
-           ├── NUMERIC CONTRACT
+           ├── RESULT-DETERMINISM CONTRACT?
+           ├── RANDOMNESS CONTRACT?
+           ├── NUMERIC CONTRACT?
            ├── EXTENSION REQUIREMENTS[]
-           ├── FAILURE BEHAVIOR
-           └── DEPENDENCIES / EFFECT ORDER / FAILURE ORDER
+           ├── FAILURE BEHAVIOR?
+           └── DEPENDENCIES / TAGGED SEQUENCING CONSTRAINTS[]
 ```
 
 `JOB ID`, `DECK ID`, and `CARD ID` are stable canonical identities, not serializer- or trace-generated labels. They must survive canonicalization, lossless transport, lowering provenance, and execution tracing.
@@ -127,9 +138,13 @@ The `RESULT BINDING` identifies the value produced by a CARD when one is named. 
 
 `MACHINERY REQUIREMENTS[]` is a distinct canonical authorization association for protected machinery. A requirement retains its stable identity, the JOB/DECK/CARD scope that owns it, the target selector or machinery class to which it applies, and the complete capability set that must be granted before protected use begins. A JOB- or DECK-scoped requirement must not be silently moved onto an arbitrary CARD, and machinery permission must not be encoded as a synthetic external effect merely to reuse the effect schema.
 
-`EXTENSION REQUIREMENTS[]` identifies any versioned profile/contract needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. Extension availability remains separate from runtime capability authorization.
+Result-determinism, numeric, randomness, and failure behavior remain attached to the JOB, DECK, CARD, or other frozen scope that actually owns them. A JOB-wide contract must not be copied into children or omitted merely because a lower implementation prefers a child-level representation. The frozen semantic model must define composition/inheritance and any permitted transition before execution.
 
-`FAILURE ORDER` represents explicit or derived sequencing edges needed to preserve fail-stop observability. Effect-to-effect ordering alone is insufficient: for `WRITE A; DIV X 0; WRITE B`, the pure but failing division must remain ordered between the two writes even though it has no external effect of its own.
+`EXTENSION REQUIREMENTS[]` identifies any versioned profile/contract needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. A JOB- or DECK-scoped extension requirement remains attached to that owning scope rather than being relocated onto an arbitrary child CARD. Extension availability remains separate from runtime capability authorization.
+
+`TAGGED SEQUENCING CONSTRAINTS[]` is the canonical ordering representation. Effect-order and failure-order may be deterministic projections of that array, but they do not replace it and must not discard future or other frozen sequencing kinds.
+
+Failure-order sequencing represents explicit or derived edges needed to preserve fail-stop observability. Effect-to-effect ordering alone is insufficient: for `WRITE A; DIV X 0; WRITE B`, the pure but failing division must remain ordered between the two writes even though it has no external effect of its own.
 
 A `DECK` is a source-ordered collection of cards with explicit/derived dependency constraints representing one executable research workflow.
 
@@ -158,7 +173,7 @@ This mapping is itself part of the language contract because Semantic IR contain
 - determinism, numeric, and randomness contracts;
 - explicit failure behavior;
 - extension identities;
-- source/effect/failure ordering;
+- tagged sequencing constraints preserving source/effect/failure ordering;
 - CARD / DECK / JOB provenance.
 
 The lowering must either encode a requirement into QSOL-CORE operations or preserve/validate it before safe metadata erasure. Unsupported semantic constructs fail explicitly rather than being silently dropped or delegated to a backend to reinterpret.
