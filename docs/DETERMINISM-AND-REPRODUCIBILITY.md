@@ -255,6 +255,10 @@ semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
 semantic_to_core_result_binding_map[]
+qualifier_lowering_decisions[]
+result_determinism_lowering_decisions[]
+numeric_contract_lowering_decisions[]
+randomness_lowering_decisions[]
 vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
@@ -263,7 +267,7 @@ core_to_vector_result_binding_map[]
 
 Binding maps are required whenever result identities are preserved or transformed, except under a frozen deterministic identity-map reconstruction rule.
 
-IR hashes identify representations but do not themselves establish correspondence between source and lower result names.
+The Semantic→Core lowering-decision records identify the frozen rules, scope mappings, normalizations, and transition authorities that explain how execution-relevant qualifiers and source determinism/numeric/randomness contracts became the QSOL-CORE contract. IR hashes identify representations but do not themselves establish those decisions or correspondence between source and lower result names.
 
 ## Result provenance
 
@@ -316,6 +320,25 @@ Every material input requires a stable `input_id` plus either its canonical valu
 
 Paths, URLs, dataset names, model names, and similar locators remain useful retrieval context but are not reproducibility evidence by themselves.
 
+## External-tool provenance
+
+Extension resolution identifies the QSOL adapter/profile contract; it does not by itself identify the external tool, service, model, prover, process, or instrument that actually supplied evidence or data.
+
+Material external tools therefore use identified version/content records such as:
+
+```text
+external_tool_versions[]:
+    external_tool_id
+    tool_kind
+    tool_name_or_service
+    version?
+    content_hash_or_model_id?
+    endpoint_or_location?
+    source_card_ids[]?
+```
+
+The record must contain enough immutable version/content/model/service identity to distinguish a material change in the external evidence producer. A mutable tool name or endpoint alone is not sufficient when the active reproducibility contract requires stronger identity.
+
 ## Cache reuse provenance
 
 Cache legality and cache provenance are distinct.
@@ -347,6 +370,30 @@ The record states whether work executed cold or was reused, what computation/art
 
 An `UNVERIFIED_CACHE_HIT` may be useful diagnostic evidence, but it must not be promoted into verified reuse merely because the bytes appear plausible.
 
+## Optimization provenance
+
+An optimization profile names requested/configured policy; it is not a record of the transformations that actually occurred.
+
+Actual optimization provenance should therefore be identified, for example:
+
+```text
+optimization_provenance[]:
+    optimization_record_id
+    source_card_ids[]
+    backend_unit_id?
+    reference_ir_hash
+    optimized_ir_hash
+    transformation_sequence[]
+    legality_witnesses[]
+    vectorization_decisions[]?
+    fusion_decisions[]?
+    memory_placement_decisions[]?
+    target_context_measurements[]?
+    resource_model_assumptions[]?
+```
+
+Target-adaptive executions must preserve the actual transformation sequence and legality evidence, not merely the profile name that permitted a family of choices. An implementation may instead bind a stable content identity for a complete MORPH trace containing equivalent information, but that reference must be sufficient to retrieve and verify the complete decision record.
+
 ## Reproducibility manifest
 
 A future run manifest may include:
@@ -368,6 +415,10 @@ semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
 semantic_to_core_result_binding_map[]
+qualifier_lowering_decisions[]
+result_determinism_lowering_decisions[]
+numeric_contract_lowering_decisions[]
+randomness_lowering_decisions[]
 vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
@@ -381,6 +432,7 @@ inputs[]
 outputs[]
 cache_reuse_records[]
 resolved_extensions[]
+external_tool_versions[]
 effect_requirements[]
 required_capabilities[]
 granted_capabilities[]
@@ -390,10 +442,11 @@ capability_policy_version
 capabilities_used[]
 effect_attempts[]
 optimization_profile
+optimization_provenance[]
 generated_artifacts[]
 ```
 
-`job_id` and `deck_id` identify the stable canonical hierarchy member represented by this execution. `card_ids[]` identifies the stable CARD identities that the manifest's producer, output, failure, scope, effect-attempt, generated-artifact, and cache-reuse references may name. A whole-source hash is not a substitute for the selected JOB/DECK execution identity.
+`job_id` and `deck_id` identify the stable canonical hierarchy member represented by this execution. `card_ids[]` identifies the stable CARD identities that the manifest's producer, output, failure, scope, effect-attempt, generated-artifact, external-tool, optimization, and cache-reuse references may name. A whole-source hash is not a substitute for the selected JOB/DECK execution identity.
 
 `execution_status`, `job_status`, and `deck_status` record the enclosing run outcome even when no output exists. When a failure occurs, `failure_card_id`, `failure_class`, and `failure_stage` identify the canonical failing CARD and stable semantic failure context. Effect completion alone cannot stand in for the enclosing CARD/DECK/JOB outcome: a process effect may be `COMPLETED` while its CARD and JOB fail because the completed process returned a non-success exit status.
 
@@ -412,6 +465,12 @@ Each `outputs[]` entry binds its artifact/result identity to its own semantic cl
 Each `cache_reuse_records[]` entry makes cold versus reused execution auditable and binds the material cache identity plus any legality/verification evidence supporting substitution.
 
 Each `effect_requirements[]` entry carries the source CARD ID, canonical declared effect ID, effect kind, and complete `required_capabilities[]` set for that declared protected effect. These declaration rows are required independently of runtime `effect_attempts[]`: an effect omitted by a backend must remain detectable even when no attempt row was emitted.
+
+Each Semantic→Core lowering-decision record preserves the rule/scope/transition evidence needed to explain consumed qualifiers and determinism/numeric/randomness mappings; the manifest must not jump from a Core hash to the next stage and make those decisions implicit.
+
+Each `external_tool_versions[]` entry binds a material external evidence/data producer to its stable version/content/model/service identity independently of the QSOL extension profile used to invoke it.
+
+Each `optimization_provenance[]` entry records what transformations actually ran and their legality/evidence context. `optimization_profile` alone is insufficient for target-adaptive optimization provenance.
 
 Each `generated_artifacts[]` entry binds a generated kernel/binary or equivalent artifact hash to its `backend_unit_id` and governing `backend_selection_scope_id`, so mixed-backend code generation remains attributable to the machinery and selection policy that produced each artifact.
 
@@ -441,4 +500,4 @@ General execution failure and effect-attempt completion semantics are documented
 
 ## Design principle
 
-> Nondeterminism, machinery choice, cache reuse, and external inputs are scientific inputs, not invisible implementation details.
+> Nondeterminism, machinery choice, cache reuse, external tools, optimization decisions, and external inputs are scientific inputs, not invisible implementation details.
