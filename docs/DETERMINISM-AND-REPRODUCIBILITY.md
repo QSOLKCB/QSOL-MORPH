@@ -45,6 +45,14 @@ Pseudorandom behavior is reproducible with respect to the recorded RNG algorithm
 
 `SEEDED` is not a result-determinism class. A computation may be `STRICT + SEEDED`, `NUMERIC + SEEDED`, or another explicitly frozen combination.
 
+### EXTERNAL-ENTROPY randomness
+
+Acquiring fresh entropy is an externally stateful operation, not an invisible implementation detail. Any execution that obtains external entropy must represent that acquisition as a canonical protected `RANDOM` effect with its own stable declared effect ID and complete `required_capabilities[]` set including the `RANDOM` capability or frozen equivalent.
+
+Each concrete entropy acquisition therefore uses the ordinary per-effect authorization boundary: every required capability is granted before acquisition begins, the runtime attempt has an `effect_attempt_id`, and completion/non-attempt provenance is recorded like any other protected external effect. A randomness contract may permit `EXTERNAL-ENTROPY`, but that permission does not itself grant the capability required to acquire entropy.
+
+A backend or runtime must not satisfy `EXTERNAL-ENTROPY` by silently reading an OS/device entropy source without a declared effect and contextual authorization record.
+
 ## Scoped source contracts
 
 Result-determinism, numeric, randomness, and failure-behavior requirements remain attached to the canonical scope that owns them.
@@ -110,6 +118,8 @@ A single execution-wide randomness entry is legal only when a frozen lossless no
 
 Seeded replay requires algorithm, algorithm version, seed, stream identity, and parallel partitioning/stream mapping wherever those inputs can affect the generated sequence.
 
+For `EXTERNAL-ENTROPY`, the randomness scope states that fresh entropy is permitted/effective while the actual acquisition remains attributable to declared `RANDOM` effect requirements, contextual authorization records, and concrete effect attempts. The scope record must not substitute for those effect records.
+
 ## Time
 
 Wall-clock time is an external input. A deterministic computation must not silently read it. Any clock access belongs behind explicit semantics/effect boundaries and must be traced according to the active contract.
@@ -151,6 +161,7 @@ Automatic and explicit machinery choices are provenance-bearing decisions. A gov
 
 ```text
 backend_selection_scopes[]:
+    backend_selection_scope_id
     scope_kind
     scope_id
     source_card_ids[]
@@ -158,6 +169,8 @@ backend_selection_scopes[]:
     selection_decision_ids[]
     final_selection_decision_id?
 ```
+
+`backend_selection_scope_id` is the stable identity of the selection-scope record referenced by decisions, machinery authorization/use records, generated artifacts, and outputs. `scope_kind` + `scope_id` identify the computation governed by that record and are not aliases for the selection-scope identity.
 
 Each material selection attempt is independently identified:
 
@@ -220,13 +233,30 @@ machinery_authorization_records[]:
     capability_policy_id
     capability_policy_version
     authorization_status
+    authorization_sequence_index?
 ```
 
-The requirement rows answer **what the canonical program required**. Authorization records answer **what policy decided for this particular machinery decision**. One cannot replace the other.
+Protected machinery use is also identified when ordering evidence is material:
+
+```text
+machinery_use_records[]:
+    machinery_use_record_id
+    backend_selection_scope_id
+    backend_selection_decision_id
+    backend_unit_id?
+    source_card_ids[]
+    machinery_authorization_record_ids[]
+    protected_use_start_sequence_index
+    protected_use_stop_sequence_index?
+```
+
+`authorization_sequence_index` and `protected_use_start_sequence_index` belong to the same frozen monotonic event-order domain. Every protected use references all applicable successful machinery authorization records, and each required authorization must satisfy `authorization_sequence_index < protected_use_start_sequence_index`. If the implementation cannot establish that ordering, authorization provenance is insufficient and execution/conformance fails closed for claims requiring protected-use auditability.
+
+The requirement rows answer **what the canonical program required**. Authorization records answer **what policy decided for this particular machinery decision**. Machinery-use records answer **when protected use actually began**. None can replace the others.
 
 For `ON BEST`, target selection may occur first so the applicable machinery requirement is known. All required capabilities must then be granted before protected machinery use starts.
 
-A denied accelerator authorization must not launch a kernel or be represented as a synthetic external effect. Fallback is legal only under a frozen pre-execution rule and remains visible as a later backend-selection decision.
+A denied accelerator authorization must not launch a kernel or have a corresponding protected-use start record. Fallback is legal only under a frozen pre-execution rule and remains visible as a later backend-selection decision.
 
 ## Generated artifact provenance
 
@@ -297,6 +327,7 @@ outputs[]:
     semantic_class
     status
     producer_card_ids[]
+    input_ids[]
     effect_attempt_ids[]?
     external_tool_ids[]?
     backend_selection_scope_ids[]
@@ -321,6 +352,8 @@ evidence_status:
 
 Generic output `status` describes result/artifact execution or availability state. It does not promote epistemic class.
 
+`input_ids[]` identifies the exact immutable `inputs[]` records that materially contributed to this output under the frozen provenance-dependency rule. It is not a list of every input merely available to the run. If output-level material-input attribution cannot be established where the active audit/replay contract requires it, provenance validation fails closed rather than substituting the execution-wide input set without justification.
+
 `effect_attempt_ids[]`, where applicable, identifies the concrete attempts that produced, published, exposed, or materially supplied the output. Each corresponding attempt reciprocally names the output in `observable_output_ids[]`.
 
 `external_tool_ids[]`, where applicable, identifies the exact tools/services/models/provers that supplied the output, not merely the source CARD or adapter profile.
@@ -344,6 +377,8 @@ inputs[]:
 Every material input requires a stable `input_id` plus either its canonical value or an immutable content/artifact identity sufficient to distinguish what was actually consumed.
 
 Paths, URLs, dataset names, model names, and similar locators are retrieval context, not reproducibility evidence by themselves.
+
+Applicable outputs reference their materially contributing input records through `input_ids[]`, preserving the relation between exact immutable inputs and the specific results they influenced.
 
 ## External-tool provenance
 
@@ -435,6 +470,8 @@ effect_authorization_records[]:
 ```
 
 Every required capability must be granted by the authorization record for that attempt before the protected effect begins. If an attempt has been created but authorization is denied, its completion state remains `NOT_STARTED` and the denial record remains provenance-visible.
+
+External entropy acquisition uses this same effect-authorization model through a declared protected `RANDOM` effect; a randomness mode alone is not authorization to access an entropy source.
 
 ## Effect declaration and attempt accounting
 
@@ -554,6 +591,7 @@ backend_selection_scopes[]
 backend_selection_decisions[]
 machinery_requirements[]
 machinery_authorization_records[]
+machinery_use_records[]
 result_determinism_scopes[]
 numeric_execution_scopes[]
 randomness_execution_scopes[]
@@ -581,19 +619,19 @@ generated_artifacts[]
 
 `execution_status` and `job_status` record the aggregate outcome even when no output exists. Per-DECK status/failure context lives in `deck_executions[]`; per-CARD path/outcome lives in `card_executions[]`. `failure_behavior_bindings[]` identifies the source/effective failure policies governing those paths.
 
-Each `backend_selection_scopes[]` entry identifies a governed source/lower unit and its ordered selection-decision IDs. `backend_selection_decisions[]` preserves each target decision, denial/fallback transition, selection-policy/tuning identity, and final decision rather than overwriting the history.
+Each `backend_selection_scopes[]` entry has its own stable `backend_selection_scope_id`, identifies a governed source/lower unit, and contains its ordered selection-decision IDs. `backend_selection_decisions[]` preserves each target decision, denial/fallback transition, selection-policy/tuning identity, and final decision rather than overwriting the history.
 
-Each canonical `machinery_requirements[]` row independently records the stable requirement and required capabilities. `machinery_authorization_records[]` bind those requirements to specific backend-selection decisions and policy outcomes.
+Each canonical `machinery_requirements[]` row independently records the stable requirement and required capabilities. `machinery_authorization_records[]` bind those requirements to specific backend-selection decisions and policy outcomes. `machinery_use_records[]` identify protected-use starts/stops and provide same-order-domain evidence that all applicable successful authorizations completed first.
 
 Each `result_determinism_scopes[]`, `numeric_execution_scopes[]`, and `randomness_execution_scopes[]` entry binds its own scope identity and effective execution contract.
 
 Each `inputs[]` entry binds a declared material input to the exact immutable value/content/artifact identity consumed.
 
-Each `outputs[]` entry binds its identity to semantic class, generic result status, compatible class-discriminated evidence status, producer CARDs, concrete effect attempts and external tools where applicable, governing execution scopes, exact generated artifacts, and relevant cache-reuse records.
+Each `outputs[]` entry binds its identity to its exact materially contributing `input_ids[]`, semantic class, generic result status, compatible class-discriminated evidence status, producer CARDs, concrete effect attempts and external tools where applicable, governing execution scopes, exact generated artifacts, and relevant cache-reuse records.
 
 Each `cache_reuse_records[]` entry makes cold versus reused execution auditable.
 
-Each `effect_requirements[]` entry carries the source CARD ID, declared effect ID, effect kind, and complete capability set. Every declaration must be accounted for by attempts or an explicit legitimate non-attempt reason; a detected reachable-effect omission is itself failure.
+Each `effect_requirements[]` entry carries the source CARD ID, declared effect ID, effect kind, and complete capability set. Every declaration must be accounted for by attempts or an explicit legitimate non-attempt reason; a detected reachable-effect omission is itself failure. External entropy acquisition is included in this rule through an explicit `RANDOM` effect requirement and attempt.
 
 Each `effect_authorization_records[]` entry proves which policy evaluated one concrete attempt and which complete capability set was granted or denied.
 
@@ -619,10 +657,10 @@ QSOL-MORPH should state the strongest reproducibility guarantee actually provide
 
 An implementation fails closed when a required scoped determinism, numeric, randomness, effect capability, machinery capability, failure behavior, or other frozen execution contract cannot be satisfied.
 
-Silently weakening `STRICT` to nondeterministic behavior, substituting external entropy for a required seeded stream, changing fail-stop into continuation, dropping an explicit recovery policy, or omitting a reachable required effect is invalid unless a frozen pre-execution contract explicitly permits the applicable transition. A reachable-effect omission is not a permitted transition and produces structured failure.
+Silently weakening `STRICT` to nondeterministic behavior, substituting external entropy for a required seeded stream, acquiring external entropy without a declared/authorized `RANDOM` effect, changing fail-stop into continuation, dropping an explicit recovery policy, or omitting a reachable required effect is invalid unless a frozen pre-execution contract explicitly permits the applicable transition. A reachable-effect omission is not a permitted transition and produces structured failure.
 
 General execution failure and effect-attempt completion semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
 
 ## Design principle
 
-> Nondeterminism, failure policy, machinery-selection history, authorization, cache reuse, external tools, optimization decisions, generated-artifact identity, execution path, and external inputs are scientific inputs, not invisible implementation details.
+> Nondeterminism, failure policy, machinery-selection history, authorization, cache reuse, external tools, optimization decisions, generated-artifact identity, execution path, external inputs, and entropy acquisition are scientific inputs, not invisible implementation details.
