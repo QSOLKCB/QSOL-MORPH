@@ -169,7 +169,7 @@ numeric_execution_scopes[]:
 
 `material_numeric_mode` records contract-permitted choices that can change legal result bytes, such as FMA behavior, denormal handling, effective precision, reduction strategy, or selected math-library mode.
 
-A single execution-wide numeric scope is legal only when a frozen normalization rule proves that one contract and one material mode govern the entire execution.
+A single execution-wide numeric scope is legal only when a frozen normalization rule proves that one contract and one material numeric mode govern the entire execution.
 
 ## Parallelism
 
@@ -222,6 +222,27 @@ Policy/tuning identity is material when selection is automatic, such as `ON BEST
 A single execution-wide selection entry is valid only when one frozen machinery decision genuinely governs the whole run.
 
 For a frozen experiment, replay may require the recorded backend rather than re-running an evolved selection policy.
+
+## Generated artifact provenance
+
+Generated kernels, binaries, object files, bytecode, or equivalent target artifacts are identified records, not an unscoped list of hashes.
+
+Conceptually:
+
+```text
+generated_artifacts[]:
+    generated_artifact_id
+    artifact_kind
+    artifact_hash
+    backend_unit_id
+    backend_selection_scope_id
+    source_card_ids[]?
+    artifact_location?
+```
+
+`backend_unit_id` identifies the lower execution/code-generation unit that produced the artifact. `backend_selection_scope_id` links that artifact to the exact machinery-selection record containing the selected backend, version, architecture, device, and automatic-selection policy/tuning identity where applicable.
+
+For a mixed-backend JOB, two artifacts may therefore have identical artifact kinds while remaining attributable to different machinery scopes. A bare `kernel_or_binary_hashes[]` list is insufficient provenance because it cannot establish which target decision produced each hash.
 
 ## Lowering provenance
 
@@ -360,6 +381,7 @@ inputs[]
 outputs[]
 cache_reuse_records[]
 resolved_extensions[]
+effect_requirements[]
 required_capabilities[]
 granted_capabilities[]
 denied_capabilities[]
@@ -368,10 +390,10 @@ capability_policy_version
 capabilities_used[]
 effect_attempts[]
 optimization_profile
-kernel_or_binary_hashes[]
+generated_artifacts[]
 ```
 
-`job_id` and `deck_id` identify the stable canonical hierarchy member represented by this execution. `card_ids[]` identifies the stable CARD identities that the manifest's producer, output, failure, scope, effect-attempt, and cache-reuse references may name. A whole-source hash is not a substitute for the selected JOB/DECK execution identity.
+`job_id` and `deck_id` identify the stable canonical hierarchy member represented by this execution. `card_ids[]` identifies the stable CARD identities that the manifest's producer, output, failure, scope, effect-attempt, generated-artifact, and cache-reuse references may name. A whole-source hash is not a substitute for the selected JOB/DECK execution identity.
 
 `execution_status`, `job_status`, and `deck_status` record the enclosing run outcome even when no output exists. When a failure occurs, `failure_card_id`, `failure_class`, and `failure_stage` identify the canonical failing CARD and stable semantic failure context. Effect completion alone cannot stand in for the enclosing CARD/DECK/JOB outcome: a process effect may be `COMPLETED` while its CARD and JOB fail because the completed process returned a non-success exit status.
 
@@ -388,6 +410,10 @@ Each `inputs[]` entry binds a declared material input to the exact immutable val
 Each `outputs[]` entry binds its artifact/result identity to its own semantic class, status, producer provenance, governing execution scopes, and any relevant cache-reuse records.
 
 Each `cache_reuse_records[]` entry makes cold versus reused execution auditable and binds the material cache identity plus any legality/verification evidence supporting substitution.
+
+Each `effect_requirements[]` entry carries the source CARD ID, canonical declared effect ID, effect kind, and complete `required_capabilities[]` set for that declared protected effect. These declaration rows are required independently of runtime `effect_attempts[]`: an effect omitted by a backend must remain detectable even when no attempt row was emitted.
+
+Each `generated_artifacts[]` entry binds a generated kernel/binary or equivalent artifact hash to its `backend_unit_id` and governing `backend_selection_scope_id`, so mixed-backend code generation remains attributable to the machinery and selection policy that produced each artifact.
 
 Not every optional field applies to every execution, but stable JOB/DECK identity and the enclosing execution outcome are material even when a failed run produces no outputs, and no material reproducibility decision may disappear merely because another run would have reached the same bytes by a different path.
 
