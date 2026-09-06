@@ -254,7 +254,7 @@ machinery_use_records[]:
     machinery_authorization_record_ids[]
     protected_use_kind
     protected_use_start_sequence_index
-    protected_use_end_sequence_index?
+    protected_use_stop_sequence_index?
     source_card_ids[]?
     backend_unit_id?
 ```
