@@ -148,7 +148,7 @@ Target resolution for planning/provenance is not permission to execute on that t
 
 A backend or selection policy may not silently evade a denial by switching to another target unless a frozen pre-execution fallback rule permits that transition and records it. Likewise, no synthetic effect attempt should be created solely to represent machinery permission.
 
-Trace/provenance binds each machinery authorization record to both the stable `backend_selection_scope_id` **and the concrete `backend_selection_decision_id` it governs**, plus the applicable `machinery_requirement_ids[]`, complete required/granted/denied capability sets, and responsible policy identity/version. The selection scope alone is not enough when several candidate decisions share that scope.
+Trace/provenance binds each machinery authorization record to both the stable `backend_selection_scope_id` **and the concrete `backend_selection_decision_id` it governs**, plus the applicable `machinery_requirement_refs[]`, complete required/granted/denied capability sets, and responsible policy identity/version. Each requirement reference carries the complete ordered absolute `owner_scope_path[]` from JOB through DECK/CARD as applicable plus the local `machinery_requirement_id`; the immediate owner alone is insufficient when local IDs repeat under sibling containers. The selection scope alone is not enough when several candidate decisions share that scope.
 
 Conceptually:
 
@@ -157,7 +157,11 @@ machinery_authorization_records[]:
     machinery_authorization_record_id
     backend_selection_scope_id
     backend_selection_decision_id
-    machinery_requirement_ids[]
+    machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
     required_capabilities[]
     granted_capabilities[]
     denied_capabilities[]

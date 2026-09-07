@@ -259,8 +259,8 @@ machinery_use_records[]:
     machinery_use_record_id
     backend_selection_scope_id
     backend_selection_decision_id
-    machinery_requirement_ids[]
     machinery_authorization_record_ids[]
+    output_ids[]
     protected_use_kind
     protected_use_start_sequence_index
     protected_use_stop_sequence_index?
@@ -272,7 +272,7 @@ machinery_use_records[]:
 
 `backend_selection_decision_id` identifies the concrete selection decision governing the use, not merely its shared selection scope. `card_execution_ids[]` identifies the actual participating CARD invocations and is nonempty for CARD-governed work. Each ID resolves through `card_executions[]` to the correct canonical CARD, DECK execution, and run. A retry, loop iteration, or repeated DECK execution cannot be inferred from the use's event index or canonical CARD IDs.
 
-For genuine pre-CARD machinery setup only, an empty CARD-execution array requires `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual initiating RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. Do not fabricate a CARD execution. Shared uses list their actual participating executions under the frozen execution mapping. These fields follow the [canonical machinery-use contract](TRACE-AND-PROVENANCE.md#machinery-authorization-and-use-provenance).
+For genuine pre-CARD machinery setup only, an empty CARD-execution array requires `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual initiating RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. Do not fabricate a CARD execution. Shared uses list their actual participating executions under the frozen execution mapping. `output_ids[]` is the reciprocal occurrence-level join to `outputs[].machinery_use_record_ids[]`; exact requirement identity is resolved through the linked canonical machinery authorization records and their absolute-owner-path `machinery_requirement_refs[]`, not a bare requirement-ID list on the use record. These fields follow the [canonical machinery-use contract](TRACE-AND-PROVENANCE.md#machinery-authorization-and-use-provenance).
 
 Every referenced authorization must have completed before protected use begins:
 
@@ -481,11 +481,12 @@ effect_begin_sequence_index?
 effect_end_sequence_index?
 completion_state
 backend_detail?
+acquired_input_ids[]
 observable_output_ids[]
-external_tool_ids[]?
+external_tool_ids[]
 ```
 
-`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt; and `card_execution_id` identifies the concrete invocation/path in which it occurred. They are not interchangeable. `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering.
+`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt; and `card_execution_id` identifies the concrete invocation/path in which it occurred. They are not interchangeable. `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering. For `completion_state = NOT_STARTED`, begin/end indices are absent and `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]` are empty. A retained output must never cite a `NOT_STARTED` attempt through `effect_attempt_ids[]`; failure projections inherit the same reciprocal rejection rule as the canonical trace. Material external-tool attribution also uses explicit attempt/output subject arrays and reciprocal links rather than broad CARD-only association.
 
 When a declared effect has no runtime attempt for a concrete CARD execution, an identified non-attempt record explains why:
 

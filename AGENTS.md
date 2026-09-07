@@ -74,7 +74,7 @@ When proposing changes:
 34. record scoped randomness/RNG provenance;
 35. separate a governed backend-selection scope from the ordered backend-selection decisions made for that scope, and give the selection-scope record its own stable `backend_selection_scope_id` distinct from the computation `scope_id`;
 36. never overwrite a denied target with a fallback target; preserve predecessor decision, frozen fallback rule, authorization outcome, and final-selection decision;
-37. bind protected-machinery authorization records to the concrete backend-selection decision/scope they govern and preserve same-domain authorization-before-use ordering through identified machinery-use records linked to their actual concrete CARD executions or genuine pre-CARD initiating scope;
+37. bind protected-machinery authorization records to the concrete backend-selection decision/scope they govern; every `machinery_requirement_refs[]` entry uses the complete ordered absolute JOB/DECK/CARD `owner_scope_path[]` plus local requirement ID, and same-domain authorization-before-use ordering is preserved through identified machinery-use records linked to their actual concrete CARD executions or genuine pre-CARD initiating scope and exact outputs;
 38. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
 39. bind each effect attempt to its contextual `effect_authorization_record_id` and preserve same-domain authorization-before-effect-begin ordering where required;
 40. account **unconditionally** for every applicable declared effect for every selected concrete `card_execution_id` with attempt(s), exactly one legitimate identified non-attempt, or structured failure;
@@ -84,8 +84,8 @@ When proposing changes:
 44. distinguish `ABORTED_CLEAN` from `NOT_STARTED`, `PARTIAL`, and `UNKNOWN`;
 45. record every selected DECK in `deck_executions[]`, including DECKs prevented from starting by prior fail-stop;
 46. record every CARD in a selected DECK execution in `card_executions[]`, distinguishing executed, failed, untaken, fail-stop-blocked, not-reached, and explicit-skip paths;
-47. bind effect-produced/exposed outputs to concrete `effect_attempt_ids[]`, with reciprocal output IDs on attempts;
-48. bind material external-tool identities to concrete effect attempts and/or outputs, not merely to a broad source CARD, and require an immutable/versioned material identity or an explicit identity-unavailable status that weakens replay/evidence claims;
+47. bind effect-produced/exposed outputs to concrete `effect_attempt_ids[]`, with reciprocal output IDs on attempts; `NOT_STARTED` attempts have empty acquired-input/output/tool arrays and must never be cited by an output;
+48. bind material external-tool identities to concrete effect attempts and/or outputs, not merely to a broad source CARD; explicit attempt/output subject arrays and reciprocal links are mandatory for material participation, and immutable/versioned material identity or an explicit identity-unavailable status must govern replay/evidence claims;
 49. do not satisfy an effectful CARD from cached prior output if that skips a declared effect or its authorization/ordering/failure/provenance boundary;
 50. bind every material runtime input to a stable `input_id` plus exact canonical value/content/artifact identity actually consumed;
 51. bind each output to canonical producer CARDs **and concrete `producer_card_execution_ids[]`**, exact materially contributing `input_ids[]`, applicable failure-behavior bindings, and exact generated artifact IDs when generated code is involved;

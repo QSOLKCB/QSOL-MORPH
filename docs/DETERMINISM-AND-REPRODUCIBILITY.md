@@ -219,8 +219,9 @@ Canonical requirements remain present independently of runtime authorization:
 ```text
 machinery_requirements[]:
     machinery_requirement_id
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
     source_card_ids[]
     target_selector_or_class
     required_capabilities[]
@@ -234,7 +235,11 @@ machinery_authorization_records[]:
     backend_selection_scope_id
     backend_selection_decision_id
     source_card_ids[]
-    machinery_requirement_ids[]
+    machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
     required_capabilities[]
     granted_capabilities[]
     denied_capabilities[]
@@ -256,11 +261,12 @@ machinery_use_records[]:
     card_execution_ids[]
     initiating_scope_ref?
     machinery_authorization_record_ids[]
+    output_ids[]
     protected_use_start_sequence_index
     protected_use_stop_sequence_index?
 ```
 
-`card_execution_ids[]` is nonempty for CARD-governed use and resolves to the actual participating CARD invocations in `card_executions[]`, consistently with their canonical CARDs, DECK executions, and this run. Repeated uses under one backend scope/decision cannot collapse retries or iterations into canonical source IDs. Genuine pre-CARD setup may use an empty array only with `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. It must not fabricate a CARD execution. Shared uses list the concrete participating executions under the frozen execution mapping.
+`card_execution_ids[]` is nonempty for CARD-governed use and resolves to the actual participating CARD invocations in `card_executions[]`, consistently with their canonical CARDs, DECK executions, and this run. Repeated uses under one backend scope/decision cannot collapse retries or iterations into canonical source IDs. Genuine pre-CARD setup may use an empty array only with `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. It must not fabricate a CARD execution. Shared uses list the concrete participating executions under the frozen execution mapping. `output_ids[]` names every output materially produced or exposed by this exact protected-use occurrence and is reciprocal with `outputs[].machinery_use_record_ids[]`; matching CARD execution, backend scope, or generated artifact is not an occurrence-level substitute.
 
 Authorization and protected-use indices belong to one frozen monotonic event-order domain. Every protected use references all applicable successful authorization records, each satisfying:
 
@@ -545,8 +551,9 @@ effect_attempts[]:
     effect_end_sequence_index?
     completion_state
     backend_detail?
+    acquired_input_ids[]
     observable_output_ids[]
-    external_tool_ids[]?
+    external_tool_ids[]
 ```
 
 Authorization and effect-begin indices live in one frozen monotonic event-order domain. Every protected attempt known to begin satisfies:
@@ -555,7 +562,7 @@ Authorization and effect-begin indices live in one frozen monotonic event-order 
 authorization_sequence_index < effect_begin_sequence_index
 ```
 
-Denied authorization has no effect-begin event. Generic `sequence_index` is not authorization-order proof.
+Denied authorization has no effect-begin event. Generic `sequence_index` is not authorization-order proof. For `completion_state = NOT_STARTED`, `effect_begin_sequence_index` and `effect_end_sequence_index` are absent and `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]` are all empty. No output may reference a `NOT_STARTED` attempt through `effect_attempt_ids[]`; that contradiction fails closed.
 
 A declared effect may legitimately have no runtime attempt for a specific concrete CARD execution:
 
@@ -614,13 +621,13 @@ external_tool_versions[]:
     material_identity_value?
     endpoint_or_location?
     source_card_ids[]?
-    effect_attempt_ids[]?
-    output_ids[]?
+    effect_attempt_ids[]
+    output_ids[]
 ```
 
 A material external tool, service, model, prover, process, or instrument must not be identified only by a display name or mutable endpoint. `material_identity_status = IDENTIFIED` requires an immutable or versioned `material_identity_value`, such as an executable/content hash, tool version adequate for the active claim, model/version ID, immutable artifact ID, or frozen equivalent.
 
-If material identity cannot be established, record `material_identity_status = UNAVAILABLE` (or frozen equivalent). Replay/evidence claims that depend on exact identity must then be weakened or rejected according to frozen policy rather than silently claiming full reproducibility.
+If material identity cannot be established, record `material_identity_status = UNAVAILABLE` (or frozen equivalent). Replay/evidence claims that depend on exact identity must then be weakened or rejected according to frozen policy rather than silently claiming full reproducibility. Every material external-tool record carries explicit `effect_attempt_ids[]` and `output_ids[]` arrays with at least one concrete subject across them, and attempt/output `external_tool_ids[]` links are reciprocal. Empty subject arrays are allowed only for a non-material/non-participating record that is not being used as provenance for an execution result.
 
 Extension resolution identifies the adapter/profile contract. It does not substitute for the actual tool, service, model, prover, process, or instrument identity.
 
@@ -663,8 +670,9 @@ outputs[]:
     producer_card_execution_ids[]
     input_ids[]
     effect_attempt_ids[]?
-    external_tool_ids[]?
+    external_tool_ids[]
     backend_selection_scope_ids[]
+    machinery_use_record_ids[]
     generated_artifact_ids[]?
     result_determinism_scope_ids[]
     numeric_scope_ids[]
@@ -680,9 +688,11 @@ A canonical CARD ID alone is insufficient when a CARD can execute more than once
 
 `input_ids[]` identifies the exact immutable inputs materially contributing to this output. Execution-wide input availability is not a substitute.
 
-`effect_attempt_ids[]`, where applicable, identifies concrete effect attempts that produced or exposed the output. Each attempt reciprocally lists the output in `observable_output_ids[]`.
+`effect_attempt_ids[]`, where applicable, identifies concrete effect attempts that produced or exposed the output. Each attempt reciprocally lists the output in `observable_output_ids[]`, and every referenced attempt must have begun; `NOT_STARTED` is forbidden in this relation.
 
-`external_tool_ids[]`, where applicable, identifies exact material external tools/services/models/provers.
+`external_tool_ids[]` is always an explicit array. It identifies exact material external tools/services/models/provers and reciprocally resolves to `external_tool_versions[].output_ids[]`; it is empty when no material external tool supplied the output.
+
+`machinery_use_record_ids[]` identifies the exact protected-use occurrence(s) that materially produced or exposed the output and is reciprocal with `machinery_use_records[].output_ids[]`. Backend scope, CARD execution, artifact identity, or authorization records cannot substitute when one invocation performs several protected launches.
 
 `generated_artifact_ids[]` identifies the exact generated artifact that executed where applicable and thereby links the output to optimization provenance, its direct toolchain producer, and its ordered transitive toolchain ancestry.
 
