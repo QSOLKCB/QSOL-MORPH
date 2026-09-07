@@ -310,11 +310,12 @@ backend_selection_decisions[]:
     selection_tuning_hash?
     predecessor_selection_decision_id?
     fallback_rule_id?
+    fallback_evidence_id?
     machinery_authorization_record_ids[]?
     decision_status
 ```
 
-A denied GPU decision followed by CPU fallback remains two decisions. Preserve the denial, its authorization record, the fallback rule, the predecessor link, and the final decision ID.
+A denied GPU decision followed by CPU fallback remains two decisions. Preserve the denial, its authorization record, the fallback rule, the predecessor link, the subject-bound fallback evidence, and the final decision ID. Whenever a decision is a fallback, both `fallback_rule_id` and `fallback_evidence_id` are mandatory: the rule resolves to the accepted frozen selection/fallback authority, and the evidence resolves to passing validation for this exact predecessor decision, candidate/fallback pair, governed scope, active context, and applicability conditions. Validation must complete before the fallback selection is applied in the shared event-order domain; unknown, stale, mismatched, or late evidence fails closed.
 
 Protected machinery authorization is a separate ledger and must bind the specific selection decision plus applicable canonical machinery requirement IDs. When protected-use ordering is material, record identified `machinery_use_records[]` with all applicable authorization-record IDs plus `protected_use_start_sequence_index` in the same frozen monotonic event-order domain as each authorization's `authorization_sequence_index`. Require `authorization_sequence_index < protected_use_start_sequence_index`. Denied machinery has no protected-use start record.
 
@@ -367,7 +368,7 @@ producer_card_ids[]
 producer_card_execution_ids[]
 input_ids[]
 effect_attempt_ids[]?
-external_tool_ids[]?
+external_tool_ids[]
 backend_selection_scope_ids[]
 generated_artifact_ids[]?
 result_determinism_scope_ids[]
@@ -392,11 +393,12 @@ evidence_status?
 evidence_class
 status
 evidence_rule_id?
+evidence_validation_id?
 ```
 
-Reject incompatible semantic/evidence-class combinations. Generic output status is not an epistemic promotion mechanism.
+Reject incompatible semantic/evidence-class combinations. Generic output status is not an epistemic promotion mechanism. Any non-class-preserving transition requires both `evidence_rule_id` resolving to accepted content-bound `EPISTEMIC_TRANSITION` authority and `evidence_validation_id` resolving to passing validation evidence for this exact output, artifact hash, original source classes, concrete producers, contributing evidence/inputs, target evidence class, and claim-publication event. Missing, stale, unknown, context-mismatched, unverifiable, or late rule/evidence fails closed.
 
-When an effect materially produces or exposes an output, link the output to concrete attempt IDs and link those attempts back to the output. When an external tool materially supplies evidence/data, link the tool to concrete attempts and/or outputs rather than only the broad source CARD.
+When an effect materially produces or exposes an output, link the output to concrete attempt IDs and link those attempts back to the output. Every output carries explicit `external_tool_ids[]`: use an empty array only when no material external tool contributed. When an external tool materially supplies evidence/data, the nonempty output array and the tool's concrete subject links must agree reciprocally; broad source-CARD attribution or omission of the array is not evidence of no tool participation.
 
 ## External-tool provenance work
 

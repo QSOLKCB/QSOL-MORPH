@@ -782,12 +782,15 @@ A future run manifest may include:
 ```text
 spec_version
 run_id
-source_hash
-semantic_ir_hash
-job_id
-deck_executions[]
-card_ids[]
-card_executions[]
+input_representation:
+    representation_kind
+    representation_identity
+source_hash?
+semantic_ir_hash?
+job_id?
+deck_executions[]?
+card_ids[]?
+card_executions[]?
 control_decisions[]
 failure_records[]
 primary_failure_record_id?
@@ -796,28 +799,28 @@ job_status
 failure_behavior_bindings[]
 rule_records[]
 validation_evidence[]
-semantic_to_core_spec_version
-semantic_to_core_implementation_version
-core_ir_hash
-semantic_to_core_result_binding_map[]
-extension_requirement_lowering_decisions[]
-qualifier_lowering_decisions[]
-machinery_requirement_lowering_decisions[]
-result_determinism_lowering_decisions[]
-numeric_contract_lowering_decisions[]
-randomness_lowering_decisions[]
-failure_behavior_lowering_decisions[]
-vector_dataflow_spec_version
-vector_dataflow_implementation_version
-vector_dataflow_ir_hash
-core_to_vector_result_binding_map[]
-extension_requirement_mapping_decisions[]
-machinery_requirement_mapping_decisions[]
-core_to_vector_result_determinism_mapping_decisions[]
-core_to_vector_numeric_contract_mapping_decisions[]
-core_to_vector_randomness_mapping_decisions[]
-failure_behavior_mapping_decisions[]
-morph_version
+semantic_to_core_spec_version?
+semantic_to_core_implementation_version?
+core_ir_hash?
+semantic_to_core_result_binding_map[]?
+extension_requirement_lowering_decisions[]?
+qualifier_lowering_decisions[]?
+machinery_requirement_lowering_decisions[]?
+result_determinism_lowering_decisions[]?
+numeric_contract_lowering_decisions[]?
+randomness_lowering_decisions[]?
+failure_behavior_lowering_decisions[]?
+vector_dataflow_spec_version?
+vector_dataflow_implementation_version?
+vector_dataflow_ir_hash?
+core_to_vector_result_binding_map[]?
+extension_requirement_mapping_decisions[]?
+machinery_requirement_mapping_decisions[]?
+core_to_vector_result_determinism_mapping_decisions[]?
+core_to_vector_numeric_contract_mapping_decisions[]?
+core_to_vector_randomness_mapping_decisions[]?
+failure_behavior_mapping_decisions[]?
+morph_version?
 backend_selection_scopes[]
 backend_selection_decisions[]
 machinery_requirements[]
@@ -847,7 +850,11 @@ generated_artifacts[]
 toolchain_invocations[]
 ```
 
-`run_id` identifies the aggregate execution. `job_id` identifies the canonical JOB. `deck_executions[]` and `card_executions[]` identify the concrete runtime path.
+`run_id` identifies the aggregate execution. `input_representation` is mandatory and identifies the representation that actually entered this execution plus its content-bound identity. The corresponding named layer hash, when present, must agree with that identity. Layer-specific manifest fields are conditionally required exactly when this execution traversed that layer; an untraversed layer is absent, not synthesized.
+
+For a Semantic-IR entry that lowers to Core, `semantic_ir_hash`, the Semantic→Core specification/implementation identities, `core_ir_hash`, and every applicable first-lowering map/decision record are mandatory. For a legitimate `QSOL_CORE` entry, `core_ir_hash` identifies the input Core snapshot and the Semantic-IR/first-lowering fields are absent; the run must not fabricate `semantic_ir_hash`, a lowering implementation, or mapping history. Likewise, a direct PR #7 Core reference-machine execution that does not traverse Core→Vector/Dataflow or MORPH leaves those later layer fields absent. Entry at any other frozen representation follows the same rule: preserve actual downstream traversal and do not invent upstream history.
+
+`source_hash`, `job_id`, `deck_executions[]`, `card_ids[]`, and `card_executions[]` are present only when that source/semantic lineage or execution structure exists for the entered representation or is explicitly retained as verifiable provenance. Their absence on a legitimate lower-representation entry is not permission to fabricate replacement semantic identities. Conversely, once a present downstream record references semantic, lowering, Core, Vector/Dataflow, or MORPH provenance, the referenced layer and its complete transitive validation closure become mandatory.
 
 `control_decisions[]` and `failure_records[]` provide typed resolvable causes for untaken or blocked CARDs and effect non-attempts. A failure record always identifies its typed failing scope and exact `failure_behavior_binding_ids[]`; CARD identity is present only when a CARD execution actually caused that failure.
 
