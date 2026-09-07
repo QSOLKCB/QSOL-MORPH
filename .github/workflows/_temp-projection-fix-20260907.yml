@@ -1,0 +1,88 @@
+name: Temporary provenance projection fix
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+    paths:
+      - .github/workflows/_temp-projection-fix-20260907.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'docs: align projection schemas with canonical provenance'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply exact documentation fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one match, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "AGENTS.md",
+              "31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change; first-lowering source/Core scope references use complete ordered containment paths rather than kind plus local ID, and at both machinery boundaries preserve explicit source/lower machinery-requirement IDs;",
+              "31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change; first-lowering source/Core scope references use complete ordered containment paths rather than kind plus local ID, and at both machinery boundaries preserve owner-qualified source/lower machinery-requirement references that pair each local requirement ID with its complete representation-relative owner path;",
+          )
+
+          replace_once(
+              "AGENTS.md",
+              "At this first boundary, `machinery_requirement_lowering_decisions[]` uses identified `mapping_group_id` records with typed `source_scope_refs[]` and `core_scope_refs[]`, nonempty deterministic `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`, source CARD provenance, and `mapping_rule_id`. Resolve each requirement in the hash-bound source Semantic IR or resulting Core IR. Separate unrelated requirements sharing a scope; a frozen rule defines every split/fusion relation and the target selector/complete capability set reaching each lower requirement. Scope correspondence or array position cannot substitute for requirement identity. A reconstruction exception must recover both ownership and every requirement-ID association.",
+              "At this first boundary, `machinery_requirement_lowering_decisions[]` uses identified `mapping_group_id` records with typed `source_scope_refs[]` and `core_scope_refs[]`, plus nonempty deterministic `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`. Every machinery-requirement reference pairs its local `machinery_requirement_id` with the complete representation-relative `owner_scope_path[]` of the scope that owns it; source/Core scope arrays are correspondence context and never a positional join. Records also retain source CARD provenance and `mapping_rule_id`. Resolve each qualified requirement in the hash-bound source Semantic IR or resulting Core IR. Separate unrelated requirements sharing a scope; a frozen rule defines every split/fusion relation and the target selector/complete capability set reaching each lower requirement. Scope correspondence, repeated local IDs, or array position cannot substitute for an owner-qualified requirement identity. A reconstruction exception must recover both ownership and every qualified requirement association.",
+          )
+
+          replace_once(
+              "AGENTS.md",
+              "For `machinery_requirement_mapping_decisions[]`, typed scope mappings alone are not enough when one Core scope owns several machinery requirements. Preserve `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` so each target selector/capability set reaches the correct lower region.",
+              "For `machinery_requirement_mapping_decisions[]`, typed scope mappings alone are not enough when one Core scope owns several machinery requirements or sibling scopes reuse a local requirement ID. Preserve `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, with every entry pairing its local `machinery_requirement_id` to the complete representation-relative `owner_scope_path[]`, so each target selector/capability set reaches the correct lower region without positional inference.",
+          )
+
+          replace_once(
+              "docs/VECTOR-AND-DATAFLOW.md",
+              "```text\nscope_kind\nscope_id\nsource_card_ids[]\nnumeric_contract_id\nnumeric_contract_hash\nmaterial_numeric_mode\nbackend_unit_id?\n```",
+              "```text\nnumeric_scope_id\ngoverned_scope_ref:\n    representation_kind\n    representation_identity\n    owner_scope_path[]:\n        scope_kind\n        scope_id\nsource_card_ids[]\nnumeric_contract_id\nnumeric_contract_hash\nmaterial_numeric_mode\nbackend_unit_id?\n```",
+          )
+
+          replace_once(
+              "docs/VECTOR-AND-DATAFLOW.md",
+              "The material numeric mode may be selected only within the legal choices of that scope's contract. Different kernels may therefore legitimately have different modes, and provenance must not collapse them into one false execution-wide pair.",
+              "`numeric_scope_id` is the stable numeric-ledger key. `governed_scope_ref` identifies the governed Core or Vector/Dataflow computation with representation identity plus its complete representation-relative containment path; local `scope_id` values and source CARD summaries are not owner identity.\n\nThe material numeric mode may be selected only within the legal choices of that scope's contract. Different kernels may therefore legitimately have different modes, and provenance must not collapse them into one false execution-wide pair.",
+          )
+
+          replace_once(
+              "ROADMAP.md",
+              "    observable_output_ids[]\n    external_tool_ids[]?\n```",
+              "    observable_output_ids[]\n    external_tool_ids[]\n```",
+          )
+
+          replace_once(
+              "ROADMAP.md",
+              "Every non-attempt requires its own stable identity and concrete CARD execution:",
+              "`external_tool_ids[]` is mandatory on every effect attempt. Use an explicit empty array only when no material external tool participated in that concrete attempt. When material external tools participate, the IDs must resolve to `external_tool_versions[]` and the relation must be reciprocal through the tool record's `effect_attempt_ids[]`; broad CARD-only attribution is not sufficient.\n\nEvery non-attempt requires its own stable identity and concrete CARD execution:",
+          )
+          PY
+
+      - name: Commit documentation fixes and remove helper
+        shell: bash
+        run: |
+          git rm .github/workflows/_temp-projection-fix-20260907.yml
+          git diff --check
+          git config user.name "EmergentMonk"
+          git config user.email "73952179+EmergentMonk@users.noreply.github.com"
+          git add AGENTS.md docs/VECTOR-AND-DATAFLOW.md ROADMAP.md
+          git commit -m "docs: align projection schemas with canonical provenance"
+          git push origin HEAD:docs/foundation-specification
