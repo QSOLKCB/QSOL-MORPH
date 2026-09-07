@@ -16,6 +16,33 @@ jobs:
         with:
           ref: docs/foundation-specification
           fetch-depth: 0
+      - name: Handle evolving toolchain prose structurally
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          roadmap = Path('ROADMAP.md')
+          text = roadmap.read_text()
+          anchor = 'Toolchain direct edges and ancestry have different meanings.'
+          insertion = ('Toolchain `input_ir_hashes[]` is always explicit: it is nonempty with the exact direct content hash(es) whenever the invocation consumes IR, including ordinary non-optimized code generation, and empty only when that invocation consumes no IR. Tool identity, flags, target, backend unit, or output artifact cannot substitute for this content-bound direct IR edge.\n\n')
+          if insertion not in text:
+              if text.count(anchor) != 1:
+                  raise SystemExit(f'ROADMAP toolchain ancestry anchor count={text.count(anchor)}')
+              roadmap.write_text(text.replace(anchor, insertion + anchor, 1))
+
+          script = Path('.github/scripts/fix-qualified-provenance-v3.py')
+          src = script.read_text()
+          start_marker = 'rep(\n    "ROADMAP.md",\n    """Toolchain `input_ids[]` bind the immutable bytes'
+          start = src.find(start_marker)
+          if start >= 0:
+              end_marker = '\n)\n\n# PR #5 attempt projection reciprocates acquired inputs.'
+              end = src.find(end_marker, start)
+              if end < 0:
+                  raise SystemExit('could not find end of brittle toolchain prose replacement')
+              src = src[:start] + src[end + 3:]
+              script.write_text(src)
+          PY
       - name: Apply patch
         run: python .github/scripts/fix-qualified-provenance-v3.py
       - name: Commit patch and remove helpers
