@@ -1,0 +1,204 @@
+name: Apply provenance projection review fixes
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/foundation-specification
+          fetch-depth: 0
+      - name: Apply coordinated documentation patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p = Path(path)
+              text = p.read_text()
+              found = text.count(old)
+              if found < count:
+                  raise SystemExit(f"{path}: expected at least {count} occurrence(s), found {found}: {old[:120]!r}")
+              text = text.replace(old, new, count)
+              p.write_text(text)
+
+          # Canonical trace: machinery requirements are qualified by their complete absolute owner path.
+          replace(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """    machinery_requirement_refs[]:\n        owner_scope_ref:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n""",
+              """    machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n""",
+          )
+          replace(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """Before accepting any machinery authorization, resolve every `machinery_requirement_refs[]` entry by the complete tuple `(owner_scope_ref.scope_kind, owner_scope_ref.scope_id, machinery_requirement_id)` to exactly one requirement in the hash-bound canonical input. `owner_scope_ref` names the requirement's actual canonical owner and is not inferred from `source_card_ids[]`, backend scope, or list position. Validate the trace requirement's identity, owner, target selector/class, and complete capability set against that canonical record, not against another runtime copy.""",
+              """Before accepting any machinery authorization, resolve every `machinery_requirement_refs[]` entry by the complete tuple `(owner_scope_path[], machinery_requirement_id)` to exactly one requirement in the hash-bound canonical input. `owner_scope_path[]` is the ordered absolute canonical containment path from the JOB through the owning DECK and CARD as applicable: a JOB-owned requirement uses `[{JOB, job_id}]`; a DECK-owned requirement uses `[{JOB, job_id}, {DECK, deck_id}]`; and a CARD-owned requirement uses `[{JOB, job_id}, {DECK, deck_id}, {CARD, card_id}]`. Every ancestor is part of the identity even when the local ID happens to be unique in one document; the terminal element is the actual owner. The path is not inferred from `source_card_ids[]`, backend scope, list position, or first-match lookup. Validate the trace requirement's identity, complete owner path, target selector/class, and complete capability set against that canonical record, not against another runtime copy.""",
+          )
+          replace(
+              "docs/TRACE-AND-PROVENANCE.md",
+              "a machinery authorization uses a bare or owner-mismatched requirement ID instead of an exact typed owner-qualified `machinery_requirement_refs[]` entry",
+              "a machinery authorization uses a bare or incompletely qualified requirement ID instead of an exact absolute-owner-path-qualified `machinery_requirement_refs[]` entry",
+          )
+          replace(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """| Owner-qualified machinery authorization | Each authorization names every requirement by typed owner scope plus local requirement ID, resolves that tuple uniquely in the canonical input, and validates the exact canonical capability union. | Bare local requirement ID; infer owner from source CARDs; confuse equal IDs owned by JOB and CARD; owner-mismatched lowering copy; first-match lookup. |""",
+              """| Absolute owner-path machinery authorization | Each authorization names every requirement by the complete ordered JOB/DECK/CARD owner path plus local requirement ID, resolves that tuple uniquely in the canonical input, and validates the exact canonical capability union. Repeated CARD/requirement IDs under sibling DECKs remain distinct. | Bare local requirement ID; immediate owner only; missing/swapped ancestor; infer owner from source CARDs; confuse `D1/CARD 7/gpu` with `D2/CARD 7/gpu`; owner-mismatched lowering copy; first-match lookup. |""",
+          )
+
+          # Reproducibility projection: mirror canonical machinery refs, use/output links, tool subjects, and NOT_STARTED rules.
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """machinery_requirements[]:\n    machinery_requirement_id\n    scope_kind\n    scope_id\n    source_card_ids[]\n    target_selector_or_class\n    required_capabilities[]\n""",
+              """machinery_requirements[]:\n    machinery_requirement_id\n    owner_scope_path[]:\n        scope_kind\n        scope_id\n    source_card_ids[]\n    target_selector_or_class\n    required_capabilities[]\n""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """    source_card_ids[]\n    machinery_requirement_ids[]\n    required_capabilities[]\n""",
+              """    source_card_ids[]\n    machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n    required_capabilities[]\n""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """    initiating_scope_ref?\n    machinery_authorization_record_ids[]\n    protected_use_start_sequence_index\n""",
+              """    initiating_scope_ref?\n    machinery_authorization_record_ids[]\n    output_ids[]\n    protected_use_start_sequence_index\n""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """Shared uses list the concrete participating executions under the frozen execution mapping.\n\nAuthorization and protected-use indices belong""",
+              """Shared uses list the concrete participating executions under the frozen execution mapping. `output_ids[]` names every output materially produced or exposed by this exact protected-use occurrence and is reciprocal with `outputs[].machinery_use_record_ids[]`; matching CARD execution, backend scope, or generated artifact is not an occurrence-level substitute.\n\nAuthorization and protected-use indices belong""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """    completion_state\n    backend_detail?\n    observable_output_ids[]\n    external_tool_ids[]?\n""",
+              """    completion_state\n    backend_detail?\n    acquired_input_ids[]\n    observable_output_ids[]\n    external_tool_ids[]\n""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """Denied authorization has no effect-begin event. Generic `sequence_index` is not authorization-order proof.\n\nA declared effect may legitimately""",
+              """Denied authorization has no effect-begin event. Generic `sequence_index` is not authorization-order proof. For `completion_state = NOT_STARTED`, `effect_begin_sequence_index` and `effect_end_sequence_index` are absent and `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]` are all empty. No output may reference a `NOT_STARTED` attempt through `effect_attempt_ids[]`; that contradiction fails closed.\n\nA declared effect may legitimately""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """    source_card_ids[]?\n    effect_attempt_ids[]?\n    output_ids[]?\n""",
+              """    source_card_ids[]?\n    effect_attempt_ids[]\n    output_ids[]\n""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """If material identity cannot be established, record `material_identity_status = UNAVAILABLE` (or frozen equivalent). Replay/evidence claims that depend on exact identity must then be weakened or rejected according to frozen policy rather than silently claiming full reproducibility.\n\nExtension resolution identifies""",
+              """If material identity cannot be established, record `material_identity_status = UNAVAILABLE` (or frozen equivalent). Replay/evidence claims that depend on exact identity must then be weakened or rejected according to frozen policy rather than silently claiming full reproducibility. Every material external-tool record carries explicit `effect_attempt_ids[]` and `output_ids[]` arrays with at least one concrete subject across them, and attempt/output `external_tool_ids[]` links are reciprocal. Empty subject arrays are allowed only for a non-material/non-participating record that is not being used as provenance for an execution result.\n\nExtension resolution identifies""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """    effect_attempt_ids[]?\n    external_tool_ids[]?\n    backend_selection_scope_ids[]\n    generated_artifact_ids[]?\n""",
+              """    effect_attempt_ids[]?\n    external_tool_ids[]\n    backend_selection_scope_ids[]\n    machinery_use_record_ids[]\n    generated_artifact_ids[]?\n""",
+          )
+          replace(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """`effect_attempt_ids[]`, where applicable, identifies concrete effect attempts that produced or exposed the output. Each attempt reciprocally lists the output in `observable_output_ids[]`.\n\n`external_tool_ids[]`, where applicable, identifies exact material external tools/services/models/provers.\n\n`generated_artifact_ids[]`""",
+              """`effect_attempt_ids[]`, where applicable, identifies concrete effect attempts that produced or exposed the output. Each attempt reciprocally lists the output in `observable_output_ids[]`, and every referenced attempt must have begun; `NOT_STARTED` is forbidden in this relation.\n\n`external_tool_ids[]` is always an explicit array. It identifies exact material external tools/services/models/provers and reciprocally resolves to `external_tool_versions[].output_ids[]`; it is empty when no material external tool supplied the output.\n\n`machinery_use_record_ids[]` identifies the exact protected-use occurrence(s) that materially produced or exposed the output and is reciprocal with `machinery_use_records[].output_ids[]`. Backend scope, CARD execution, artifact identity, or authorization records cannot substitute when one invocation performs several protected launches.\n\n`generated_artifact_ids[]`""",
+          )
+
+          # Extension/capability projection: use the same complete owner-path requirement reference.
+          replace(
+              "docs/EXTENSIONS-AND-CAPABILITIES.md",
+              """Trace/provenance binds each machinery authorization record to both the stable `backend_selection_scope_id` **and the concrete `backend_selection_decision_id` it governs**, plus the applicable `machinery_requirement_ids[]`, complete required/granted/denied capability sets, and responsible policy identity/version. The selection scope alone is not enough when several candidate decisions share that scope.""",
+              """Trace/provenance binds each machinery authorization record to both the stable `backend_selection_scope_id` **and the concrete `backend_selection_decision_id` it governs**, plus the applicable `machinery_requirement_refs[]`, complete required/granted/denied capability sets, and responsible policy identity/version. Each requirement reference carries the complete ordered absolute `owner_scope_path[]` from JOB through DECK/CARD as applicable plus the local `machinery_requirement_id`; the immediate owner alone is insufficient when local IDs repeat under sibling containers. The selection scope alone is not enough when several candidate decisions share that scope.""",
+          )
+          replace(
+              "docs/EXTENSIONS-AND-CAPABILITIES.md",
+              """    backend_selection_decision_id\n    machinery_requirement_ids[]\n    required_capabilities[]\n""",
+              """    backend_selection_decision_id\n    machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n    required_capabilities[]\n""",
+          )
+
+          # Failure projection: align machinery use occurrence links and effect-attempt invariants.
+          replace(
+              "docs/FAILURE-AND-PARTIAL-EFFECTS.md",
+              """    backend_selection_scope_id\n    backend_selection_decision_id\n    machinery_requirement_ids[]\n    machinery_authorization_record_ids[]\n    protected_use_kind\n""",
+              """    backend_selection_scope_id\n    backend_selection_decision_id\n    machinery_authorization_record_ids[]\n    output_ids[]\n    protected_use_kind\n""",
+          )
+          replace(
+              "docs/FAILURE-AND-PARTIAL-EFFECTS.md",
+              """Shared uses list their actual participating executions under the frozen execution mapping. These fields follow the [canonical machinery-use contract](TRACE-AND-PROVENANCE.md#machinery-authorization-and-use-provenance).\n\nEvery referenced authorization""",
+              """Shared uses list their actual participating executions under the frozen execution mapping. `output_ids[]` is the reciprocal occurrence-level join to `outputs[].machinery_use_record_ids[]`; exact requirement identity is resolved through the linked canonical machinery authorization records and their absolute-owner-path `machinery_requirement_refs[]`, not a bare requirement-ID list on the use record. These fields follow the [canonical machinery-use contract](TRACE-AND-PROVENANCE.md#machinery-authorization-and-use-provenance).\n\nEvery referenced authorization""",
+          )
+          replace(
+              "docs/FAILURE-AND-PARTIAL-EFFECTS.md",
+              """completion_state\nbackend_detail?\nobservable_output_ids[]\nexternal_tool_ids[]?\n""",
+              """completion_state\nbackend_detail?\nacquired_input_ids[]\nobservable_output_ids[]\nexternal_tool_ids[]\n""",
+          )
+          replace(
+              "docs/FAILURE-AND-PARTIAL-EFFECTS.md",
+              """They are not interchangeable. `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering.\n\nWhen a declared effect has no runtime attempt""",
+              """They are not interchangeable. `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering. For `completion_state = NOT_STARTED`, begin/end indices are absent and `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]` are empty. A retained output must never cite a `NOT_STARTED` attempt through `effect_attempt_ids[]`; failure projections inherit the same reciprocal rejection rule as the canonical trace. Material external-tool attribution also uses explicit attempt/output subject arrays and reciprocal links rather than broad CARD-only association.\n\nWhen a declared effect has no runtime attempt""",
+          )
+
+          # README projection: make the same reference shapes and occurrence-level joins visible.
+          replace(
+              "README.md",
+              """`machinery_authorization_records[]` bind the selected backend-selection scope **and concrete backend-selection decision** to the applicable `machinery_requirement_ids[]`, required/granted/denied machinery capabilities, and the capability policy responsible for the decision. `machinery_use_records[]` identify protected-use start/stop and link back to the applicable authorization records in the same frozen event-order domain, so the trace can prove authorization completed before use began.""",
+              """`machinery_authorization_records[]` bind the selected backend-selection scope **and concrete backend-selection decision** to the applicable `machinery_requirement_refs[]`, required/granted/denied machinery capabilities, and the capability policy responsible for the decision. Each reference uses the complete ordered absolute `owner_scope_path[]` from JOB through DECK/CARD as applicable plus the local requirement ID, so repeated local CARD/requirement IDs under sibling DECKs remain distinct. `machinery_use_records[]` identify protected-use start/stop and link back to the applicable authorization records in the same frozen event-order domain, so the trace can prove authorization completed before use began.""",
+          )
+          replace(
+              "README.md",
+              """Shared uses list their actual participating executions under the frozen execution mapping.\n\n## CUDA without ordinary plumbing""",
+              """Shared uses list their actual participating executions under the frozen execution mapping. Each protected use also carries `output_ids[]`, reciprocally matched by `outputs[].machinery_use_record_ids[]`, so two launches under the same CARD execution/scope/artifact remain occurrence-distinguishable.\n\n## CUDA without ordinary plumbing""",
+          )
+          replace(
+              "README.md",
+              """completion_state\nobservable_output_ids[]\nexternal_tool_ids[]?\n""",
+              """completion_state\nacquired_input_ids[]\nobservable_output_ids[]\nexternal_tool_ids[]\n""",
+          )
+          replace(
+              "README.md",
+              """A denied authorization has no begin event. Generic `sequence_index` is not a substitute for that proof.\n\n`observable_output_ids[]` is the reciprocal side""",
+              """A denied authorization has no begin event. Generic `sequence_index` is not a substitute for that proof. A `NOT_STARTED` attempt has no begin/end event and empty `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]`; no output may cite it through `effect_attempt_ids[]`.\n\n`observable_output_ids[]` is the reciprocal side""",
+          )
+          replace(
+              "README.md",
+              """effect_attempt_ids[]?\nexternal_tool_ids[]?\nbackend_selection_scope_ids[]\ngenerated_artifact_ids[]?\n""",
+              """effect_attempt_ids[]?\nexternal_tool_ids[]\nbackend_selection_scope_ids[]\nmachinery_use_record_ids[]\ngenerated_artifact_ids[]?\n""",
+          )
+          replace(
+              "README.md",
+              """`effect_attempt_ids[]`, when applicable, identifies the concrete authorized effect attempts that produced, exposed, or materially supplied the output. Each referenced attempt reciprocally names the output in `observable_output_ids[]`. `external_tool_ids[]`, when applicable, identifies the exact material tool/service/model/prover records that contributed to it, and those tools/attempts retain reciprocal links where material. These joins prevent retries or multiple tools invoked by one CARD from collapsing into one ambiguous producer attribution.""",
+              """`effect_attempt_ids[]`, when applicable, identifies the concrete authorized effect attempts that produced, exposed, or materially supplied the output. Each referenced attempt reciprocally names the output in `observable_output_ids[]` and must have begun; `NOT_STARTED` is never a valid output producer/exposer. `external_tool_ids[]` is always an explicit array, empty when no material tool contributed; material tools carry explicit attempt/output subject arrays and reciprocal links. `machinery_use_record_ids[]` likewise names the exact protected-use occurrences that produced or exposed the output and reciprocates `machinery_use_records[].output_ids[]`. These joins prevent retries, repeated protected launches, or multiple tools invoked by one CARD from collapsing into one ambiguous producer attribution.""",
+          )
+
+          # Agent-facing rules: preserve the same invariants when future docs/code are generated.
+          replace(
+              "AGENTS.md",
+              """37. bind protected-machinery authorization records to the concrete backend-selection decision/scope they govern and preserve same-domain authorization-before-use ordering through identified machinery-use records linked to their actual concrete CARD executions or genuine pre-CARD initiating scope;""",
+              """37. bind protected-machinery authorization records to the concrete backend-selection decision/scope they govern; every `machinery_requirement_refs[]` entry uses the complete ordered absolute JOB/DECK/CARD `owner_scope_path[]` plus local requirement ID, and same-domain authorization-before-use ordering is preserved through identified machinery-use records linked to their actual concrete CARD executions or genuine pre-CARD initiating scope and exact outputs;""",
+          )
+          replace(
+              "AGENTS.md",
+              """47. bind effect-produced/exposed outputs to concrete `effect_attempt_ids[]`, with reciprocal output IDs on attempts;""",
+              """47. bind effect-produced/exposed outputs to concrete `effect_attempt_ids[]`, with reciprocal output IDs on attempts; `NOT_STARTED` attempts have empty acquired-input/output/tool arrays and must never be cited by an output;""",
+          )
+          replace(
+              "AGENTS.md",
+              """48. bind material external-tool identities to concrete effect attempts and/or outputs, not merely to a broad source CARD, and require an immutable/versioned material identity or an explicit identity-unavailable status that weakens replay/evidence claims;""",
+              """48. bind material external-tool identities to concrete effect attempts and/or outputs, not merely to a broad source CARD; explicit attempt/output subject arrays and reciprocal links are mandatory for material participation, and immutable/versioned material identity or an explicit identity-unavailable status must govern replay/evidence claims;""",
+          )
+
+          # Remove the one-shot workflow from the resulting tree.
+          Path('.github/workflows/fix-provenance-projections.yml').unlink()
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/TRACE-AND-PROVENANCE.md docs/DETERMINISM-AND-REPRODUCIBILITY.md docs/EXTENSIONS-AND-CAPABILITIES.md docs/FAILURE-AND-PARTIAL-EFFECTS.md README.md AGENTS.md .github/workflows/fix-provenance-projections.yml
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "docs: align provenance owner paths and projections"
+          git push origin HEAD:docs/foundation-specification
