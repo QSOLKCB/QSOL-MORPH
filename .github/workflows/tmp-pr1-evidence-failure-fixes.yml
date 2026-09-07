@@ -71,8 +71,8 @@ jobs:
 
           replace_once(
               "ROADMAP.md",
-              "    failure_behavior_binding_ids[]\n    failure_class",
-              "    failure_behavior_binding_ids[]\n    result_determinism_scope_ids[]\n    numeric_scope_ids[]\n    randomness_scope_ids[]\n    failure_class"
+              "failure_behavior_binding_ids[]\nfailure_class",
+              "failure_behavior_binding_ids[]\nresult_determinism_scope_ids[]\nnumeric_scope_ids[]\nrandomness_scope_ids[]\nfailure_class"
           )
 
           replace_once(
@@ -83,8 +83,8 @@ jobs:
 
           replace_once(
               "docs/TRACE-AND-PROVENANCE.md",
-              "    failure_behavior_binding_ids[]\n    failure_class",
-              "    failure_behavior_binding_ids[]\n    result_determinism_scope_ids[]\n    numeric_scope_ids[]\n    randomness_scope_ids[]\n    failure_class"
+              "failure_behavior_binding_ids[]\n    failure_class",
+              "failure_behavior_binding_ids[]\n    result_determinism_scope_ids[]\n    numeric_scope_ids[]\n    randomness_scope_ids[]\n    failure_class"
           )
 
           replace_once(
