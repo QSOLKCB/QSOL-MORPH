@@ -403,8 +403,11 @@ deck_executions[]:
     deck_status
     card_execution_ids[]
     execution_order_index?
+    governing_failure_record_id?
     failure_record_id?
 ```
+
+`governing_failure_record_id?` identifies the earlier concrete failure that blocks a selected DECK from starting under the active failure policy. `failure_record_id?` identifies a failure caused by this DECK execution itself. A fail-stop-skipped DECK requires the governing cause and must not overload the caused-failure field with that different meaning.
 
 A derived `completed_decks[]` summary may be useful, but it is not a substitute for identified per-DECK execution records because it cannot represent the failed DECK and later DECKs that never started.
 

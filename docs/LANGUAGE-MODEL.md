@@ -162,6 +162,12 @@ EXTENSION_REQUIREMENT = (
     required_version_or_range,
     contract_id_or_hash?
 )
+
+DEPENDENCY_REF = (
+    owner_scope_path[],
+    producer_card_id,
+    result_binding_id?
+)
 ```
 
 Not every field is required for every card.
@@ -173,6 +179,8 @@ Not every field is required for every card.
 A machinery requirement may also be owned by a DECK or JOB in the canonical Semantic IR where the frozen scope model permits it. This CARD sketch shows the CARD-local case; tooling must preserve the actual owning scope rather than moving a higher-scope requirement into an arbitrary child.
 
 `result_binding` names the value produced by the CARD when it produces one. It is distinct from the produced value itself because dependent CARDs and provenance edges may refer to that binding identity.
+
+Each entry of `dependencies` is a structured `DEPENDENCY_REF` using the complete ordered owner path to the producer CARD plus its local CARD ID and optional result binding. Cross-DECK dependencies never rely on a bare local CARD/binding name or first-match lookup.
 
 `extension_requirements[]` records the versioned profile/contract requirements needed to interpret extension-owned syntax, qualifiers, effects, or lowering hooks. For example, a QX-CUDA-owned tuning qualifier must not survive as an uninterpreted token after the required QX-CUDA contract identity is lost. Extension availability remains distinct from runtime capability authorization.
 

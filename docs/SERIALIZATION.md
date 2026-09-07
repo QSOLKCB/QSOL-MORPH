@@ -72,7 +72,14 @@ PROGRAM
               RESULT_DETERMINISM_CONTRACT
               NUMERIC_CONTRACT
               RANDOMNESS_CONTRACT
-              DEPENDENCIES
+              DEPENDENCIES[]
+                DEPENDENCY_ID?
+                PRODUCER_REF
+                  OWNER_SCOPE_PATH[]
+                    SCOPE_KIND
+                    SCOPE_ID
+                  PRODUCER_CARD_ID
+                  RESULT_BINDING_ID?
               SEQUENCING_CONSTRAINTS[]
                 CONSTRAINT_ID?
                 CONSTRAINT_KIND
@@ -118,6 +125,8 @@ Scoped `RESULT_DETERMINISM_CONTRACT`, `NUMERIC_CONTRACT`, and `RANDOMNESS_CONTRA
 Scoped `EXTENSION_REQUIREMENTS[]` likewise remain attached to the JOB, DECK, or CARD that declares them. A serializer must not relocate a JOB- or DECK-wide profile requirement to an arbitrary child CARD merely to fit a representation. The owning scope is part of the lossless semantic association.
 
 `RESULT_BINDING` is the canonical `Card.result?` identity naming the value produced by a CARD when that field is present. It is distinct from the produced value itself: a lossless serializer must preserve both the data and the identity that dependent CARDs reference. Local binding IDs retain their owning scope through canonical containment or an explicit typed owner-scope path. Across lowering boundaries, the [qualified result-binding map](TRACE-AND-PROVENANCE.md#cardinality-aware-result-binding-maps) preserves that scope together with each binding ID; matching local text is not proof of identity.
+
+`DEPENDENCIES[]` uses owner-qualified producer references. `OWNER_SCOPE_PATH[]` is the complete ordered absolute JOB/DECK/CARD containment path to the producer CARD; `PRODUCER_CARD_ID` must equal the terminal CARD identity, and `RESULT_BINDING_ID?` identifies the producer's local result binding when the dependency is value-specific. A CARD-level dependency may omit the result binding only when the frozen dependency kind genuinely targets the CARD as a whole. Cross-DECK dependencies therefore remain resolvable even when sibling DECKs reuse the same local CARD ID or result-binding name. Bare CARD IDs, bare binding strings, positional pairing, first-match lookup, and owner relocation are not lossless encodings. Unknown, truncated, reordered, owner-mismatched, or ambiguous producer paths fail validation.
 
 `QUALIFIERS` includes canonical CARD modifiers that affect execution or lowering, such as explicit target-selection, adapter, tuning, or extension-control qualifiers. Lossless formats must retain them exactly according to the frozen canonical model.
 

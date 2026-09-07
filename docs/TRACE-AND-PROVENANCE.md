@@ -444,15 +444,19 @@ A governed computation and the ordered machinery decisions made for it are separ
 ```text
 backend_selection_scopes[]:
     backend_selection_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     backend_unit_id?
     selection_decision_ids[]
     final_selection_decision_id?
 ```
 
-`backend_selection_scope_id` is the stable selection-record key. `scope_kind` plus `scope_id` identify the governed computation and are not aliases for the selection-scope record identity.
+`backend_selection_scope_id` is the stable selection-record key. `governed_scope_ref` identifies the exact computation through the representation kind/content-or-run identity plus its complete representation-relative `owner_scope_path[]`; the terminal path element is the governed scope itself. Every enclosing scope needed to distinguish reused local IDs participates in identity. `source_card_ids[]` is corroborating provenance only and cannot replace owner qualification. Missing, truncated, reordered, ambiguous, wrong-representation, or unresolved paths fail closed. The governed computation and the selection-scope record key are distinct identities.
 
 ```text
 backend_selection_decisions[]:
@@ -736,8 +740,12 @@ Execution scope records have type-specific stable keys distinct from the generic
 ```text
 result_determinism_scopes[]:
     result_determinism_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     requested_result_determinism
     effective_result_determinism
@@ -747,8 +755,12 @@ result_determinism_scopes[]:
 
 numeric_execution_scopes[]:
     numeric_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     numeric_contract_id
     numeric_contract_hash
@@ -757,8 +769,12 @@ numeric_execution_scopes[]:
 
 randomness_execution_scopes[]:
     randomness_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     requested_randomness_mode
     effective_randomness_mode
@@ -775,8 +791,12 @@ randomness_execution_scopes[]:
 
 failure_behavior_bindings[]:
     failure_behavior_binding_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     requested_failure_behavior_id
     effective_failure_behavior_id
@@ -784,7 +804,9 @@ failure_behavior_bindings[]:
     transition_evidence_id?
 ```
 
-Output references resolve directly to `result_determinism_scope_id`, `numeric_scope_id`, `randomness_scope_id`, and `failure_behavior_binding_id`. They never infer those records from a generic `scope_id`.
+All four families use the same fully qualified `governed_scope_ref` rule as backend selection. A type-specific ledger ID distinguishes records but does not establish which canonical computation the record governs. The complete path must resolve uniquely in the named representation, with the terminal segment naming the governed scope. Sibling DECKs may therefore each contain local `CARD 7` while their execution contracts remain distinct. `source_card_ids[]` is summary provenance only. Missing, truncated, reordered, ambiguous, wrong-representation, or owner-mismatched paths fail validation.
+
+Output references resolve directly to `result_determinism_scope_id`, `numeric_scope_id`, `randomness_scope_id`, and `failure_behavior_binding_id`. They never infer those records from a local computation ID or source CARD summary.
 
 Whenever requested and effective result-determinism or randomness contracts differ, both `transition_authorized_by` and `transition_evidence_id` are required. The former resolves to `rule_records[].rule_id` of kind `CONTRACT_TRANSITION`; the latter resolves to `validation_evidence[].validation_evidence_id` for that exact execution-scope record. Evidence binds the requested/effective contracts, accepted source/policy authority, and governing numeric/randomness context, and must establish authorization before the effective contract is activated or used. A missing, unknown, inapplicable, or post-execution authority is an unauthorized transition and fails closed. The optional notation permits absence only when no transition occurred; it does not permit an undocumented downgrade. Lowering that applies a transition must preserve this authorization/evidence relation into the governed execution scope.
 
@@ -865,8 +887,11 @@ deck_executions[]:
     deck_status
     card_execution_ids[]
     execution_order_index?
+    governing_failure_record_id?
     failure_record_id?
 ```
+
+`governing_failure_record_id?` identifies an earlier concrete failure whose active policy prevented this selected DECK from starting or otherwise blocked it. For a DECK marked non-started/skipped because of prior fail-stop, this field is required and must resolve to the actual blocking failure plus applicable failure-behavior binding. `failure_record_id?` has a different meaning: it identifies a failure caused by this DECK execution itself. The two fields are not aliases and causal ordering must be validated rather than inferred from list position.
 
 Every CARD execution is a distinct runtime object:
 

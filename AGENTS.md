@@ -241,15 +241,19 @@ Numeric provenance binds scope identity to numeric contract ID/hash and the mate
 
 Randomness provenance binds scope identity to requested/effective randomness mode and, where material, RNG algorithm, version, seed, stream, and partitioning.
 
-Result-determinism, numeric, and randomness execution-scope records use their own stable type-specific record keys. Output scope-ID arrays reference those keys, not the generic governed computation `scope_id`.
+Result-determinism, numeric, randomness, and failure-behavior execution-scope records use their own stable type-specific record keys. Every record also carries fully qualified `governed_scope_ref = { representation_kind, representation_identity, owner_scope_path[] }`, with the complete representation-relative containment path to the governed scope. Output scope-ID arrays reference the stable ledger keys, while validation resolves the qualified governed computation; local scope IDs and source CARD summaries are never owner identity.
 
 Failure behavior provenance uses identified records:
 
 ```text
 failure_behavior_bindings[]:
     failure_behavior_binding_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     requested_failure_behavior_id
     effective_failure_behavior_id
@@ -271,8 +275,12 @@ Use governed scopes:
 ```text
 backend_selection_scopes[]:
     backend_selection_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     backend_unit_id?
     selection_decision_ids[]
@@ -316,6 +324,8 @@ Canonical membership is not execution evidence.
 Use one aggregate `run_id`, identified `deck_executions[]`, and identified `card_executions[]`.
 
 Every selected DECK remains represented even if prior fail-stop prevents it from starting. Every CARD in a selected DECK execution receives an outcome/path record. A pure TEST on an untaken branch must be distinguishable from a TEST that ran successfully even when neither produces output or effect.
+
+A selected DECK blocked by an earlier failure carries `governing_failure_record_id` resolving to that concrete blocking failure; `failure_record_id` remains reserved for a failure caused by the DECK execution itself. The two meanings must not be overloaded or inferred from child records.
 
 Execution-path cause references must be typed and resolvable. Do not use one untyped catch-all ID namespace for control decisions and failure records.
 

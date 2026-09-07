@@ -156,15 +156,19 @@ A conceptual `backend_selection_scopes[]` entry may bind:
 
 ```text
 backend_selection_scope_id
-scope_kind
-scope_id
+governed_scope_ref:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
 source_card_ids[]
 backend_unit_id?
 selection_decision_ids[]
 final_selection_decision_id?
 ```
 
-`backend_selection_scope_id` is the stable identity of the selection-scope record itself. `scope_kind` + `scope_id` identify the computation governed by that record. They are distinct identities and must not be treated as aliases. Decisions, machinery-authorization records, generated artifacts, and outputs reference the stable `backend_selection_scope_id`.
+`backend_selection_scope_id` is the stable identity of the selection-scope record itself. `governed_scope_ref` identifies the exact computation by representation identity plus its complete representation-relative owner path; the terminal path element is the governed scope. Local IDs and source CARD summaries cannot substitute. Decisions, machinery-authorization records, generated artifacts, and outputs reference the stable `backend_selection_scope_id`.
 
 Each material selection attempt is an identified decision:
 

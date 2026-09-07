@@ -166,7 +166,7 @@ The gate must include:
 
 Require:
 
-- `backend_selection_scopes[]`, each with stable `backend_selection_scope_id`, governed scope/source/backend unit, ordered decision IDs, and final decision ID when execution proceeds;
+- `backend_selection_scopes[]`, each with stable `backend_selection_scope_id`, fully qualified `governed_scope_ref` carrying representation identity plus complete representation-relative `owner_scope_path[]`, source/backend-unit provenance, ordered decision IDs, and final decision ID when execution proceeds;
 - `backend_selection_decisions[]`, each with stable decision ID, requested target, selected backend/version/architecture/device, automatic-selection policy/tuning identity where applicable, predecessor/fallback-rule identity where applicable, linked machinery authorization, order, and status;
 - `machinery_authorization_records[]` with stable authorization identity, governing selection scope/decision, absolute-owner-path-qualified machinery requirement references, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and authorization sequence index;
 - `machinery_use_records[]` with stable use identity, governing selection scope/decision/backend unit, concrete participating `card_execution_ids[]`, exact `generated_artifact_ids[]` executed where applicable, authorization IDs, protected-use start index, exact output IDs, and optional stop index.
@@ -187,12 +187,12 @@ Fallback from a denied target is legal only under a frozen pre-execution rule an
 
 Require stable type-specific record keys:
 
-- `result_determinism_scopes[]` with `result_determinism_scope_id`;
-- `numeric_execution_scopes[]` with `numeric_scope_id`;
-- `randomness_execution_scopes[]` with `randomness_scope_id`;
-- `failure_behavior_bindings[]` with stable `failure_behavior_binding_id`, governed scope/source provenance, requested/effective failure policy, and material mapping/transition identity.
+- `result_determinism_scopes[]` with `result_determinism_scope_id` and fully qualified `governed_scope_ref`;
+- `numeric_execution_scopes[]` with `numeric_scope_id` and fully qualified `governed_scope_ref`;
+- `randomness_execution_scopes[]` with `randomness_scope_id` and fully qualified `governed_scope_ref`;
+- `failure_behavior_bindings[]` with stable `failure_behavior_binding_id`, fully qualified `governed_scope_ref`, source provenance, requested/effective failure policy, and material mapping/transition identity.
 
-Each scope retains governed computation identity and source provenance. A single execution-wide scope is legal only when a frozen normalization proves it faithfully represents every governed source requirement.
+Every `governed_scope_ref` carries representation identity plus the complete representation-relative `owner_scope_path[]`, including every ancestor needed to distinguish reused JOB/DECK/CARD/region/kernel IDs. Stable ledger IDs and source CARD summaries do not establish canonical ownership. A single execution-wide scope is legal only when a frozen normalization proves it faithfully represents every governed source requirement.
 
 The gate includes `rule_records[]` and `validation_evidence[]` using the complete [shared reference schemas](docs/TRACE-AND-PROVENANCE.md#referenced-rules-and-validation-evidence). Rule records bind accepted source/specification or policy authority, version/content identity, rule kind, and verifiable definition. Evidence records bind the exact typed subject, rule, evaluated context, verifier identity, outcome, content, and validation/application ordering. Unknown references or producer success labels alone are not valid evidence.
 
@@ -209,7 +209,7 @@ When `effective_randomness_mode = EXTERNAL-ENTROPY`, the scope must identify the
 
 ### Inputs and outputs
 
-Require identified immutable `inputs[]`, each binding stable `input_id` to the canonical value, content hash, immutable artifact/version identity, or frozen equivalent actually consumed.
+Require identified immutable `inputs[]`, each binding stable `input_id` to the canonical value, content hash, immutable artifact/version identity, or frozen equivalent actually consumed. Every input also carries direct `consumer_card_execution_ids[]`, optional typed `consumer_scope_refs[]` for genuine pre-CARD setup, and `effect_attempt_ids[]` for effect-acquired values. Concrete CARD consumers reciprocally list the input in `card_executions[].input_ids[]`; supplying effect attempts reciprocally list it in `effect_attempts[].acquired_input_ids[]`. These relations remain required for failed/output-free invocations and repeated acquisitions; canonical CARD summaries or output-level input attribution cannot replace the direct-consumer ledger.
 
 Require identified `outputs[]`, each carrying at least:
 
@@ -228,6 +228,7 @@ effect_attempt_ids[]?
 external_tool_ids[]?
 backend_selection_scope_ids[]
 generated_artifact_ids[]?
+machinery_use_record_ids[]
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
@@ -241,6 +242,8 @@ Every `producer_card_execution_id` resolves to `card_executions[]`, which identi
 
 `input_ids[]` identifies the exact immutable inputs materially contributing to that output. Execution-wide input availability is not a substitute for per-output attribution.
 
+`machinery_use_record_ids[]` identifies the exact protected-use occurrence(s) that produced or materially supplied the output and reciprocates `machinery_use_records[].output_ids[]`. A shared CARD execution, backend-selection scope, generated artifact, or backend unit cannot replace this occurrence-level join when several protected launches occur.
+
 `failure_behavior_binding_ids[]` resolves to stable `failure_behavior_binding_id` records. A generic computation scope ID is not sufficient to identify which requested/effective failure policy governed the producer path.
 
 When present, `evidence_status` is class-discriminated and must be compatible with `semantic_class`. Generic output status cannot silently promote TEST, VALIDATION, or PROOF class.
@@ -250,7 +253,7 @@ When present, `evidence_status` is class-discriminated and must be compatible wi
 Require:
 
 - identified `generated_artifacts[]` linked to backend unit, backend-selection scope, and mandatory exact production `backend_selection_decision_id`, with optimization links, one `direct_producer_toolchain_invocation_id`, and ordered `toolchain_invocation_chain_ids[]` where generated bytes are involved;
-- identified `toolchain_invocations[]` carrying stable invocation ID/order, invocation kind, immutable/versioned material tool identity, target/ABI context, exact flags/configuration, immutable general `input_ids[]` for material non-generated dependencies, direct generated-artifact inputs/outputs, backend unit, and backend-selection scope where applicable;
+- identified `toolchain_invocations[]` carrying stable invocation ID/order, invocation kind, immutable/versioned material tool identity, target/ABI context, exact flags/configuration, explicit `input_ir_hashes[]`, immutable general `input_ids[]` for material non-generated dependencies, direct generated-artifact inputs/outputs, backend unit, and backend-selection scope where applicable;
 - identified `optimization_provenance[]` recording reference/optimized IR identity, actual transformation sequence, legality evidence, target context, and reciprocal generated-artifact links;
 - identified `external_tool_versions[]` with stable links to applicable effect attempts and/or outputs plus immutable/versioned material identity, or an explicit identity-unavailable status that weakens replay/evidence claims;
 - identified `cache_reuse_records[]` distinguishing cold execution, verified reuse, unverified hit, or frozen equivalent, with material cache identity, legality rule, reused computation/artifact identity, and verification evidence;
@@ -259,6 +262,8 @@ Require:
 A generated artifact's production decision must resolve in its recorded selection scope and match its target context. A rejected candidate's artifact must not be attributed to the final fallback decision merely because the two share one scope. Artifact existence does not authorize machinery use.
 
 Toolchain `input_ids[]` bind the immutable bytes of prebuilt objects, libraries, headers, startup files, sysroots, and implicit dependencies not generated in this run. Mutable locators or flags alone are insufficient. The array is empty only when no such material inputs were consumed; composite inputs content-bind the complete material dependency set under a frozen representation. Missing material dependency identity invalidates complete/reproducible build provenance.
+
+Toolchain `input_ir_hashes[]` is always explicit: it is nonempty with the exact direct content hash(es) whenever the invocation consumes IR, including ordinary non-optimized code generation, and empty only when that invocation consumes no IR. Tool identity, flags, target, backend unit, or output artifact cannot substitute for this content-bound direct IR edge.
 
 Toolchain direct edges and ancestry have different meanings. `input_generated_artifact_ids[]` / `output_generated_artifact_ids[]` record what an invocation directly consumed/emitted. A generated artifact's `direct_producer_toolchain_invocation_id` must point to the invocation that directly emitted it. `toolchain_invocation_chain_ids[]` records ordered transitive build ancestry and must not force every ancestor to claim the final artifact as a direct output.
 
@@ -303,6 +308,7 @@ effect_attempts[]:
     effect_begin_sequence_index?
     effect_end_sequence_index?
     completion_state
+    acquired_input_ids[]
     observable_output_ids[]
     external_tool_ids[]?
 ```

@@ -104,6 +104,15 @@ ExtensionRequirement {
     required_version_or_range
     contract_id_or_hash?
 }
+
+DependencyRef {
+    dependency_id?
+    producer_ref {
+        owner_scope_path[] { scope_kind, scope_id }
+        producer_card_id
+        result_binding_id?
+    }
+}
 ```
 
 `Job.id`, `Deck.id`, and `Card.id` are canonical identities, not serialization-only labels. They must survive canonicalization, lossless transport, lowering provenance, and trace production without being synthesized or renumbered merely because a representation changes.
@@ -145,6 +154,8 @@ may allow:
 - deterministic diffs.
 
 Stable JOB and DECK identities similarly allow multi-job/multi-deck workflows, failure propagation, output provenance, and cross-deck dependencies to refer to the same semantic objects before and after serialization or lowering.
+
+Canonical `dependencies[]` therefore use `DependencyRef` rather than an unqualified local producer ID. Each producer reference carries the complete ordered absolute owner path to the producer CARD plus its canonical `producer_card_id` and, where value-specific, the local `result_binding_id`. The terminal path CARD must match `producer_card_id`. Cross-DECK dependencies remain distinct when sibling DECKs reuse CARD IDs or binding names; bare local IDs, positional lookup, and first-match resolution are invalid.
 
 Whether identifiers are user-visible, generated, or both is not yet frozen. What is not optional for a lossless canonical model is that once an identity exists, representation changes must not silently replace or renumber it.
 

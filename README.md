@@ -408,7 +408,7 @@ failure records
 
 Canonical `effect_requirements[]` and `machinery_requirements[]` are owner-qualified: each local declaration retains the complete ordered absolute `owner_scope_path[]` through its JOB/DECK/CARD owner as applicable. First-lowering scope references likewise retain complete containment paths in their source/Core representations rather than only kind plus local ID.
 
-`backend_selection_scopes[]` identify governed machinery-selection records; `backend_selection_decisions[]` preserve the ordered decision history within those scopes, including denied/superseded targets and frozen fallback transitions rather than overwriting them with the final backend.
+`backend_selection_scopes[]` identify governed machinery-selection records through a fully qualified `governed_scope_ref` containing representation identity plus complete representation-relative `owner_scope_path[]`; stable selection-scope IDs do not replace canonical ownership. Execution-contract scope ledgers use the same qualified governed-scope rule. `backend_selection_decisions[]` preserve the ordered decision history within those scopes, including denied/superseded targets and frozen fallback transitions rather than overwriting them with the final backend.
 
 `external_tool_versions[]` must carry immutable/versioned material identity when an external tool/service/model/prover/process materially affects result or evidence. A mutable name or endpoint alone is insufficient. If exact material identity is unavailable, that unavailability is explicit and the replay/evidence claim is weakened according to frozen policy.
 
@@ -420,7 +420,7 @@ Toolchain invocations carry explicit `input_ir_hashes[]`, nonempty whenever that
 
 ### Identified inputs
 
-Material inputs bind stable `input_id` values to the exact canonical value, content hash, or immutable artifact/version identity actually consumed.
+Material inputs bind stable `input_id` values to the exact canonical value, content hash, or immutable artifact/version identity actually consumed. Each input also retains direct `consumer_card_execution_ids[]` and, for effect-acquired values, `effect_attempt_ids[]`; CARD executions and effect attempts reciprocate those input IDs even when the consumer fails or emits no output. Genuine pre-CARD consumption uses typed scope references rather than fabricated CARD executions.
 
 A mutable path, URL, dataset name, or model name is retrieval context, not content identity.
 

@@ -66,8 +66,12 @@ No serializer, lowering, or backend may silently flatten a JOB/DECK contract int
 ```text
 failure_behavior_bindings[]:
     failure_behavior_binding_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     requested_failure_behavior_id
     effective_failure_behavior_id
@@ -88,8 +92,12 @@ Execution scope records have their own stable type-specific keys. The key of the
 ```text
 result_determinism_scopes[]:
     result_determinism_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     requested_result_determinism
     effective_result_determinism
@@ -105,8 +113,12 @@ result_determinism_scopes[]:
 ```text
 randomness_execution_scopes[]:
     randomness_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     requested_randomness_mode
     effective_randomness_mode
@@ -135,8 +147,12 @@ An audit identity or content hash may identify an entropy acquisition without pr
 ```text
 numeric_execution_scopes[]:
     numeric_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     numeric_contract_id
     numeric_contract_hash
@@ -148,7 +164,7 @@ numeric_execution_scopes[]:
 
 `material_numeric_mode` records contract-permitted choices that can change legal result bytes, including FMA behavior, denormal handling, effective precision, reduction strategy, or selected math-library mode.
 
-The three record keys above are type-specific on purpose. Overlapping JOB/CARD/region/kernel computation IDs must not make output references ambiguous.
+The three record keys above are type-specific on purpose. Every execution-contract record also carries the fully qualified `governed_scope_ref` containing representation identity and complete representation-relative `owner_scope_path[]`. Overlapping JOB/DECK/CARD/region/kernel local IDs therefore remain distinguishable. Stable ledger IDs and `source_card_ids[]` do not substitute for canonical ownership.
 
 A single execution-wide scope record is legal only when a frozen normalization proves it faithfully represents every governed source requirement.
 
@@ -181,15 +197,19 @@ A governed computation and the ordered machinery decisions made for it are separ
 ```text
 backend_selection_scopes[]:
     backend_selection_scope_id
-    scope_kind
-    scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     backend_unit_id?
     selection_decision_ids[]
     final_selection_decision_id?
 ```
 
-`backend_selection_scope_id` is the stable selection-scope record key. `scope_kind` plus `scope_id` identify the computation being governed and are not aliases for that record key.
+`backend_selection_scope_id` is the stable selection-scope record key. `governed_scope_ref` resolves the exact computation through representation identity plus its complete owner path; source CARD summaries and local scope IDs cannot replace that identity.
 
 ```text
 backend_selection_decisions[]:
@@ -469,10 +489,11 @@ deck_executions[]:
     deck_status
     card_execution_ids[]
     execution_order_index?
+    governing_failure_record_id?
     failure_record_id?
 ```
 
-Every selected DECK remains represented, including a DECK prevented from starting by prior fail-stop.
+Every selected DECK remains represented, including a DECK prevented from starting by prior fail-stop. A non-started/skipped DECK caused by an earlier failure requires `governing_failure_record_id` resolving to that blocking failure; `failure_record_id` remains reserved for a failure caused by this DECK execution itself.
 
 ```text
 card_executions[]:
