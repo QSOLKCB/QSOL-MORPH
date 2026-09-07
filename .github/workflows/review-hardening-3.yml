@@ -1,0 +1,222 @@
+name: One-shot review projection hardening
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply review fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected 1 occurrence, found {count}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          # 1. First-lowering machinery mappings use full owner paths and
+          # owner-qualified requirement references rather than parallel bare IDs.
+          replace_once(
+              "docs/SEMANTIC-TO-CORE-LOWERING.md",
+              """machinery_requirement_lowering_decisions[]:\n    mapping_group_id\n    source_scope_refs[]:\n        scope_kind\n        scope_id\n    core_scope_refs[]:\n        scope_kind\n        scope_id\n    source_machinery_requirement_ids[]\n    lower_machinery_requirement_ids[]\n    source_card_ids[]\n    mapping_rule_id\n""",
+              """machinery_requirement_lowering_decisions[]:\n    mapping_group_id\n    source_scope_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n    core_scope_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n    source_machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n    lower_machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n    source_card_ids[]\n    mapping_rule_id\n"""
+          )
+          replace_once(
+              "docs/SEMANTIC-TO-CORE-LOWERING.md",
+              """The source requirement IDs resolve in the input Semantic IR; the lower requirement IDs resolve in the resulting QSOL-CORE representation. The two IR hashes and typed owning scopes qualify those identities. Both ID sets are nonempty, deterministic, and duplicate-free. Unrelated requirements sharing an owning scope use separate mapping groups; they must not be paired by array position or inferred from shared source CARDs.\n\nOne-to-one preservation/rename, one-to-many split, and frozen legal fusion retain the exact source-to-lower requirement relation. A multi-source or multi-target group is valid only when its frozen `mapping_rule_id` defines that relation unambiguously, including which source target selector and complete capability set governs each lower requirement. Ambiguous grouping, swapped requirements, missing endpoints, and unauthorized capability weakening fail conformance. Omission is allowed only under a frozen deterministic reconstruction rule that recovers both the owning scopes and every requirement-ID association, not merely the scope correspondence.\n""",
+              """Every scope endpoint carries the complete representation-relative `owner_scope_path[]`; bare kind/local-ID pairs are invalid where local IDs may repeat. Each source/lower machinery requirement is itself an owner-qualified composite reference, so two sibling scopes may both own local requirement `gpu` without collision. The source references resolve in the input Semantic IR and the lower references resolve in the resulting QSOL-CORE representation. Both reference sets are nonempty, deterministic, duplicate-free by complete qualified reference, and never paired by array position or inferred from shared source CARDs.\n\nOne-to-one preservation/rename, one-to-many split, and frozen legal fusion retain the exact source-to-lower requirement relation. A multi-source or multi-target group is valid only when its frozen `mapping_rule_id` defines that relation unambiguously, including which owner-qualified source target selector and complete capability set governs each owner-qualified lower requirement. Ambiguous grouping, swapped owners, truncated paths, missing endpoints, and unauthorized capability weakening fail conformance. Omission is allowed only under a frozen deterministic reconstruction rule that recovers every complete scope path and every qualified requirement association, not merely local IDs.\n"""
+          )
+
+          # 2. Second-lowering endpoints carry full containment paths, and
+          # machinery mappings bind IDs to their owning scopes.
+          for path in ["docs/VECTOR-AND-DATAFLOW.md", "docs/TRACE-AND-PROVENANCE.md"]:
+              replace_once(
+                  path,
+                  """core_scope_refs[]:\n    scope_kind\n    scope_id\n\nvector_dataflow_scope_refs[]:\n    scope_kind\n    scope_id\n""",
+                  """core_scope_refs[]:\n    owner_scope_path[]:\n        scope_kind\n        scope_id\n\nvector_dataflow_scope_refs[]:\n    owner_scope_path[]:\n        scope_kind\n        scope_id\n"""
+              )
+              replace_once(
+                  path,
+                  """machinery_requirement_mapping_decisions[]:\n    core_scope_refs[]\n    vector_dataflow_scope_refs[]\n    source_machinery_requirement_ids[]\n    lower_machinery_requirement_ids[]\n    source_card_ids[]\n    mapping_rule_id""",
+                  """machinery_requirement_mapping_decisions[]:\n    core_scope_refs[]\n    vector_dataflow_scope_refs[]\n    source_machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n    lower_machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n    source_card_ids[]\n    mapping_rule_id"""
+              )
+
+          replace_once(
+              "docs/VECTOR-AND-DATAFLOW.md",
+              """Every second-lowering mapping family identifies both ends with typed scope references. A bare ID is insufficient because JOB, DECK, CARD, Core-region, Vector/Dataflow-region, kernel, and backend-unit namespaces may overlap.\n""",
+              """Every second-lowering mapping family identifies both ends with complete representation-relative containment paths. A bare ID or one-level `{ scope_kind, scope_id }` pair is insufficient because enclosing Core/Vector scopes may each reuse local CARD, region, kernel, or backend-unit IDs. The terminal path element is the referenced scope and every ancestor needed to disambiguate it participates in identity.\n"""
+          )
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """The second lowering preserves exactly which typed Core scope maps to which typed Vector/Dataflow scope. Bare arrays such as `core_scope_ids[]` and `vector_dataflow_scope_ids[]` are not sufficient because JOB, DECK, CARD, region, kernel, and generated-unit namespaces may overlap.\n""",
+              """The second lowering preserves exactly which Core scope maps to which Vector/Dataflow scope using complete representation-relative containment paths. Bare IDs or one-level kind/local-ID pairs are not sufficient because enclosing Core and Vector/Dataflow scopes may independently reuse CARD, region, kernel, and generated-unit IDs. Every ancestor needed to distinguish the local terminal scope participates in the mapping identity.\n"""
+          )
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """The source/lower requirement-ID arrays are cardinality-aware. Scope correspondence and source CARD identity do not identify which requirement was mapped when one Core scope owns several machinery requirements. Each lower requirement must preserve the source target selector/class and complete capability set or identify the frozen rule that transformed them.\n""",
+              """The source/lower machinery-requirement arrays contain complete owner-qualified references, not parallel bare local IDs. Scope correspondence and source CARD identity do not identify which requirement was mapped when several scopes reuse the same local requirement ID. Each lower qualified requirement must preserve the corresponding source target selector/class and complete capability set or identify the frozen rule that transformed them.\n"""
+          )
+          replace_once(
+              "docs/VECTOR-AND-DATAFLOW.md",
+              """For `machinery_requirement_mapping_decisions[]`, typed scope endpoints are necessary but not sufficient: each mapping also carries `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` so several requirements owned by one Core scope cannot be confused. Those arrays preserve the exact requirement/capability-set correspondence through preservation, split, or frozen legal fusion.\n""",
+              """For `machinery_requirement_mapping_decisions[]`, complete scope paths are necessary but not sufficient: each mapping also carries owner-qualified `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`. The local ID is paired structurally with its complete owning path, so legal split/fusion cannot swap two same-named requirements from different scopes or rely on positional pairing.\n"""
+          )
+
+          # 3. Epistemic and source-contract bindings are owner-qualified.
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """epistemic_class_bindings[]:\n    card_id\n    semantic_class\n""",
+              """epistemic_class_bindings[]:\n    owner_scope_path[]:\n        scope_kind\n        scope_id\n    card_id\n    semantic_class\n"""
+          )
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association. Epistemic class is bound directly to canonical CARD identity.\n""",
+              """Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association. Epistemic class is bound to the CARD's complete ordered absolute `owner_scope_path[]` plus local `card_id`; the path terminates at that CARD. Sibling DECKs may therefore each contain local `CARD 7` with different research classes without collision. Missing, truncated, reordered, or owner-mismatched class paths fail closed.\n"""
+          )
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """result_determinism_bindings[]:\n    scope_kind\n    scope_id\n    source_card_ids[]\n    requested_result_determinism\n\nnumeric_contract_bindings[]:\n    scope_kind\n    scope_id\n    source_card_ids[]\n    numeric_contract_id\n    numeric_contract_hash\n\nrandomness_contract_bindings[]:\n    scope_kind\n    scope_id\n    source_card_ids[]\n    requested_randomness_mode\n\nfailure_behavior_bindings[]:\n    failure_behavior_binding_id\n    scope_kind\n    scope_id\n    source_card_ids[]\n    requested_failure_behavior_id\n    effective_failure_behavior_id\n    mapping_or_transition_rule_id?\n    transition_evidence_id?\n""",
+              """result_determinism_bindings[]:\n    owner_scope_path[]:\n        scope_kind\n        scope_id\n    source_card_ids[]\n    requested_result_determinism\n\nnumeric_contract_bindings[]:\n    owner_scope_path[]:\n        scope_kind\n        scope_id\n    source_card_ids[]\n    numeric_contract_id\n    numeric_contract_hash\n\nrandomness_contract_bindings[]:\n    owner_scope_path[]:\n        scope_kind\n        scope_id\n    source_card_ids[]\n    requested_randomness_mode\n\nfailure_behavior_bindings[]:\n    failure_behavior_binding_id\n    owner_scope_path[]:\n        scope_kind\n        scope_id\n    source_card_ids[]\n    requested_failure_behavior_id\n    effective_failure_behavior_id\n    mapping_or_transition_rule_id?\n    transition_evidence_id?\n"""
+          )
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              """The owning scope may be a JOB, DECK, CARD, or another scope frozen by the semantic model. Distinct source requirements may not be collapsed into one execution-wide declaration unless a frozen normalization proves that collapse is lossless. Failure bindings obey the same [failure-policy transition conditions](#failure-policy-transitions) here and in the execution-scope inventory.\n""",
+              """The owning source scope is identified by its complete ordered absolute `owner_scope_path[]`, not a bare kind/local ID. The path terminates at the JOB, DECK, CARD, or other canonically frozen scope that owns the contract, so repeated local IDs under sibling containers remain distinct. Distinct source requirements may not be collapsed into one execution-wide declaration unless a frozen normalization proves that collapse is lossless. Failure bindings obey the same [failure-policy transition conditions](#failure-policy-transitions) here and in the execution-scope inventory.\n"""
+          )
+
+          # 4. Reproducibility input records retain concrete consumers/acquirers,
+          # and CARD executions reciprocally retain inputs/cache decisions.
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """inputs[]:\n    input_id\n    input_kind\n    canonical_value?\n    content_hash?\n    artifact_id_or_version?\n    location?\n    media_or_schema_type?\n    source_card_ids[]?\n""",
+              """inputs[]:\n    input_id\n    input_kind\n    canonical_value?\n    content_hash?\n    artifact_id_or_version?\n    location?\n    media_or_schema_type?\n    source_card_ids[]?\n    consumer_card_execution_ids[]\n    consumer_scope_refs[]?\n    effect_attempt_ids[]\n"""
+          )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """Paths, URLs, dataset names, and model names are retrieval context, not immutable identity by themselves.\n""",
+              """Paths, URLs, dataset names, and model names are retrieval context, not immutable identity by themselves. `consumer_card_execution_ids[]` identifies the exact current-run CARD invocations that consumed the value and reciprocates `card_executions[].input_ids[]`; failed/output-free invocations remain visible. `effect_attempt_ids[]` identifies concrete effect acquisitions and reciprocates `effect_attempts[].acquired_input_ids[]`. Genuine pre-CARD setup uses typed `consumer_scope_refs[]` rather than fabricating a CARD consumer. Canonical `source_card_ids[]` is summary context only and cannot replace these occurrence-level relations.\n"""
+          )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """card_executions[]:\n    card_execution_id\n    deck_execution_id\n    card_id\n    card_status\n    execution_order_index?\n""",
+              """card_executions[]:\n    card_execution_id\n    deck_execution_id\n    card_id\n    card_status\n    input_ids[]\n    cache_reuse_record_ids[]?\n    execution_order_index?\n"""
+          )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """`card_id` identifies the canonical semantic CARD. `card_execution_id` identifies one concrete runtime execution. This distinction is material for loops, retries, calls, repeated DECK execution, or another construct that can execute the same CARD more than once.\n""",
+              """`card_id` identifies the canonical semantic CARD. `card_execution_id` identifies one concrete runtime execution. This distinction is material for loops, retries, calls, repeated DECK execution, or another construct that can execute the same CARD more than once. `input_ids[]` reciprocally identifies the exact material inputs consumed by this invocation. `cache_reuse_record_ids[]` reciprocally identifies cache classification/substitution records that apply to this invocation; canonical CARD identity is never the runtime join key.\n"""
+          )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """cache_reuse_records[]:\n    cache_reuse_record_id\n    classification\n    source_card_ids[]\n    reused_computation_id?\n""",
+              """cache_reuse_records[]:\n    cache_reuse_record_id\n    classification\n    source_card_ids[]\n    card_execution_ids[]\n    reused_computation_id?\n"""
+          )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents. For `VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory and resolve to the shared rule/evidence ledgers.\n""",
+              """Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents. `card_execution_ids[]` identifies the concrete current-run invocation(s) to which this cache decision applies and reciprocates `card_executions[].cache_reuse_record_ids[]`; one cold retry and one reused retry therefore require distinct runtime attribution even when they share a canonical CARD. For `VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory and resolve to the shared rule/evidence ledgers.\n"""
+          )
+
+          # 5. Failure-policy transition evidence is present in the reproducibility projection.
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """failure_behavior_bindings[]:\n    failure_behavior_binding_id\n    scope_kind\n    scope_id\n    source_card_ids[]\n    requested_failure_behavior_id\n    effective_failure_behavior_id\n    mapping_or_transition_rule_id?\n""",
+              """failure_behavior_bindings[]:\n    failure_behavior_binding_id\n    scope_kind\n    scope_id\n    source_card_ids[]\n    requested_failure_behavior_id\n    effective_failure_behavior_id\n    mapping_or_transition_rule_id?\n    transition_evidence_id?\n"""
+          )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """The frozen default fail-stop behavior has a stable identity when it materially governs execution. A manifest must not infer effective failure policy merely from skipped CARDs or DECKs.\n""",
+              """The frozen default fail-stop behavior has a stable identity when it materially governs execution. A manifest must not infer effective failure policy merely from skipped CARDs or DECKs. When requested and effective failure semantics differ, `mapping_or_transition_rule_id` must resolve to an accepted content-bound `CONTRACT_TRANSITION` rule and `transition_evidence_id` must resolve to passing subject-bound evidence for this exact binding, validated before the effective policy is applied. Representation-only mappings do not authorize fail-stop becoming continue, retry, or compensate.\n"""
+          )
+
+          # 6. Backend fallback projections carry validation evidence.
+          for path in ["docs/DETERMINISM-AND-REPRODUCIBILITY.md", "docs/BACKENDS-AND-MORPHING.md"]:
+              replace_once(
+                  path,
+                  """    predecessor_selection_decision_id?\n    fallback_rule_id?\n    machinery_authorization_record_ids[]?\n""",
+                  """    predecessor_selection_decision_id?\n    fallback_rule_id?\n    fallback_evidence_id?\n    machinery_authorization_record_ids[]?\n"""
+              )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """A denied protected target followed by an authorized fallback remains two ordered decisions. The first decision is not overwritten by the fallback.\n""",
+              """A denied protected target followed by an authorized fallback remains two ordered decisions. The first decision is not overwritten by the fallback. A fallback decision requires both a resolvable accepted `BACKEND_FALLBACK` rule in `fallback_rule_id` and passing `fallback_evidence_id` bound to this exact decision, predecessor, target context, and active policy/contracts; validation must precede fallback selection/application in the shared event-order domain.\n"""
+          )
+          replace_once(
+              "docs/BACKENDS-AND-MORPHING.md",
+              """A denied protected target followed by an authorized fallback must remain represented as **two decisions**, not as one record whose `selected_backend` is overwritten. The fallback decision references its predecessor and the frozen `fallback_rule_id` that permitted the transition. The denied decision retains its machinery-authorization record and status; the later decision retains its own authorization record where required.\n""",
+              """A denied protected target followed by an authorized fallback must remain represented as **two decisions**, not as one record whose `selected_backend` is overwritten. The fallback decision references its predecessor, a resolvable content-bound `BACKEND_FALLBACK` rule through `fallback_rule_id`, and passing subject-bound `fallback_evidence_id` establishing that rule's applicability to this exact predecessor/target/policy context before selection. The denied decision retains its machinery-authorization record and status; the later decision retains its own authorization record where required. Unknown, stale, context-mismatched, self-issued, or late fallback evidence fails closed.\n"""
+          )
+
+          # 7. Evidence-status projections carry the exact validation record.
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """evidence_status:\n    evidence_class      # TEST / VALIDATION / PROOF / frozen equivalent\n    status\n    evidence_rule_id?\n""",
+              """evidence_status:\n    evidence_class      # TEST / VALIDATION / PROOF / frozen equivalent\n    status\n    evidence_rule_id?\n    evidence_validation_id?\n"""
+          )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """`evidence_class` must be compatible with the output's `semantic_class` and explicit evidence transition. Generic output `status` is non-epistemic and cannot promote TEST into VALIDATION or PROOF.\n""",
+              """`evidence_class` must be compatible with the output's `semantic_class` and explicit evidence transition. Generic output `status` is non-epistemic and cannot promote TEST into VALIDATION or PROOF. Any non-class-preserving transition requires both `evidence_rule_id` resolving to an accepted content-bound `EPISTEMIC_TRANSITION` rule and `evidence_validation_id` resolving to passing validation evidence for this exact output, artifact hash, source classes, concrete producers, contributing evidence/inputs, requested evidence class, and claim-publication event. Missing or late evidence rejects the promotion.\n"""
+          )
+          replace_once(
+              "README.md",
+              """When present, `evidence_status` is class-discriminated, conceptually carrying `evidence_class`, evidence `status`, and optional `evidence_rule_id`. It must be compatible with the output's `semantic_class` and any explicit evidence transition. Generic output `status` remains an execution/artifact state and cannot by itself promote TEST to VALIDATION or VALIDATION to PROOF.\n""",
+              """When present, `evidence_status` is class-discriminated, conceptually carrying `evidence_class`, evidence `status`, optional `evidence_rule_id`, and optional `evidence_validation_id`. It must be compatible with the output's `semantic_class` and any explicit evidence transition. For every non-class-preserving transition, both IDs become mandatory: the rule resolves to the accepted content-bound epistemic-transition rule and the validation ID resolves to passing subject-bound evidence for this exact output/artifact/producers/context before publication. Generic output `status` remains an execution/artifact state and cannot by itself promote TEST to VALIDATION or VALIDATION to PROOF.\n"""
+          )
+
+          # 8. Optimization legality witnesses are structured/verifiable in reproducibility.
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """    transformation_sequence[]\n    legality_witnesses[]\n    vectorization_decisions[]?\n""",
+              """    transformation_sequence[]\n    legality_witnesses[]:\n        legality_witness_id\n        witness_kind\n        validation_evidence_id\n    vectorization_decisions[]?\n"""
+          )
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """An optimization profile is configuration, not evidence of what actually ran.\n""",
+              """Each `legality_witnesses[]` entry is an identified, typed, verifiable witness rather than an opaque success label. `validation_evidence_id` resolves to passing content-bound evidence for this exact `optimization_record_id`, binding the reference/optimized IR hashes, ordered transformation sequence, applicable numeric/determinism/randomness/failure contracts, material effects/sequencing/extensions/machinery/inputs/target context, accepted `OPTIMIZATION_LEGALITY` rule, and immutable/versioned verifier identity. A witness for another IR pair or context cannot authorize this optimized artifact.\n\nAn optimization profile is configuration, not evidence of what actually ran.\n"""
+          )
+
+          # 9. Agent-facing toolchain schema matches canonical mandatory IR inputs.
+          replace_once(
+              "AGENTS.md",
+              """    environment_or_config_hash?\n    input_ir_hashes[]?\n    input_ids[]\n""",
+              """    environment_or_config_hash?\n    input_ir_hashes[]\n    input_ids[]\n"""
+          )
+          replace_once(
+              "AGENTS.md",
+              """`input_ids[]` resolves to immutable `inputs[]` records for every material dependency not generated in this run, including prebuilt objects, static libraries, headers, startup files, sysroots, and implicit toolchain inputs.\n""",
+              """`input_ir_hashes[]` is always explicit: it is nonempty with the exact content hash(es) whenever the invocation directly consumes IR, including ordinary non-optimized code generation, and empty only when that invocation consumes no IR. Tool/flags/target/output metadata cannot substitute for this direct content-bound IR edge.\n\n`input_ids[]` resolves to immutable `inputs[]` records for every material dependency not generated in this run, including prebuilt objects, static libraries, headers, startup files, sysroots, and implicit toolchain inputs.\n"""
+          )
+
+          # Align second-lowering wording in reproducibility with the full-path rule.
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """At the second boundary, every applicable mapping family uses typed `core_scope_refs[]` and `vector_dataflow_scope_refs[]`. Bare scope-ID arrays are not sufficient where namespaces can overlap.\n\nFor `machinery_requirement_mapping_decisions[]`, typed scope endpoints are necessary but not sufficient: each mapping also carries `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` so several requirements owned by one Core scope cannot be confused. Those arrays preserve the exact requirement/capability-set correspondence through preservation, split, or frozen legal fusion.\n""",
+              """At the second boundary, every applicable mapping family uses `core_scope_refs[]` and `vector_dataflow_scope_refs[]` whose entries carry complete representation-relative `owner_scope_path[]` values. Bare IDs and one-level kind/local-ID pairs are insufficient when enclosing Core/Vector scopes can reuse local IDs.\n\nFor `machinery_requirement_mapping_decisions[]`, complete scope paths are necessary but not sufficient: each mapping also carries owner-qualified `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, structurally pairing each local machinery requirement ID with its complete owning path. This preserves exact requirement/capability-set correspondence through preservation, split, or frozen legal fusion without positional inference.\n"""
+          )
+
+          PY
+          rm -f .github/workflows/review-hardening-3.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "docs: harden provenance projection identity"
+          git push origin HEAD:docs/foundation-specification
