@@ -1,0 +1,95 @@
+name: provenance-review-fix-4
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/foundation-specification
+          fetch-depth: 0
+      - name: Apply review fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one match, found {count}: {old[:100]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "docs/SEMANTIC-TO-CORE-LOWERING.md",
+              "`machinery_requirement_lowering_decisions[]` uses the identified mapping groups defined in [Protected machinery requirements](#protected-machinery-requirements), including mandatory `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` independently of the typed source/Core scope endpoints. A frozen reconstruction exception must recover every requirement association as well as scope ownership.",
+              "`machinery_requirement_lowering_decisions[]` uses the identified mapping groups defined in [Protected machinery requirements](#protected-machinery-requirements), including mandatory `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`. Each reference pairs the complete representation-relative `owner_scope_path[]` with its local `machinery_requirement_id`; separate ID arrays, positional pairing, or shared source CARD summaries are not substitutes. A frozen reconstruction exception must recover every owner-qualified requirement association as well as scope ownership."
+          )
+
+          replace_once(
+              "AGENTS.md",
+              """    predecessor_selection_decision_id?\n    fallback_rule_id?\n    machinery_authorization_record_ids[]?""",
+              """    predecessor_selection_decision_id?\n    fallback_rule_id?\n    fallback_evidence_id?\n    machinery_authorization_record_ids[]?"""
+          )
+
+          replace_once(
+              "AGENTS.md",
+              "A denied GPU decision followed by CPU fallback remains two decisions. Preserve the denial, its authorization record, the fallback rule, the predecessor link, and the final decision ID.",
+              "A denied GPU decision followed by CPU fallback remains two decisions. Preserve the denial, its authorization record, the fallback rule, the predecessor link, the subject-bound fallback evidence, and the final decision ID. Whenever a decision is a fallback, both `fallback_rule_id` and `fallback_evidence_id` are mandatory: the rule resolves to the accepted frozen selection/fallback authority, and the evidence resolves to passing validation for this exact predecessor decision, candidate/fallback pair, governed scope, active context, and applicability conditions. Validation must complete before the fallback selection is applied in the shared event-order domain; unknown, stale, mismatched, or late evidence fails closed."
+          )
+
+          replace_once(
+              "AGENTS.md",
+              """producer_card_execution_ids[]\ninput_ids[]\neffect_attempt_ids[]?\nexternal_tool_ids[]?\nbackend_selection_scope_ids[]""",
+              """producer_card_execution_ids[]\ninput_ids[]\neffect_attempt_ids[]?\nexternal_tool_ids[]\nbackend_selection_scope_ids[]"""
+          )
+
+          replace_once(
+              "AGENTS.md",
+              """evidence_class\nstatus\nevidence_rule_id?\n```\n\nReject incompatible semantic/evidence-class combinations. Generic output status is not an epistemic promotion mechanism.""",
+              """evidence_class\nstatus\nevidence_rule_id?\nevidence_validation_id?\n```\n\nReject incompatible semantic/evidence-class combinations. Generic output status is not an epistemic promotion mechanism. Any non-class-preserving transition requires both `evidence_rule_id` resolving to accepted content-bound `EPISTEMIC_TRANSITION` authority and `evidence_validation_id` resolving to passing validation evidence for this exact output, artifact hash, original source classes, concrete producers, contributing evidence/inputs, target evidence class, and claim-publication event. Missing, stale, unknown, context-mismatched, unverifiable, or late rule/evidence fails closed."""
+          )
+
+          replace_once(
+              "AGENTS.md",
+              "When an effect materially produces or exposes an output, link the output to concrete attempt IDs and link those attempts back to the output. When an external tool materially supplies evidence/data, link the tool to concrete attempts and/or outputs rather than only the broad source CARD.",
+              "When an effect materially produces or exposes an output, link the output to concrete attempt IDs and link those attempts back to the output. Every output carries explicit `external_tool_ids[]`: use an empty array only when no material external tool contributed. When an external tool materially supplies evidence/data, the nonempty output array and the tool's concrete subject links must agree reciprocally; broad source-CARD attribution or omission of the array is not evidence of no tool participation."
+          )
+
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """spec_version\nrun_id\nsource_hash\nsemantic_ir_hash\njob_id\ndeck_executions[]\ncard_ids[]\ncard_executions[]""",
+              """spec_version\nrun_id\ninput_representation:\n    representation_kind\n    representation_identity\nsource_hash?\nsemantic_ir_hash?\njob_id?\ndeck_executions[]?\ncard_ids[]?\ncard_executions[]?"""
+          )
+
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              """semantic_to_core_spec_version\nsemantic_to_core_implementation_version\ncore_ir_hash\nsemantic_to_core_result_binding_map[]\nextension_requirement_lowering_decisions[]\nqualifier_lowering_decisions[]\nmachinery_requirement_lowering_decisions[]\nresult_determinism_lowering_decisions[]\nnumeric_contract_lowering_decisions[]\nrandomness_lowering_decisions[]\nfailure_behavior_lowering_decisions[]\nvector_dataflow_spec_version\nvector_dataflow_implementation_version\nvector_dataflow_ir_hash\ncore_to_vector_result_binding_map[]\nextension_requirement_mapping_decisions[]\nmachinery_requirement_mapping_decisions[]\ncore_to_vector_result_determinism_mapping_decisions[]\ncore_to_vector_numeric_contract_mapping_decisions[]\ncore_to_vector_randomness_mapping_decisions[]\nfailure_behavior_mapping_decisions[]\nmorph_version""",
+              """semantic_to_core_spec_version?\nsemantic_to_core_implementation_version?\ncore_ir_hash?\nsemantic_to_core_result_binding_map[]?\nextension_requirement_lowering_decisions[]?\nqualifier_lowering_decisions[]?\nmachinery_requirement_lowering_decisions[]?\nresult_determinism_lowering_decisions[]?\nnumeric_contract_lowering_decisions[]?\nrandomness_lowering_decisions[]?\nfailure_behavior_lowering_decisions[]?\nvector_dataflow_spec_version?\nvector_dataflow_implementation_version?\nvector_dataflow_ir_hash?\ncore_to_vector_result_binding_map[]?\nextension_requirement_mapping_decisions[]?\nmachinery_requirement_mapping_decisions[]?\ncore_to_vector_result_determinism_mapping_decisions[]?\ncore_to_vector_numeric_contract_mapping_decisions[]?\ncore_to_vector_randomness_mapping_decisions[]?\nfailure_behavior_mapping_decisions[]?\nmorph_version?"""
+          )
+
+          replace_once(
+              "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+              "`run_id` identifies the aggregate execution. `job_id` identifies the canonical JOB. `deck_executions[]` and `card_executions[]` identify the concrete runtime path.",
+              "`run_id` identifies the aggregate execution. `input_representation` is mandatory and identifies the representation that actually entered this execution plus its content-bound identity. The corresponding named layer hash, when present, must agree with that identity. Layer-specific manifest fields are conditionally required exactly when this execution traversed that layer; an untraversed layer is absent, not synthesized.\n\nFor a Semantic-IR entry that lowers to Core, `semantic_ir_hash`, the Semantic→Core specification/implementation identities, `core_ir_hash`, and every applicable first-lowering map/decision record are mandatory. For a legitimate `QSOL_CORE` entry, `core_ir_hash` identifies the input Core snapshot and the Semantic-IR/first-lowering fields are absent; the run must not fabricate `semantic_ir_hash`, a lowering implementation, or mapping history. Likewise, a direct PR #7 Core reference-machine execution that does not traverse Core→Vector/Dataflow or MORPH leaves those later layer fields absent. Entry at any other frozen representation follows the same rule: preserve actual downstream traversal and do not invent upstream history.\n\n`source_hash`, `job_id`, `deck_executions[]`, `card_ids[]`, and `card_executions[]` are present only when that source/semantic lineage or execution structure exists for the entered representation or is explicitly retained as verifiable provenance. Their absence on a legitimate lower-representation entry is not permission to fabricate replacement semantic identities. Conversely, once a present downstream record references semantic, lowering, Core, Vector/Dataflow, or MORPH provenance, the referenced layer and its complete transitive validation closure become mandatory."
+          )
+          PY
+
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/SEMANTIC-TO-CORE-LOWERING.md docs/DETERMINISM-AND-REPRODUCIBILITY.md AGENTS.md
+          git rm .github/workflows/provenance-review-fix-4.yml
+          git commit -m "docs: align provenance projections and entry layers"
+          git push origin HEAD:docs/foundation-specification
