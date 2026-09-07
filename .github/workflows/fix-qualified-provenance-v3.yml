@@ -1,0 +1,31 @@
+name: Apply qualified provenance review fixes v3
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/foundation-specification
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/scripts/fix-qualified-provenance-v3.py
+      - name: Commit patch and remove helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/scripts/fix-qualified-provenance-v3.py .github/workflows/fix-qualified-provenance-v3.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "docs: qualify execution provenance identities"
+          git push origin HEAD:docs/foundation-specification
