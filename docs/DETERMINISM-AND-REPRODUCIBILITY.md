@@ -257,6 +257,7 @@ machinery_use_records[]:
     backend_selection_scope_id
     backend_selection_decision_id
     backend_unit_id?
+    generated_artifact_ids[]
     source_card_ids[]
     card_execution_ids[]
     initiating_scope_ref?
@@ -266,7 +267,7 @@ machinery_use_records[]:
     protected_use_stop_sequence_index?
 ```
 
-`card_execution_ids[]` is nonempty for CARD-governed use and resolves to the actual participating CARD invocations in `card_executions[]`, consistently with their canonical CARDs, DECK executions, and this run. Repeated uses under one backend scope/decision cannot collapse retries or iterations into canonical source IDs. Genuine pre-CARD setup may use an empty array only with `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. It must not fabricate a CARD execution. Shared uses list the concrete participating executions under the frozen execution mapping. `output_ids[]` names every output materially produced or exposed by this exact protected-use occurrence and is reciprocal with `outputs[].machinery_use_record_ids[]`; matching CARD execution, backend scope, or generated artifact is not an occurrence-level substitute.
+`card_execution_ids[]` is nonempty for CARD-governed use and resolves to the actual participating CARD invocations in `card_executions[]`, consistently with their canonical CARDs, DECK executions, and this run. Repeated uses under one backend scope/decision cannot collapse retries or iterations into canonical source IDs. Genuine pre-CARD setup may use an empty array only with `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. It must not fabricate a CARD execution. Shared uses list the concrete participating executions under the frozen execution mapping. `generated_artifact_ids[]` names the exact generated code artifact(s) actually executed by the use and remains populated even when the use fails before producing an output; every ID must match the use's backend scope/decision/unit. `output_ids[]` names every output materially produced or exposed by this exact protected-use occurrence and is reciprocal with `outputs[].machinery_use_record_ids[]`; matching CARD execution, backend scope, or generated artifact is not an occurrence-level substitute.
 
 Authorization and protected-use indices belong to one frozen monotonic event-order domain. Every protected use references all applicable successful authorization records, each satisfying:
 
@@ -313,7 +314,7 @@ toolchain_invocations[]:
     abi?
     flags[]
     environment_or_config_hash?
-    input_ir_hashes[]?
+    input_ir_hashes[]
     input_ids[]
     input_generated_artifact_ids[]?
     output_generated_artifact_ids[]
@@ -322,6 +323,8 @@ toolchain_invocations[]:
 ```
 
 `material_tool_identity` must be an immutable/versioned identity adequate to distinguish the actual tool used for the active reproducibility claim, such as version plus executable/content hash, immutable tool artifact ID, or frozen equivalent.
+
+`input_ir_hashes[]` is explicit and must contain every exact IR snapshot directly consumed by the invocation. It is nonempty for any compilation/code-generation step that consumes IR, optimized or not, and empty only for a step that consumes no IR. Tool, flags, target, backend-unit, source summaries, or output hashes cannot reconstruct this direct input identity.
 
 `input_ids[]` resolves to immutable `inputs[]` records for every material input not generated in this run, including prebuilt objects, static libraries, headers, startup files, sysroots, and implicit toolchain dependencies. It is empty only when no such inputs were consumed. A composite input must bind the complete material dependency set through a frozen content-manifest representation. Mutable paths, library names, flags, and tool versions alone do not identify the actual dependency bytes; missing material input identity invalidates a complete/reproducible build-provenance claim.
 
@@ -412,9 +415,12 @@ Lowering decision records identify both endpoints with typed scope references:
 
 ```text
 scope_ref:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
 ```
+
+Every first-boundary scope reference uses the complete ordered absolute containment path in its own representation. Semantic endpoints carry all JOB/DECK/CARD ancestors as applicable; Core endpoints carry all enclosing Core scopes needed to distinguish locally repeated IDs. Bare kind/local-ID pairs are insufficient.
 
 At the first boundary, `machinery_requirement_lowering_decisions[]` uses identified mapping groups with typed `source_scope_refs[]` and `core_scope_refs[]`, plus nonempty, deterministic `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`. The requirement IDs resolve in the hash-bound source Semantic IR and resulting Core IR. Separate requirements sharing a scope must not be inferred from source CARD IDs or paired by position; a frozen rule must define any split/fusion relation unambiguously. The complete shape and rejection rules are shared with [Semantic-to-Core machinery preservation](SEMANTIC-TO-CORE-LOWERING.md#protected-machinery-requirements).
 
@@ -512,6 +518,21 @@ For a CARD-caused failure, `failure_card_id` and `failure_card_execution_id` are
 An untaken branch references `governing_control_decision_id`. Prior fail-stop or another failure-caused non-reach references `governing_failure_record_id`.
 
 A catch-all `governing_control_or_failure_id` is invalid because it erases the target namespace.
+
+## Declared effect requirement identity
+
+```text
+effect_requirements[]:
+    declared_effect_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    card_id
+    effect_kind
+    required_capabilities[]
+```
+
+Every declaration resolves by `(owner_scope_path[], declared_effect_id)` against the hash-bound canonical Semantic IR. The complete ordered path includes JOB, DECK, and CARD ancestors and terminates at the CARD identified by `card_id`; local CARD/effect IDs are not globally unique. Missing or mismatched ancestors fail closed before authorization or attempt accounting.
 
 ## Per-effect authorization provenance
 

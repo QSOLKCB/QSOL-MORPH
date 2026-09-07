@@ -260,6 +260,7 @@ machinery_use_records[]:
     backend_selection_scope_id
     backend_selection_decision_id
     machinery_authorization_record_ids[]
+    generated_artifact_ids[]
     output_ids[]
     protected_use_kind
     protected_use_start_sequence_index
@@ -270,7 +271,7 @@ machinery_use_records[]:
     backend_unit_id?
 ```
 
-`backend_selection_decision_id` identifies the concrete selection decision governing the use, not merely its shared selection scope. `card_execution_ids[]` identifies the actual participating CARD invocations and is nonempty for CARD-governed work. Each ID resolves through `card_executions[]` to the correct canonical CARD, DECK execution, and run. A retry, loop iteration, or repeated DECK execution cannot be inferred from the use's event index or canonical CARD IDs.
+`backend_selection_decision_id` identifies the concrete selection decision governing the use, not merely its shared selection scope. `generated_artifact_ids[]` identifies the exact generated executable/kernel/bytecode bytes actually launched by the protected use and remains available when failure occurs before any output exists; every referenced artifact must resolve consistently with the selection scope/decision/backend unit. `card_execution_ids[]` identifies the actual participating CARD invocations and is nonempty for CARD-governed work. Each ID resolves through `card_executions[]` to the correct canonical CARD, DECK execution, and run. A retry, loop iteration, or repeated DECK execution cannot be inferred from the use's event index or canonical CARD IDs.
 
 For genuine pre-CARD machinery setup only, an empty CARD-execution array requires `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual initiating RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. Do not fabricate a CARD execution. Shared uses list their actual participating executions under the frozen execution mapping. `output_ids[]` is the reciprocal occurrence-level join to `outputs[].machinery_use_record_ids[]`; exact requirement identity is resolved through the linked canonical machinery authorization records and their absolute-owner-path `machinery_requirement_refs[]`, not a bare requirement-ID list on the use record. These fields follow the [canonical machinery-use contract](TRACE-AND-PROVENANCE.md#machinery-authorization-and-use-provenance).
 

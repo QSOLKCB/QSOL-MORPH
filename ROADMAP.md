@@ -158,8 +158,8 @@ Failure traces retain `failure_behavior_bindings[]`, `backend_selection_scopes[]
 
 The gate must include:
 
-- canonical `effect_requirements[]`, each carrying source CARD ID, declared effect ID, effect kind, and complete `required_capabilities[]`;
-- canonical `machinery_requirements[]`, each carrying stable requirement identity, governing source scope, target selector/class, and complete required-capability set;
+- canonical `effect_requirements[]`, each carrying complete ordered absolute JOB/DECK/CARD `owner_scope_path[]`, source CARD ID, declared effect ID, effect kind, and complete `required_capabilities[]`;
+- canonical `machinery_requirements[]`, each carrying stable requirement identity, complete ordered absolute owning `owner_scope_path[]`, target selector/class, and complete required-capability set;
 - execution-wide capability summaries only as summaries, never as replacements for contextual authorization records.
 
 ### Backend-selection and protected-machinery provenance
@@ -168,8 +168,8 @@ Require:
 
 - `backend_selection_scopes[]`, each with stable `backend_selection_scope_id`, governed scope/source/backend unit, ordered decision IDs, and final decision ID when execution proceeds;
 - `backend_selection_decisions[]`, each with stable decision ID, requested target, selected backend/version/architecture/device, automatic-selection policy/tuning identity where applicable, predecessor/fallback-rule identity where applicable, linked machinery authorization, order, and status;
-- `machinery_authorization_records[]` with stable authorization identity, governing selection scope/decision, applicable machinery requirement IDs, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and authorization sequence index;
-- `machinery_use_records[]` with stable use identity, governing selection scope/decision/backend unit, concrete participating `card_execution_ids[]`, applicable authorization IDs, protected-use start index, and optional stop index.
+- `machinery_authorization_records[]` with stable authorization identity, governing selection scope/decision, absolute-owner-path-qualified machinery requirement references, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and authorization sequence index;
+- `machinery_use_records[]` with stable use identity, governing selection scope/decision/backend unit, concrete participating `card_execution_ids[]`, exact `generated_artifact_ids[]` executed where applicable, authorization IDs, protected-use start index, exact output IDs, and optional stop index.
 
 The machinery-use CARD-execution references are nonempty for CARD-governed work and resolve to the actual invocations in the current run. Repeated launches under one scope/decision must not collapse retries or iterations. Genuine pre-CARD setup may have an empty array only with `initiating_scope_ref`, a typed reference to the actual initiating RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`; no fake CARD execution is permitted.
 
@@ -461,7 +461,7 @@ Specify:
 - result-binding maps;
 - extension requirement mapping;
 - qualifier decisions;
-- identified cardinality-aware machinery-requirement mappings with typed source/Core scopes and explicit `source_machinery_requirement_ids[]` / `lower_machinery_requirement_ids[]`;
+- identified cardinality-aware machinery-requirement mappings with complete ordered source/Core scope paths and explicit `source_machinery_requirement_ids[]` / `lower_machinery_requirement_ids[]`;
 - result-determinism, numeric, randomness, and failure-behavior mapping;
 - effect/capability preservation;
 - complete tagged sequencing preservation;
@@ -473,7 +473,7 @@ Implement PR #8.
 
 Every material lowering decision must be provenance-bearing. Required decision families include extension requirements, qualifiers, machinery requirements, result determinism, numerics, randomness, and failure behavior whenever consumed, grouped, normalized, remapped, or otherwise transformed.
 
-`machinery_requirement_lowering_decisions[]` requires identified mapping groups, typed `source_scope_refs[]` / `core_scope_refs[]`, and nonempty deterministic `source_machinery_requirement_ids[]` / `lower_machinery_requirement_ids[]`. Resolve requirement IDs in the hash-bound source Semantic IR and resulting Core IR. Separate unrelated requirements sharing a scope; a frozen rule defines any split/fusion relation and the target selector/capability set reaching each lower requirement. Scope correspondence or source CARD IDs alone are insufficient. Omission is legal only under a frozen rule reconstructing every requirement-ID association as well as ownership.
+`machinery_requirement_lowering_decisions[]` requires identified mapping groups, complete ordered absolute `source_scope_refs[]` / `core_scope_refs[]` containment paths, and nonempty deterministic `source_machinery_requirement_ids[]` / `lower_machinery_requirement_ids[]`. Resolve requirement IDs in the hash-bound source Semantic IR and resulting Core IR. Separate unrelated requirements sharing a scope; a frozen rule defines any split/fusion relation and the target selector/capability set reaching each lower requirement. Scope correspondence or source CARD IDs alone are insufficient. Omission is legal only under a frozen rule reconstructing every requirement-ID association as well as ownership.
 
 `result_binding_map[]` is required whenever identities are preserved or transformed unless a frozen deterministic reconstruction rule applies.
 
@@ -517,7 +517,7 @@ Require:
 - semantics-preserving C emission;
 - stable backend-unit identity;
 - identified `generated_artifacts[]` with artifact ID/kind/hash, backend unit, backend-selection scope and mandatory exact production `backend_selection_decision_id`, source provenance, optimization links where applicable, `direct_producer_toolchain_invocation_id`, and ordered `toolchain_invocation_chain_ids[]`;
-- identified `toolchain_invocations[]` recording the exact material compiler/assembler/linker/code-generation identities, invocation order, target/ABI, deterministic build flags/configuration, immutable non-generated dependency `input_ids[]`, direct generated-artifact inputs/outputs, backend unit, and backend-selection scope;
+- identified `toolchain_invocations[]` recording the exact material compiler/assembler/linker/code-generation identities, invocation order, target/ABI, deterministic build flags/configuration, explicit exact `input_ir_hashes[]` whenever IR is directly consumed, immutable non-generated dependency `input_ids[]`, direct generated-artifact inputs/outputs, backend unit, and backend-selection scope;
 - truthful direct-edge invariants: only the direct producer invocation lists an artifact in `output_generated_artifact_ids[]`, while transitive ancestors remain in the artifact's ordered chain and prebuilt dependencies resolve through `inputs[]`;
 - reference/optimized equivalence evidence where optimization is used;
 - no bypass around the Vector/Dataflow IR.

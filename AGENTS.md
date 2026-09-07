@@ -50,7 +50,7 @@ When proposing changes:
 10. use class-discriminated `evidence_status` and reject evidence claims incompatible with an output's semantic class;
 11. do not silently weaken CARD, DECK, or JOB failure behavior;
 12. require successful authorization of **every** capability required by a protected external effect before that effect begins;
-13. preserve the explicit effect → complete capability-set association; do not replace it with an ambiguous CARD-level union;
+13. preserve the explicit effect → complete capability-set association and owner-qualify every declared effect by its complete ordered JOB/DECK/CARD `owner_scope_path[]`; local CARD/effect IDs are not globally unique and must not replace that path;
 14. give each concrete protected effect attempt its own identified authorization record; execution-wide capability sets are summaries only;
 15. keep protected machinery selection separate from external effects, and require every applicable machinery capability before protected machinery use begins;
 16. preserve explicit `machinery_requirements[]`; do not synthesize fake effects merely to authorize GPU/CUDA or another protected target;
@@ -68,13 +68,13 @@ When proposing changes:
 28. preserve `machinery_requirements[]` and explicit failure behavior through Semantic→Core lowering or record a frozen provenance-visible mapping;
 29. preserve the complete QSOL-CORE control/effect/machinery/contract surface through the mandatory Vector/Dataflow IR;
 30. record both mandatory lowering identities/hashes and cardinality-aware result-binding maps in provenance;
-31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change; at both machinery boundaries, preserve explicit source/lower machinery-requirement IDs as well as typed scope endpoints;
+31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change; first-lowering source/Core scope references use complete ordered containment paths rather than kind plus local ID, and at both machinery boundaries preserve explicit source/lower machinery-requirement IDs;
 32. record result-determinism provenance at the JOB/DECK/CARD/region/kernel or other frozen scope where it is valid; do not invent a global pair unless a frozen normalization proves it valid;
 33. record scoped numeric contract/mode provenance;
 34. record scoped randomness/RNG provenance;
 35. separate a governed backend-selection scope from the ordered backend-selection decisions made for that scope, and give the selection-scope record its own stable `backend_selection_scope_id` distinct from the computation `scope_id`;
 36. never overwrite a denied target with a fallback target; preserve predecessor decision, frozen fallback rule, authorization outcome, and final-selection decision;
-37. bind protected-machinery authorization records to the concrete backend-selection decision/scope they govern; every `machinery_requirement_refs[]` entry uses the complete ordered absolute JOB/DECK/CARD `owner_scope_path[]` plus local requirement ID, and same-domain authorization-before-use ordering is preserved through identified machinery-use records linked to their actual concrete CARD executions or genuine pre-CARD initiating scope and exact outputs;
+37. bind protected-machinery authorization records to the concrete backend-selection decision/scope they govern; every machinery declaration/reference uses the complete ordered absolute JOB/DECK/CARD `owner_scope_path[]` plus local requirement ID, and same-domain authorization-before-use ordering is preserved through identified machinery-use records linked to their actual concrete CARD executions or genuine pre-CARD initiating scope, exact generated artifacts executed, and exact outputs;
 38. distinguish canonical declared `effect_id` from runtime `effect_attempt_id` and trace both;
 39. bind each effect attempt to its contextual `effect_authorization_record_id` and preserve same-domain authorization-before-effect-begin ordering where required;
 40. account **unconditionally** for every applicable declared effect for every selected concrete `card_execution_id` with attempt(s), exactly one legitimate identified non-attempt, or structured failure;
@@ -394,6 +394,8 @@ Do not replace an effectful CARD with prior cached output if doing so skips a de
 For `classification = VERIFIED_REUSE`, `legality_rule_id` and `verification_evidence_id` are mandatory. Resolve them to an applicable `CACHE_SUBSTITUTION` rule and passing context-bound evidence for the exact reuse record, reused computation/artifact, checked cache identity, and current inputs/contracts before substitution. Effectful reuse requires the specifically applicable separately frozen replay/cache rule, not a generic cache rule. `UNVERIFIED_HIT` is diagnostic and cannot satisfy a CARD or supply a verified output: verify successfully before reuse, execute cold, or fail closed. A label, unknown ID, stale evidence, or matching hash alone is insufficient. Use the shared [cache validation contract](docs/TRACE-AND-PROVENANCE.md#cache-reuse-provenance).
 
 A cached artifact may be used as an explicit declared input when the semantic contract says so; that is not the same as silently satisfying an effectful CARD from cache.
+
+Every toolchain/code-generation invocation that directly consumes IR records explicit `input_ir_hashes[]` containing the exact consumed IR snapshot(s); the array may be empty only when the invocation consumes no IR. Tool/flags/target/backend-unit metadata or differing output hashes do not substitute for this direct content-bound input edge.
 
 When optimized code is generated, the generated artifact records the applicable `optimized_ir_hash` and `optimization_record_ids[]`, while each optimization record reciprocally lists `generated_artifact_ids[]`. The required attribution chain is `output → generated_artifact → optimization provenance`; `backend_unit_id` alone is not sufficient when reference and optimized variants coexist.
 

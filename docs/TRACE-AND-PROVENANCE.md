@@ -98,6 +98,9 @@ Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable pos
 ```text
 effect_requirements[]:
     declared_effect_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
     card_id
     effect_kind
     required_capabilities[]
@@ -107,15 +110,16 @@ The complete capability set belongs to that specific effect. A CARD-wide capabil
 
 A canonical declaration is source identity. Runtime accounting is performed against each applicable concrete `card_execution_id`, because the same canonical CARD may execute more than once.
 
-The declaration in the trace must match the corresponding declaration in the hash-bound canonical input, including owner, effect kind, and complete capability set. Agreement between two truncated runtime copies is not agreement with the canonical declaration. See [Declaration-bound authorization validation](#declaration-bound-authorization-validation).
+Before authorization or attempt accounting, resolve every traced effect declaration by the complete tuple `(owner_scope_path[], declared_effect_id)` to exactly one effect requirement in the hash-bound canonical input. `owner_scope_path[]` is the ordered absolute canonical containment path `JOB -> DECK -> CARD`; its terminal CARD must equal `card_id`. Every ancestor is part of the declaration identity, so sibling DECKs may each contain local `CARD 7 / effect 7` without collision. The path is never inferred from local `card_id`, list position, producer IDs, or first-match lookup. The trace declaration must match the resolved canonical declaration's effect kind and complete capability set. Missing, incomplete, swapped, ambiguous, or owner-mismatched paths fail closed. Agreement between two truncated runtime copies is not agreement with the canonical declaration. See [Declaration-bound authorization validation](#declaration-bound-authorization-validation).
 
 ### Protected machinery requirements
 
 ```text
 machinery_requirements[]:
     machinery_requirement_id
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
     source_card_ids[]
     target_selector_or_class
     required_capabilities[]
@@ -123,7 +127,7 @@ machinery_requirements[]:
 
 A GPU requirement does not turn GPU selection into an external effect. It is a separate protected-machinery authorization boundary.
 
-Every trace requirement must resolve to the corresponding hash-bound canonical requirement, retaining its owning scope, target selector/class, and complete capability set. A lowered requirement additionally retains its validated source-to-lower requirement mapping. A runtime copy or a capability union cannot replace that canonical association. [Canonical machinery coverage](#canonical-machinery-coverage) is checked before accepting either a grant or a protected use.
+Every traced machinery requirement resolves by the complete tuple `(owner_scope_path[], machinery_requirement_id)` to exactly one hash-bound canonical requirement. The ordered absolute path contains every JOB/DECK/CARD ancestor through the actual owning scope, matching the path shape used by `machinery_requirement_refs[]`; a local `(scope_kind, scope_id)` pair is not sufficient. The resolved declaration must retain the exact target selector/class and complete capability set. A lowered requirement additionally retains its validated source-to-lower requirement mapping. Missing, ambiguous, swapped, or owner-mismatched paths fail closed. A runtime copy or capability union cannot replace that canonical association. [Canonical machinery coverage](#canonical-machinery-coverage) is checked before accepting either a grant or a protected use.
 
 ### Source contract bindings
 
@@ -266,9 +270,12 @@ Every decision family that maps a scoped semantic requirement identifies both en
 
 ```text
 scope_ref:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
 ```
+
+`owner_scope_path[]` is the complete ordered absolute containment path within the representation named by that lowering boundary. For Semantic-IR endpoints it includes JOB, DECK, and CARD ancestors as applicable; for Core endpoints it includes every enclosing Core scope needed to distinguish locally repeated IDs. The terminal path element is the referenced scope itself. A bare `(scope_kind, scope_id)` pair is not a valid first-lowering endpoint when local IDs can repeat. Missing, truncated, reordered, or ambiguous paths fail conformance for extension, machinery, result-determinism, numeric, randomness, and failure-behavior decision families.
 
 For example:
 
@@ -509,6 +516,7 @@ machinery_use_records[]:
     backend_selection_scope_id
     backend_selection_decision_id
     backend_unit_id?
+    generated_artifact_ids[]
     source_card_ids[]
     card_execution_ids[]
     initiating_scope_ref?
@@ -519,6 +527,8 @@ machinery_use_records[]:
 ```
 
 `card_execution_ids[]` identifies the concrete CARD invocations participating in this use, not all invocations of the source CARD or backend unit. It is nonempty for CARD-governed work, and every ID resolves through `card_executions[]` to the corresponding canonical CARD and DECK execution in this run. A repeated launch, retry, or loop iteration receives a distinct use record with the correct concrete invocation IDs; an event index alone is not this join.
+
+`generated_artifact_ids[]` identifies the exact generated executable, kernel, bytecode, or equivalent artifact bytes actually launched or consumed by this protected-use occurrence. Every reference resolves to `generated_artifacts[]` and must be compatible with this use's backend-selection scope, concrete selection decision, and backend unit. The array is nonempty whenever protected use executes generated code, including a use that later fails before producing any output. It is empty only when the protected operation genuinely consumes no generated artifact. `backend_unit_id`, selection scope, output attribution, or the scope's final decision cannot reconstruct this identity when reference and optimized variants coexist.
 
 `output_ids[]` identifies all outputs materially produced or exposed by this exact protected-use event. Every listed output reciprocally contains this `machinery_use_record_id` in `outputs[].machinery_use_record_ids[]`, and every output-side machinery-use reference resolves back to a use record whose `output_ids[]` contains that output. The relation is occurrence-specific: matching CARD execution, backend-selection scope, generated artifact, or authorization records cannot substitute for the exact use-record join when the same protected machinery is launched more than once. A protected use that produces or exposes no output records an empty array rather than borrowing another use's output.
 
@@ -571,7 +581,7 @@ toolchain_invocations[]:
     abi?
     flags[]
     environment_or_config_hash?
-    input_ir_hashes[]?
+    input_ir_hashes[]
     input_ids[]
     input_generated_artifact_ids[]?
     output_generated_artifact_ids[]
@@ -580,6 +590,8 @@ toolchain_invocations[]:
 ```
 
 `material_tool_identity` is immutable/versioned identity sufficient to distinguish the actual compiler, assembler, linker, code generator, or frozen equivalent used by that invocation. It may be represented by a version plus binary/content hash, immutable tool artifact ID, or another frozen identity adequate for the reproducibility claim.
+
+`input_ir_hashes[]` is always explicit and contains the exact content hash(es) of every IR snapshot directly consumed by the invocation. It must be nonempty whenever the invocation consumes Semantic/Core/Vector-Dataflow/backend IR, including ordinary non-optimized code generation; it is empty only when that invocation consumes no IR. A generated artifact's direct producer must therefore content-bind the precise IR revision that produced its bytes. Source summaries, backend-unit identity, tool flags, target identity, transitive artifact ancestry, or a differing output hash cannot substitute for the direct IR input edge.
 
 `input_ids[]` resolves to identified immutable `inputs[]` records for every material input not generated in this run, including prebuilt objects, static libraries, headers, startup files, sysroots, and implicit toolchain dependencies. It is empty only when no such inputs were consumed. A path, library name, search flag, or tool version is not the identity of the bytes read. A composite dependency input must content-bind the complete material dependency set through a frozen manifest representation. Missing material input identity invalidates a complete/reproducible build-provenance claim.
 
