@@ -15,6 +15,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Remove redundant brittle cache prose edit
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/scripts/review_hardening_3.py')
+          s = p.read_text()
+          needle = '''replace_once(\n    "docs/DETERMINISM-AND-REPRODUCIBILITY.md",\n    "Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents. For `VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory and resolve to the shared rule/evidence ledgers.\\n",'''
+          start = s.find(needle)
+          if start < 0:
+              raise SystemExit('cache prose edit block not found')
+          end = s.find('\n)\n', start)
+          if end < 0:
+              raise SystemExit('cache prose edit block terminator not found')
+          p.write_text(s[:start] + s[end + 3:])
+          PY
       - name: Apply patch
         run: python .github/scripts/review_hardening_3.py
       - name: Commit patch and clean helper
