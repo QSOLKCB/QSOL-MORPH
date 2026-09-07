@@ -336,14 +336,21 @@ The IR must preserve which numeric contract governs which CARD-derived operation
 A lower representation may group operations under a common contract only when that grouping is semantically valid. If separate source contracts remain distinct, the IR must carry enough scope identity to later produce provenance entries such as:
 
 ```text
-scope_kind
-scope_id
+numeric_scope_id
+governed_scope_ref:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
 source_card_ids[]
 numeric_contract_id
 numeric_contract_hash
 material_numeric_mode
 backend_unit_id?
 ```
+
+`numeric_scope_id` is the stable numeric-ledger key. `governed_scope_ref` identifies the governed Core or Vector/Dataflow computation with representation identity plus its complete representation-relative containment path; local `scope_id` values and source CARD summaries are not owner identity.
 
 The material numeric mode may be selected only within the legal choices of that scope's contract. Different kernels may therefore legitimately have different modes, and provenance must not collapse them into one false execution-wide pair.
 

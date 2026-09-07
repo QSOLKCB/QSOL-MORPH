@@ -318,8 +318,10 @@ effect_attempts[]:
     completion_state
     acquired_input_ids[]
     observable_output_ids[]
-    external_tool_ids[]?
+    external_tool_ids[]
 ```
+
+`external_tool_ids[]` is mandatory on every effect attempt. Use an explicit empty array only when no material external tool participated in that concrete attempt. When material external tools participate, the IDs must resolve to `external_tool_versions[]` and the relation must be reciprocal through the tool record's `effect_attempt_ids[]`; broad CARD-only attribution is not sufficient.
 
 Every non-attempt requires its own stable identity and concrete CARD execution:
 

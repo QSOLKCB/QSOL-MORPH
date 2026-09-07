@@ -68,7 +68,7 @@ When proposing changes:
 28. preserve `machinery_requirements[]` and explicit failure behavior through Semantic→Core lowering or record a frozen provenance-visible mapping;
 29. preserve the complete QSOL-CORE control/effect/machinery/contract surface through the mandatory Vector/Dataflow IR;
 30. record both mandatory lowering identities/hashes and cardinality-aware result-binding maps in provenance;
-31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change; first-lowering source/Core scope references use complete ordered containment paths rather than kind plus local ID, and at both machinery boundaries preserve explicit source/lower machinery-requirement IDs;
+31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change; first-lowering source/Core scope references use complete ordered containment paths rather than kind plus local ID, and at both machinery boundaries preserve owner-qualified source/lower machinery-requirement references that pair each local requirement ID with its complete representation-relative owner path;
 32. record result-determinism provenance at the JOB/DECK/CARD/region/kernel or other frozen scope where it is valid; do not invent a global pair unless a frozen normalization proves it valid;
 33. record scoped numeric contract/mode provenance;
 34. record scoped randomness/RNG provenance;
@@ -186,7 +186,7 @@ Result-binding mapping must be cardinality-aware. One source result may legally 
 
 When extension requirements, machinery requirements, failure behavior, qualifiers, determinism, numerics, or randomness are materially consumed/remapped/grouped/normalized, provenance must record the corresponding lowering-decision family. IR hashes are not enough. An extension-scope decision may be omitted only under a frozen deterministic identity-scope reconstruction rule that actually preserves ownership.
 
-At this first boundary, `machinery_requirement_lowering_decisions[]` uses identified `mapping_group_id` records with typed `source_scope_refs[]` and `core_scope_refs[]`, nonempty deterministic `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`, source CARD provenance, and `mapping_rule_id`. Resolve each requirement in the hash-bound source Semantic IR or resulting Core IR. Separate unrelated requirements sharing a scope; a frozen rule defines every split/fusion relation and the target selector/complete capability set reaching each lower requirement. Scope correspondence or array position cannot substitute for requirement identity. A reconstruction exception must recover both ownership and every requirement-ID association.
+At this first boundary, `machinery_requirement_lowering_decisions[]` uses identified `mapping_group_id` records with typed `source_scope_refs[]` and `core_scope_refs[]`, plus nonempty deterministic `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`. Every machinery-requirement reference pairs its local `machinery_requirement_id` with the complete representation-relative `owner_scope_path[]` of the scope that owns it; source/Core scope arrays are correspondence context and never a positional join. Records also retain source CARD provenance and `mapping_rule_id`. Resolve each qualified requirement in the hash-bound source Semantic IR or resulting Core IR. Separate unrelated requirements sharing a scope; a frozen rule defines every split/fusion relation and the target selector/complete capability set reaching each lower requirement. Scope correspondence, repeated local IDs, or array position cannot substitute for an owner-qualified requirement identity. A reconstruction exception must recover both ownership and every qualified requirement association.
 
 Unsupported semantic constructs or qualifiers fail explicitly. Do not silently drop, no-op, default, or defer their meaning to a backend.
 
@@ -227,7 +227,7 @@ core_to_vector_randomness_mapping_decisions[]
 failure_behavior_mapping_decisions[]
 ```
 
-For `machinery_requirement_mapping_decisions[]`, typed scope mappings alone are not enough when one Core scope owns several machinery requirements. Preserve `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` so each target selector/capability set reaches the correct lower region.
+For `machinery_requirement_mapping_decisions[]`, typed scope mappings alone are not enough when one Core scope owns several machinery requirements or sibling scopes reuse a local requirement ID. Preserve `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, with every entry pairing its local `machinery_requirement_id` to the complete representation-relative `owner_scope_path[]`, so each target selector/capability set reaches the correct lower region without positional inference.
 
 A mapping family may be omitted only under a frozen deterministic identity-scope reconstruction rule that actually covers that family.
 
