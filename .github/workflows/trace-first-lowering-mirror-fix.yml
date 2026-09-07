@@ -1,0 +1,43 @@
+name: One-shot first-lowering trace mirror fix
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch trace mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/TRACE-AND-PROVENANCE.md')
+          s = p.read_text()
+          old = '''machinery_requirement_lowering_decisions[]:\n    mapping_group_id\n    source_scope_refs[]\n    core_scope_refs[]\n    source_machinery_requirement_ids[]\n    lower_machinery_requirement_ids[]\n    source_card_ids[]\n    mapping_rule_id\n'''
+          new = '''machinery_requirement_lowering_decisions[]:\n    mapping_group_id\n    source_scope_refs[]\n    core_scope_refs[]\n    source_machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n    lower_machinery_requirement_refs[]:\n        owner_scope_path[]:\n            scope_kind\n            scope_id\n        machinery_requirement_id\n    source_card_ids[]\n    mapping_rule_id\n'''
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one first-lowering mapping block, found {s.count(old)}')
+          s = s.replace(old, new, 1)
+          oldp = '''Both scope arrays contain typed `scope_ref` values. Source requirement IDs resolve in the input Semantic IR and lower requirement IDs in the resulting Core IR, qualified by the corresponding IR hashes and owning scopes. Both requirement-ID sets are nonempty, deterministic, and duplicate-free. Unrelated requirements sharing a scope use separate mapping groups. Splits or frozen legal fusions must identify every source/lower requirement and a frozen rule defining the exact relation, including the target selector and complete capability set for each lower requirement. Neither shared scope IDs nor list position can substitute for that association.\n'''
+          newp = '''Both scope arrays contain the complete-path `scope_ref` values defined above. Source and lower machinery requirements are owner-qualified composite references pairing `owner_scope_path[]` with the local `machinery_requirement_id`; they resolve in the input Semantic IR and resulting Core IR respectively. The reference sets are nonempty, deterministic, and duplicate-free by complete qualified identity. Splits or frozen legal fusions must preserve every source/lower qualified requirement and a frozen rule defining the exact relation, including target selector and complete capability set. Shared scope IDs, repeated local requirement IDs, and list position cannot substitute for this association.\n'''
+          if s.count(oldp) != 1:
+              raise SystemExit(f'expected one first-lowering mapping paragraph, found {s.count(oldp)}')
+          p.write_text(s.replace(oldp, newp, 1))
+          PY
+          rm -f .github/workflows/trace-first-lowering-mirror-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "docs: owner-qualify first-lowering machinery trace"
+          git push origin HEAD:docs/foundation-specification
