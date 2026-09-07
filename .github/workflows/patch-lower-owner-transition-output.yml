@@ -1,0 +1,195 @@
+name: Apply provenance follow-up fixes
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/foundation-specification
+          fetch-depth: 0
+
+      - name: Patch documentation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match in {path}, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          vector = "docs/VECTOR-AND-DATAFLOW.md"
+          trace = "docs/TRACE-AND-PROVENANCE.md"
+
+          replace_once(
+              vector,
+              """machinery_requirement_id
+source_scope_kind
+source_scope_id
+source_card_ids[]
+target_selector_or_class
+required_capabilities[]""",
+              """machinery_requirement_ref:
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    machinery_requirement_id
+source_card_ids[]
+target_selector_or_class
+required_capabilities[]""",
+              "owner-qualified lower machinery requirement",
+          )
+
+          replace_once(
+              vector,
+              """A `GPU` or other accelerator requirement does **not** create an external effect node. It remains a machinery-authorization requirement that MORPH evaluates after target resolution and before protected machinery use.
+
+The Core→Vector/Dataflow stage may preserve the requirement directly or transform it only under a frozen, provenance-visible mapping. It may not collapse machinery requirements into effect-capability unions, discard them because a region is not yet assigned to a GPU, or leave MORPH to reconstruct permission requirements from target names.""",
+              """`machinery_requirement_ref` is the lower requirement's canonical owner-qualified identity. Its complete ordered `owner_scope_path[]` is interpreted relative to the exact Vector/Dataflow representation and terminates at the lower scope that owns the local `machinery_requirement_id`. Every ancestor needed to distinguish reused local scope IDs participates in identity. `source_card_ids[]` is summary provenance only and cannot replace this composite reference. Missing, truncated, reordered, ambiguous, or owner-mismatched paths fail conformance.
+
+A `GPU` or other accelerator requirement does **not** create an external effect node. It remains a machinery-authorization requirement that MORPH evaluates after target resolution and before protected machinery use.
+
+The Core→Vector/Dataflow stage may preserve a requirement directly only when `machinery_requirement_mapping_decisions[]` or the frozen deterministic identity-scope reconstruction rule establishes the exact source owner-qualified requirement reference that corresponds to this lower `machinery_requirement_ref`. A transformed requirement must likewise use the provenance-visible mapping family. Lowering may not copy a bare Core scope/local ID into the Vector/Dataflow record, collapse machinery requirements into effect-capability unions, discard them because a region is not yet assigned to a GPU, or leave MORPH to reconstruct permission requirements from target names.""",
+              "lower machinery preservation semantics",
+          )
+
+          replace_once(
+              vector,
+              """core_scope_refs[]
+vector_dataflow_scope_refs[]
+source_card_ids[]
+mapping_rule_id
+backend_unit_ids[]?
+transition_authorized_by?""",
+              """core_scope_refs[]
+vector_dataflow_scope_refs[]
+source_card_ids[]
+mapping_rule_id
+backend_unit_ids[]?
+transition_authorized_by?
+transition_evidence_id?""",
+              "vector second-lowering transition evidence field",
+          )
+
+          replace_once(
+              vector,
+              """This typed-endpoint rule applies to:
+
+- `extension_requirement_mapping_decisions[]`;
+- `machinery_requirement_mapping_decisions[]`;
+- `core_to_vector_result_determinism_mapping_decisions[]`;
+- `core_to_vector_numeric_contract_mapping_decisions[]`;
+- `core_to_vector_randomness_mapping_decisions[]`;
+- `failure_behavior_mapping_decisions[]`.
+
+`machinery_requirement_mapping_decisions[]` additionally identifies""",
+              """This typed-endpoint rule applies to:
+
+- `extension_requirement_mapping_decisions[]`;
+- `machinery_requirement_mapping_decisions[]`;
+- `core_to_vector_result_determinism_mapping_decisions[]`;
+- `core_to_vector_numeric_contract_mapping_decisions[]`;
+- `core_to_vector_randomness_mapping_decisions[]`;
+- `failure_behavior_mapping_decisions[]`.
+
+For result-determinism or randomness mappings, whenever requested and effective semantics differ, both `transition_authorized_by` and `transition_evidence_id` are mandatory. The authority must resolve to the accepted frozen `CONTRACT_TRANSITION` rule and the evidence must resolve to passing, subject-bound validation for the exact mapped scope and requested/effective pair. Validation must precede activation of the changed lower contract in the shared event-order domain. Naming a rule without its passing applicability evidence is not sufficient; the optional notation permits absence only when no semantic transition occurred.
+
+`machinery_requirement_mapping_decisions[]` additionally identifies""",
+              "vector transition evidence validation",
+          )
+
+          replace_once(
+              vector,
+              """Every `lower_machinery_requirement_id` must resolve to a lower requirement whose target selector/class and complete required-capability set either preserve the source requirement or result from an explicitly frozen, provenance-visible transformation.""",
+              """Every entry in `lower_machinery_requirement_refs[]` must resolve by its complete `owner_scope_path[]` plus local `machinery_requirement_id` to a lower requirement whose target selector/class and complete required-capability set either preserve the corresponding qualified source requirement or result from an explicitly frozen, provenance-visible transformation.""",
+              "qualified lower machinery resolver",
+          )
+
+          replace_once(
+              trace,
+              """core_scope_refs[]
+vector_dataflow_scope_refs[]
+source_card_ids[]
+mapping_rule_id
+backend_unit_ids[]?
+transition_authorized_by?""",
+              """core_scope_refs[]
+vector_dataflow_scope_refs[]
+source_card_ids[]
+mapping_rule_id
+backend_unit_ids[]?
+transition_authorized_by?
+transition_evidence_id?""",
+              "trace second-lowering transition evidence field",
+          )
+
+          replace_once(
+              trace,
+              """Use the applicable mapping family for:
+
+- extension requirements;
+- protected-machinery requirements;
+- result determinism;
+- numeric contracts and material numeric modes;
+- randomness contracts;
+- failure behavior.
+
+`machinery_requirement_mapping_decisions[]` additionally identifies""",
+              """Use the applicable mapping family for:
+
+- extension requirements;
+- protected-machinery requirements;
+- result determinism;
+- numeric contracts and material numeric modes;
+- randomness contracts;
+- failure behavior.
+
+For `core_to_vector_result_determinism_mapping_decisions[]` and `core_to_vector_randomness_mapping_decisions[]`, any semantic change between the requested and effective contracts requires both `transition_authorized_by` and `transition_evidence_id`. The authority must resolve to the accepted versioned/content-bound `CONTRACT_TRANSITION` rule; the evidence must resolve to passing `validation_evidence[]` for the exact mapped subject, requested/effective pair, owner-qualified source/lower scopes, and active context. Its validation event must precede application of the changed lower contract. A rule assertion without passing subject-bound pre-application evidence is an unauthorized transition and fails closed. Both fields may be absent only when the mapping is class/semantics preserving and no contract transition occurred.
+
+`machinery_requirement_mapping_decisions[]` additionally identifies""",
+              "trace transition evidence validation",
+          )
+
+          replace_once(
+              trace,
+              """The execution-contract scope arrays resolve directly to the stable type-specific scope-record keys described above.""",
+              """The execution-contract scope arrays are normative **exact-set attributions**, not optional lists of whichever governing records a producer chooses to mention. For each output, derive the complete applicable record set independently for result determinism, numeric behavior, randomness, and failure behavior from `producer_card_execution_ids[]`, their concrete DECK/JOB containment, the canonical owner-qualified contracts that apply to those producer paths, and every material Semantic→Core / Core→Vector-Dataflow mapping or frozen deterministic identity-scope reconstruction rule needed to reach the exact lower/backend units and generated artifacts that produced the output. Frozen inheritance, composition, override, and normalization rules determine which source contracts remain materially governing; a producer may not weaken the set by simply omitting an applicable ancestor or mapped lower scope.
+
+Validation then requires exact duplicate-free set equality between the four output arrays and the independently derived applicable stable record IDs:
+
+```text
+set(result_determinism_scope_ids[]) == applicable_result_determinism_scope_ids(output)
+set(numeric_scope_ids[]) == applicable_numeric_scope_ids(output)
+set(randomness_scope_ids[]) == applicable_randomness_scope_ids(output)
+set(failure_behavior_binding_ids[]) == applicable_failure_behavior_binding_ids(output)
+```
+
+An array is empty only when its independently derived applicable set is empty. Every supplied ID must resolve to the correct type-specific ledger record **and** actually govern a material producer path; extra unrelated scopes fail just as missing applicable scopes do. When several concrete producers contribute to one output, derive the union of every materially governing scope after the frozen composition/mapping rules are applied. This validation is performed from the hash-bound source/lowering/execution evidence, never from the output's own claimed arrays, so an output cannot detach itself from a stricter or otherwise material contract by omission.""",
+              "exact output contract-scope attribution",
+          )
+          PY
+
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          rm -f .github/workflows/patch-lower-owner-transition-output.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/VECTOR-AND-DATAFLOW.md docs/TRACE-AND-PROVENANCE.md .github/workflows/patch-lower-owner-transition-output.yml
+          git diff --cached --check
+          git commit -m "docs: complete lower provenance attribution"
+          git push origin HEAD:docs/foundation-specification
