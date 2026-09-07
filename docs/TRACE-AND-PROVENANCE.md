@@ -970,6 +970,9 @@ failure_records[]:
     failing_scope_kind
     failing_scope_id
     failure_behavior_binding_ids[]
+    result_determinism_scope_ids[]
+    numeric_scope_ids[]
+    randomness_scope_ids[]
     failure_class
     failure_stage
     failure_card_id?
@@ -982,6 +985,8 @@ failure_records[]:
 `failing_scope_kind` plus `failing_scope_id` is the always-present typed identity of the scope where the failure occurred. Frozen scope kinds may include JOB, DECK_EXECUTION, CARD_EXECUTION, BACKEND_SELECTION_SCOPE, LOWERING, or another explicitly specified execution scope.
 
 `failure_behavior_binding_ids[]` is required and resolves to the exact `failure_behavior_bindings[]` records governing this failure and its propagation or handling. It includes the applicable frozen default fail-stop binding, not just explicit recovery policies. When several policies or transitions concern one computation, the failure references those actually active at that event; it must not infer policy from the resulting path or a generic scope ID. A rejected requested policy is not an effective handling policy. Pre-CARD rejection records retain the applicable setup/rejection-handling binding without inventing a CARD culprit. Missing or incompatible governing bindings make the failure trace incomplete.
+
+Each failure record also carries the complete applicable `result_determinism_scope_ids[]`, `numeric_scope_ids[]`, and `randomness_scope_ids[]`. Derive those sets independently from the typed failing scope, the concrete CARD/DECK execution where applicable, and the validated lowering/contract mappings, then require the recorded arrays to equal the complete applicable ledger sets. An empty array is valid only when no execution-contract scope in that family governs the failure. A producer may not omit a stricter parent scope, a material numeric mode, or the RNG contract merely because no output was published. Every referenced scope ID resolves to the retained type-specific execution-contract ledger.
 
 `failure_card_id` remains the canonical source-CARD identity **when a CARD's unhandled failure caused the record**. `failure_card_execution_id` identifies the corresponding concrete runtime CARD execution. For a CARD-caused failure, both are required and must resolve consistently through `card_executions[]`.
 
@@ -1317,6 +1322,9 @@ card_executions[]
 control_decisions[]
 failure_records[]
 failure_behavior_bindings[]
+result_determinism_scopes[]
+numeric_execution_scopes[]
+randomness_execution_scopes[]
 primary_failure_record_id?
 backend_selection_scopes[]
 backend_selection_decisions[]
@@ -1334,7 +1342,7 @@ validation_evidence[]
 observable_output_ids[]
 ```
 
-A failure trace includes the backend-selection scope and decision ledgers referenced by its machinery authorization/use records, including denied candidates and fallback predecessors, not just the final target. Every `failure_behavior_binding_ids[]` reference resolves to the retained governing policy bindings. A standalone failure manifest must preserve the complete transitive closure of its references, including applicable rules, evidence, requirements, consumed inputs, cache subjects, and observable outputs, either inline or through retrievable content-bound trace records. An unresolvable ID or an unbound mutable external trace link is incomplete provenance. Consumed input and cache-to-invocation relations remain required even when `observable_output_ids[]` is empty.
+A failure trace includes the backend-selection scope and decision ledgers referenced by its machinery authorization/use records, including denied candidates and fallback predecessors, not just the final target. It also retains `result_determinism_scopes[]`, `numeric_execution_scopes[]`, and `randomness_execution_scopes[]` needed by each failure record's exact scope-ID attribution, even when execution fails before producing an output. Every `failure_behavior_binding_ids[]` reference resolves to the retained governing policy bindings. A standalone failure manifest must preserve the complete transitive closure of its references, including applicable execution-contract scopes, rules, evidence, requirements, consumed inputs, cache subjects, and observable outputs, either inline or through retrievable content-bound trace records. An unresolvable ID, selectively omitted applicable contract scope, or unbound mutable external trace link is incomplete provenance. Consumed input and cache-to-invocation relations remain required even when `observable_output_ids[]` is empty.
 
 The primary failure resolves through `failure_records[]` to an always-present typed failing scope. `failure_card_id` is canonical only for CARD-caused failures and is absent for legitimate pre-CARD failures.
 

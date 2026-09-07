@@ -135,6 +135,9 @@ failure_record_id
 failing_scope_kind
 failing_scope_id
 failure_behavior_binding_ids[]
+result_determinism_scope_ids[]
+numeric_scope_ids[]
+randomness_scope_ids[]
 failure_class
 failure_stage
 failure_card_id?
@@ -146,7 +149,7 @@ backend_detail?
 
 `failing_scope_kind` plus `failing_scope_id` is always present and is the authoritative typed identity of the failure location.
 
-`failure_behavior_binding_ids[]` resolves to the exact stable policy bindings active for this failure and its propagation/handling, including the applicable frozen default fail-stop binding. A resulting retry/skip path or generic scope match cannot substitute for that relation. Rejected requested policies are not effective handling policies; pre-CARD rejections retain the actual setup/rejection-handling binding.
+`failure_behavior_binding_ids[]` resolves to the exact stable policy bindings active for this failure and its propagation/handling, including the applicable frozen default fail-stop binding. A resulting retry/skip path or generic scope match cannot substitute for that relation. Rejected requested policies are not effective handling policies; pre-CARD rejections retain the actual setup/rejection-handling binding. Each failure record also carries the complete applicable `result_determinism_scope_ids[]`, `numeric_scope_ids[]`, and `randomness_scope_ids[]`, derived independently from its failing scope, concrete execution context where applicable, and validated lowering/contract mappings. Those IDs resolve to the retained execution-contract ledgers; an empty array means that no scope from that family applies, not that attribution was omitted. Selective omission or substitution with a generic scope ID fails the PR #5 gate.
 
 When a CARD's unhandled failure caused the record, `failure_card_id` and `failure_card_execution_id` are required and must resolve consistently through `card_executions[]`.
 
@@ -167,7 +170,7 @@ The gate must include:
 Require:
 
 - `backend_selection_scopes[]`, each with stable `backend_selection_scope_id`, fully qualified `governed_scope_ref` carrying representation identity plus complete representation-relative `owner_scope_path[]`, source/backend-unit provenance, ordered decision IDs, and final decision ID when execution proceeds;
-- `backend_selection_decisions[]`, each with stable decision ID, requested target, selected backend/version/architecture/device, automatic-selection policy/tuning identity where applicable, predecessor/fallback-rule identity where applicable, linked machinery authorization, order, and status;
+- `backend_selection_decisions[]`, each with stable decision ID, requested target, selected backend/version/architecture/device, automatic-selection policy/tuning identity where applicable, predecessor/fallback-rule identity plus subject-bound `fallback_evidence_id` where fallback applies, linked machinery authorization, order, and status;
 - `machinery_authorization_records[]` with stable authorization identity, governing selection scope/decision, absolute-owner-path-qualified machinery requirement references, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and authorization sequence index;
 - `machinery_use_records[]` with stable use identity, governing selection scope/decision/backend unit, concrete participating `card_execution_ids[]`, exact `generated_artifact_ids[]` executed where applicable, authorization IDs, protected-use start index, exact output IDs, and optional stop index.
 
@@ -181,7 +184,7 @@ authorization_sequence_index < protected_use_start_sequence_index
 
 Denied machinery has no protected-use start record.
 
-Fallback from a denied target is legal only under a frozen pre-execution rule and must remain a new ordered selection decision rather than overwriting the denied decision.
+Fallback from a denied target is legal only under a frozen pre-execution rule plus passing subject-bound fallback evidence for the exact predecessor/fallback decision and evaluated context. `fallback_rule_id` resolves to the accepted frozen rule and `fallback_evidence_id` resolves to `validation_evidence[]`; both must be validated before the fallback selection is applied, with `validation_sequence_index < application_sequence_index` in the shared order domain. Missing, stale, wrong-kind, context-mismatched, unverifiable, or late fallback evidence fails closed. The fallback remains a new ordered selection decision rather than overwriting the denied decision.
 
 ### Execution-contract scopes and resolvable authority
 
@@ -196,7 +199,7 @@ Every `governed_scope_ref` carries representation identity plus the complete rep
 
 The gate includes `rule_records[]` and `validation_evidence[]` using the complete [shared reference schemas](docs/TRACE-AND-PROVENANCE.md#referenced-rules-and-validation-evidence). Rule records bind accepted source/specification or policy authority, version/content identity, rule kind, and verifiable definition. Evidence records bind the exact typed subject, rule, evaluated context, verifier identity, outcome, content, and validation/application ordering. Unknown references or producer success labels alone are not valid evidence.
 
-Whenever requested and effective result-determinism or randomness contracts differ, `transition_authorized_by` must resolve to a `CONTRACT_TRANSITION` rule and `transition_evidence_id` to passing evidence for that exact execution-scope record and requested/effective pair. Verify applicable authority before effective-contract activation or use; the shared order domain requires `validation_sequence_index < application_sequence_index`. Missing, stale, wrong-kind, context-mismatched, unverifiable, or late authority/evidence fails closed. Optional fields may be absent only when no transition occurs, not for an undocumented downgrade.
+Whenever requested and effective result-determinism or randomness contracts differ, `transition_authorized_by` must resolve to a `CONTRACT_TRANSITION` rule and `transition_evidence_id` to passing evidence for that exact execution-scope record and requested/effective pair. Whenever `failure_behavior_bindings[]` changes `requested_failure_behavior_id` to a different `effective_failure_behavior_id`, `mapping_or_transition_rule_id` must likewise resolve to an accepted `CONTRACT_TRANSITION` rule and `transition_evidence_id` to passing evidence for that exact `failure_behavior_binding_id` and requested/effective policy pair. Verify every applicable authority/evidence pair before effective-contract or failure-policy activation/use; the shared order domain requires `validation_sequence_index < application_sequence_index`. Missing, stale, wrong-kind, context-mismatched, unverifiable, or late authority/evidence fails closed. Optional fields may be absent only when no semantic transition occurs, not for an undocumented downgrade, continuation, retry, or compensation change.
 
 For `randomness_execution_scopes[]`, replay/audit-relevant fields include requested/effective mode, transition authority/evidence, RNG algorithm/version, seed, stream identity, parallel partitioning, backend unit, and where applicable:
 
@@ -256,7 +259,7 @@ Every `producer_card_execution_id` resolves to `card_executions[]`, which identi
 
 `failure_behavior_binding_ids[]` resolves to stable `failure_behavior_binding_id` records. A generic computation scope ID is not sufficient to identify which requested/effective failure policy governed the producer path.
 
-When present, `evidence_status` is class-discriminated and must be compatible with `semantic_class`. Generic output status cannot silently promote TEST, VALIDATION, or PROOF class.
+When present, `evidence_status` is class-discriminated and must be compatible with `semantic_class`. Generic output status cannot silently promote TEST, VALIDATION, or PROOF class. For every non-class-preserving epistemic transition, both `evidence_rule_id` and `evidence_validation_id` are mandatory: the rule must resolve to accepted content-bound `EPISTEMIC_TRANSITION` authority, and the validation ID must resolve to passing subject-bound evidence for this exact output, artifact hash, concrete producers, contributing evidence/inputs, requested evidence class/status, and claim-publication context. That evidence must be validated before the stronger or different claim is published; missing, stale, wrong-kind, failed, context-mismatched, unverifiable, or late evidence rejects the transition.
 
 ### Generated artifacts, optimization, tools, and cache reuse
 

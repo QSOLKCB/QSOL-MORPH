@@ -162,7 +162,7 @@ The lowering must preserve or explicitly validate before erasure:
 
 Its provenance records lowering-spec and implementation identities plus `extension_requirement_lowering_decisions[]`, qualifier, result-determinism, numeric, randomness, machinery/failure, and result-binding decisions where material. Resolved extension identity alone does not replace the source-to-Core scope mapping that preserves profile ownership.
 
-`machinery_requirement_lowering_decisions[]` additionally uses identified cardinality-aware mapping groups with typed `source_scope_refs[]` / `core_scope_refs[]` and explicit `source_machinery_requirement_ids[]` / `lower_machinery_requirement_ids[]`. Requirement IDs resolve in the hash-bound Semantic IR and resulting Core IR. Separate requirements sharing one scope cannot be inferred from source CARDs or paired by array position; a frozen rule defines every split/fusion relation and the exact target selector/capability set reaching each lower requirement. A reconstruction exception must recover every requirement-ID association as well as scope ownership.
+`machinery_requirement_lowering_decisions[]` additionally uses identified cardinality-aware mapping groups with typed `source_scope_refs[]` / `core_scope_refs[]` plus mandatory owner-qualified `source_machinery_requirement_refs[]` / `lower_machinery_requirement_refs[]`. Each requirement reference pairs its local `machinery_requirement_id` with the complete representation-relative `owner_scope_path[]`; the scope arrays remain correspondence context and are never a positional join for requirement identity. The qualified references resolve in the hash-bound Semantic IR and resulting Core IR. A frozen rule defines every split/fusion relation and the exact target selector/capability set reaching each lower requirement. A reconstruction exception must recover every owner-qualified requirement association as well as scope ownership.
 
 ### Result-binding maps
 
@@ -192,7 +192,7 @@ A non-vectorizable operation is not permission to bypass this IR.
 
 Core→Vector/Dataflow provenance records not only result-binding correspondence but also contract-scope mappings for extension requirements, result determinism, numeric behavior, randomness, machinery requirements, and failure behavior whenever Core scopes are split, fused, renamed, relocated, or otherwise remapped into lower execution regions/units.
 
-For machinery mappings, typed scope correspondence alone is insufficient when one Core scope owns several requirements. Provenance also carries `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`, preserving which exact target selector and capability set reached each lower region.
+For machinery mappings, typed scope correspondence alone is insufficient when one Core scope owns several requirements. Provenance therefore carries owner-qualified `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, with every local `machinery_requirement_id` paired to its complete representation-relative `owner_scope_path[]`. The Core/Vector scope arrays remain mapping context only, so split/fusion groups cannot pair repeated local IDs by position or shared source CARD summaries; the qualified references preserve which exact target selector and capability set reached each lower region.
 
 ## Determinism, numerics, and randomness
 
