@@ -1,0 +1,42 @@
+name: One-shot provenance summary alignment
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Align remaining summaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          def one(path, old, new):
+              p=Path(path); s=p.read_text(); n=s.count(old)
+              if n != 1: raise SystemExit(f'{path}: expected 1, got {n}')
+              p.write_text(s.replace(old,new,1))
+          one('docs/DETERMINISM-AND-REPRODUCIBILITY.md',
+          '''At the first boundary, `machinery_requirement_lowering_decisions[]` uses identified mapping groups with typed `source_scope_refs[]` and `core_scope_refs[]`, plus nonempty, deterministic `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`. The requirement IDs resolve in the hash-bound source Semantic IR and resulting Core IR. Separate requirements sharing a scope must not be inferred from source CARD IDs or paired by position; a frozen rule must define any split/fusion relation unambiguously. The complete shape and rejection rules are shared with [Semantic-to-Core machinery preservation](SEMANTIC-TO-CORE-LOWERING.md#protected-machinery-requirements).\n''',
+          '''At the first boundary, `machinery_requirement_lowering_decisions[]` uses identified mapping groups with complete-path `source_scope_refs[]` and `core_scope_refs[]`, plus nonempty deterministic owner-qualified `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`. Each machinery reference structurally pairs `owner_scope_path[]` with its local requirement ID and resolves in the hash-bound source Semantic IR or resulting Core IR. Separate same-named requirements must not be inferred from source CARD IDs or paired by position; a frozen rule defines any split/fusion relation unambiguously. The complete shape and rejection rules are shared with [Semantic-to-Core machinery preservation](SEMANTIC-TO-CORE-LOWERING.md#protected-machinery-requirements).\n''')
+          one('docs/DETERMINISM-AND-REPRODUCIBILITY.md',
+          '''Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents. For `VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory and resolve to the shared rule/evidence ledgers. The rule has kind `CACHE_SUBSTITUTION`; passing evidence binds this exact reuse record, reused computation/artifact, checked cache key/artifact content, and current inputs/contracts/context before substitution. Immutable cached-output/producer provenance may supply content identity, but unknown IDs, stale evidence, a hash alone, or the classification label cannot establish verified reuse.\n''',
+          '''Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents. `card_execution_ids[]` identifies the exact current-run invocation(s) governed by the cache decision and reciprocates `card_executions[].cache_reuse_record_ids[]`; canonical CARD identity alone is not a runtime substitution join. For `VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory and resolve to the shared rule/evidence ledgers. The rule has kind `CACHE_SUBSTITUTION`; passing evidence binds this exact reuse record, reused computation/artifact, checked cache key/artifact content, and current inputs/contracts/context before substitution. Immutable cached-output/producer provenance may supply content identity, but unknown IDs, stale evidence, a hash alone, or the classification label cannot establish verified reuse.\n''')
+          one('AGENTS.md',
+          '''`input_ids[]` resolves to immutable `inputs[]` records for every material dependency not generated in this run, including prebuilt objects, static libraries, headers, startup files, sysroots, and implicit toolchain inputs. It is empty only when no such inputs were consumed. Composite inputs content-bind the complete dependency set through a frozen representation. Paths, library names, flags, and tool versions alone do not identify the bytes read; missing material input identity invalidates complete/reproducible build provenance. Prebuilt inputs must not be fabricated as outputs of this run.\n''',
+          '''`input_ir_hashes[]` is always explicit: it is nonempty with the exact direct IR content hash(es) whenever an invocation consumes IR, including ordinary non-optimized code generation, and empty only when it consumes no IR. Tool, flags, target, or output identity cannot substitute for this edge. `input_ids[]` resolves to immutable `inputs[]` records for every material dependency not generated in this run, including prebuilt objects, static libraries, headers, startup files, sysroots, and implicit toolchain inputs. It is empty only when no such inputs were consumed. Composite inputs content-bind the complete dependency set through a frozen representation. Paths, library names, flags, and tool versions alone do not identify the bytes read; missing material input identity invalidates complete/reproducible build provenance. Prebuilt inputs must not be fabricated as outputs of this run.\n''')
+          PY
+          rm -f .github/workflows/projection-consistency-cleanup.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "docs: align provenance projection summaries"
+          git push origin HEAD:docs/foundation-specification
