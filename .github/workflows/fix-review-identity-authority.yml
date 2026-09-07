@@ -1,0 +1,32 @@
+name: Apply identity and authority review fixes
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/foundation-specification
+          fetch-depth: 0
+      - name: Apply documentation patch
+        run: python .github/scripts/fix-review-identity-authority.py
+      - name: Commit patch and remove helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/scripts/fix-review-identity-authority.py .github/workflows/fix-review-identity-authority.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "docs: harden binding and transition provenance"
+          git push origin HEAD:docs/foundation-specification
