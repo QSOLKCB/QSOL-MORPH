@@ -161,14 +161,18 @@ Explicit effects remain explicit through this IR.
 Conceptually, effect nodes/regions must retain enough information to preserve:
 
 ```text
-declared_effect_id
+declared_effect_ref:
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    declared_effect_id
 effect_kind
 required_capabilities[]
 source/failure order
 runtime effect-attempt provenance hook
 ```
 
-`declared_effect_id` is the canonical semantic effect identity that survives lowering. A later `effect_attempt_id` identifies a concrete runtime attempt. The two identities must remain distinguishable so retries, duplicate attempts, or same-kind effects from one CARD can be audited.
+`declared_effect_ref` is the canonical owner-qualified semantic effect identity that survives both mandatory lowerings. Its complete ordered `owner_scope_path[]` identifies the JOB/DECK/CARD containment path that owns the local `declared_effect_id`; the terminal path element is the declaring CARD. A local effect ID or `(card_id, declared_effect_id)` pair is insufficient because sibling DECKs may reuse both local IDs. Core→Vector/Dataflow lowering must preserve this complete composite identity directly or under a frozen provenance-visible mapping whose lower record can reconstruct the exact same owner-qualified declaration. A later `effect_attempt_id` identifies a concrete runtime attempt. Declaration and attempt identities remain distinct so retries, duplicate attempts, or same-kind effects from one CARD can be audited. Missing, truncated, reordered, or owner-mismatched effect paths fail conformance rather than being guessed from nearby CARD IDs.
 
 A file write, process launch, network action, clock access, AI call, or other effect must not disappear merely because the surrounding numeric work becomes a vector graph.
 

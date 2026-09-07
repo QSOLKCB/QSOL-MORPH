@@ -216,22 +216,24 @@ resolved_extensions[]:
     source_requirement_refs[]:
         representation_kind
         ir_hash
-        scope_kind
-        scope_id
+        owner_scope_path[]:
+            scope_kind
+            scope_id
         requirement_hash
     governing_scope_refs[]:
         representation_kind
         ir_hash
-        scope_kind
-        scope_id
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
 ```
 
 `resolved_extension_id` is the stable resolution-record key, not the profile name or requested range. `resolved_version` is the exact selected profile version. `contract_id` and `contract_hash` bind the actual contract interpreting it. The nonempty `implementation_components[]` identifies every material profile implementation, adapter, and lowering hook used for this resolution, with its exact version and immutable content hash. A frozen content-bound package manifest may represent a complete component/dependency closure; a package label, mutable endpoint, or version range cannot. Content needed to validate the resolution must be embedded in the trace closure or retrievable and hash-verifiable. Material external tools invoked by an adapter retain their separate external-tool identities.
 
-Each nonempty `source_requirement_refs[]` entry is a composite reference to one exact requirement in the hash-bound original input representation: the typed owning scope plus the canonical hash of the complete `ExtensionRequirement` value, including profile, requested version/range, and any required contract identity. It resolves to the owned canonical requirement, not to an arbitrarily selected child CARD. Ambiguous duplicate requirements require a frozen canonical deduplication rule or fail resolution. `representation_kind` distinguishes Semantic IR, Core IR, and other explicitly frozen input representations; an execution that legitimately starts with Core IR must not fabricate a Semantic IR source.
+Each nonempty `source_requirement_refs[]` entry is a composite reference to one exact requirement in the hash-bound original input representation: `representation_kind`, `ir_hash`, the complete representation-relative `owner_scope_path[]`, and the canonical hash of the complete `ExtensionRequirement` value, including profile, requested version/range, and any required contract identity. Every ancestor needed to disambiguate the owning local scope participates in identity. A one-level `{ scope_kind, scope_id }` pair is insufficient when sibling containers reuse CARD, region, or other local IDs. The reference resolves to the owned canonical requirement, not to an arbitrarily selected child CARD. Ambiguous duplicate requirements require a frozen canonical deduplication rule or fail resolution. `representation_kind` distinguishes Semantic IR, Core IR, and other explicitly frozen input representations; an execution that legitimately starts with Core IR must not fabricate a Semantic IR source.
 
-Each nonempty `governing_scope_refs[]` identifies the actual typed scope(s) and IR version in which the resolution interprets syntax, adapters, effects, or lowering hooks. Source ownership remains separately preserved. Validate that the resolved profile/version satisfies every referenced source requirement, that any required contract identity matches, and that the identified implementation components implement that exact contract. Unknown versions, mismatched hashes, missing components, unresolved owners, or an unestablished requirement-to-resolution association fail closed before the extension is used.
+Each nonempty `governing_scope_refs[]` identifies the actual representation-relative scope path(s) and IR version in which the resolution interprets syntax, adapters, effects, or lowering hooks. Source ownership remains separately preserved. Validate each full path against the hash-bound representation and reject missing, truncated, reordered, ambiguous, or owner-mismatched paths. Then validate that the resolved profile/version satisfies every referenced source requirement, that any required contract identity matches, and that the identified implementation components implement that exact contract. Unknown versions, mismatched hashes, missing components, unresolved owners, or an unestablished requirement-to-resolution association fail closed before the extension is used.
 
 Different resolutions of one source range have different resolution identities and retain their actual governed scopes. Several requirements may share a resolution only when each one is explicitly referenced and satisfied. Both extension-lowering mapping families reference applicable `resolved_extension_ids[]`; a permitted identity-mapping reconstruction may omit a redundant mapping record, never the exact material resolution or its source/owner association. A frozen reconstruction rule must recover the same requirement, resolution, and governed-scope relation without guessing from a profile name.
 
@@ -993,7 +995,7 @@ effect_authorization_records[]:
 
 ### Declaration-bound authorization validation
 
-Before accepting authorization, resolve the attempt's declaration using its canonical `declared_effect_id` and owning `card_id` in the hash-bound input. The trace declaration must match that canonical record. Then require:
+Before accepting authorization, derive the attempt's complete canonical effect-owner path from its concrete `card_execution_id`: resolve that CARD execution to its `deck_execution_id`, resolve the DECK execution to its stable canonical DECK, and recover the enclosing canonical JOB/DECK/CARD containment path in the hash-bound input. The terminal path element must be the same canonical CARD identified by the attempt and authorization. Then resolve the declaration by the exact tuple `(owner_scope_path[], declared_effect_id)`. A lookup by only `declared_effect_id`, `card_id`, or their pair is invalid because sibling DECKs may reuse both local IDs. The traced `effect_requirements[]` entry must carry the same complete owner path and match that canonical declaration. Missing, truncated, reordered, ambiguous, wrong-execution, or owner-mismatched paths fail closed before capability comparison. Then require:
 
 ```text
 canonical_declaration.required_capabilities
