@@ -16,7 +16,7 @@ jobs:
         with:
           ref: docs/foundation-specification
           fetch-depth: 0
-      - name: Handle evolving toolchain prose structurally
+      - name: Handle evolving prose structurally
         shell: bash
         run: |
           python - <<'PY'
@@ -31,8 +31,18 @@ jobs:
                   raise SystemExit(f'ROADMAP toolchain ancestry anchor count={text.count(anchor)}')
               roadmap.write_text(text.replace(anchor, insertion + anchor, 1))
 
+          agents = Path('AGENTS.md')
+          atext = agents.read_text()
+          aanchor = 'Execution-path cause references must be typed and resolvable.'
+          ainsertion = ('A selected DECK blocked by an earlier failure carries `governing_failure_record_id` resolving to that concrete blocking failure; `failure_record_id` remains reserved for a failure caused by the DECK execution itself. The two meanings must not be overloaded or inferred from child records.\n\n')
+          if ainsertion not in atext:
+              if atext.count(aanchor) != 1:
+                  raise SystemExit(f'AGENTS execution-path anchor count={atext.count(aanchor)}')
+              agents.write_text(atext.replace(aanchor, ainsertion + aanchor, 1))
+
           script = Path('.github/scripts/fix-qualified-provenance-v3.py')
           src = script.read_text()
+
           start_marker = 'rep(\n    "ROADMAP.md",\n    """Toolchain `input_ids[]` bind the immutable bytes'
           start = src.find(start_marker)
           if start >= 0:
@@ -41,7 +51,17 @@ jobs:
               if end < 0:
                   raise SystemExit('could not find end of brittle toolchain prose replacement')
               src = src[:start] + src[end + 3:]
-              script.write_text(src)
+
+          start_marker = 'rep(\n    "AGENTS.md",\n    """Every selected DECK remains represented even if prior fail-stop prevents it from starting.'
+          start = src.find(start_marker)
+          if start >= 0:
+              end_marker = '\n)\n\n# README overview mirrors direct input consumers and qualified governed scopes.'
+              end = src.find(end_marker, start)
+              if end < 0:
+                  raise SystemExit('could not find end of brittle AGENTS prose replacement')
+              src = src[:start] + src[end + 3:]
+
+          script.write_text(src)
           PY
       - name: Apply patch
         run: python .github/scripts/fix-qualified-provenance-v3.py
