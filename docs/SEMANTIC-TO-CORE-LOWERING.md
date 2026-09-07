@@ -259,6 +259,17 @@ The same rule applies independently to result determinism and randomness. If low
 
 A transformation that changes the legal numeric behavior or randomness requirements is not merely a representation change.
 
+First-lowering decision families that can change execution-contract semantics carry an explicit authority/evidence pair on the affected decision record:
+
+```text
+transition_authorized_by?
+transition_evidence_id?
+```
+
+For `result_determinism_lowering_decisions[]`, `randomness_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]`, both fields are mandatory whenever the source/requested semantics differ from the effective Core semantics. `transition_authorized_by` resolves to accepted versioned/content-bound `CONTRACT_TRANSITION` authority. `transition_evidence_id` resolves to passing validation evidence for the exact first-lowering decision and mapped subject, requested/effective contract pair, complete owner-qualified Semantic/Core scope endpoints, and active context. The validation event must precede activation or application of the changed Core contract in the shared monotonic event-order domain. Missing, stale, wrong-kind, context-mismatched, unverifiable, self-authorized, or late authority/evidence fails closed. Both fields may be absent only for semantics-preserving mapping where no transition occurred.
+
+Lowering must preserve that same authority/evidence relation into the governed execution-contract record. Result-determinism and randomness execution scopes retain the identical `transition_authorized_by` / `transition_evidence_id` values. Failure behavior retains the identical authority identity as `mapping_or_transition_rule_id` together with the same `transition_evidence_id`. A later runtime success label, IR hash, or post-application validation cannot substitute for the pre-application evidence.
+
 ## Units and types
 
 A backend may eventually operate on raw machine numbers, but unit and type checks required by the semantic contract must occur before information is discarded.
@@ -361,7 +372,7 @@ The canonical identity fields are `semantic_to_core_spec_version` and `semantic_
 
 `machinery_requirement_lowering_decisions[]` uses the identified mapping groups defined in [Protected machinery requirements](#protected-machinery-requirements), including mandatory `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`. Each reference pairs the complete representation-relative `owner_scope_path[]` with its local `machinery_requirement_id`; separate ID arrays, positional pairing, or shared source CARD summaries are not substitutes. A frozen reconstruction exception must recover every owner-qualified requirement association as well as scope ownership.
 
-`result_determinism_lowering_decisions[]`, `randomness_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]` record scope preservation, grouping, identity changes, frozen normalizations, and any permitted transitions needed to explain how source requirements became Core contracts. IR hashes alone cannot establish that correspondence.
+`result_determinism_lowering_decisions[]`, `randomness_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]` record scope preservation, grouping, identity changes, frozen normalizations, and any permitted transitions needed to explain how source requirements became Core contracts. Whenever semantics change, the applicable decision carries the required `transition_authorized_by` / `transition_evidence_id` pair, validated before application and preserved into the resulting execution-scope record as defined above. IR hashes alone cannot establish that correspondence or authorize a transition.
 
 This allows a result to be traced through the first representational change rather than beginning provenance only after QSOL-CORE already exists.
 

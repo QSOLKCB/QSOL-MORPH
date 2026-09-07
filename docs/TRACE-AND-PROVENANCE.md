@@ -58,10 +58,20 @@ source_trace:
     spec_version
     run_id?
     job_id
-    deck_ids[]
-    card_ids[]
+    deck_identities[]:
+        deck_id
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+    card_identities[]:
+        card_id
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_location?
 ```
+
+Each `deck_identities[]` path is the complete ordered canonical containment path from the JOB through the referenced DECK and terminates at that `deck_id`. Each `card_identities[]` path includes the owning JOB and DECK and terminates at that `card_id`. Every ancestor needed to distinguish reused local IDs participates in identity. Parallel bare `deck_ids[]` / `card_ids[]`, positional pairing, first-match lookup, or list order cannot establish containment; missing, truncated, reordered, ambiguous, or owner-mismatched identity paths fail closed.
 
 ## Semantic trace
 
@@ -82,6 +92,8 @@ numeric_contract_bindings[]
 randomness_contract_bindings[]
 failure_behavior_bindings[]
 ```
+
+The semantic-trace `job_ids[]`, `deck_ids[]`, and `card_ids[]` are inventory summaries only. They do not establish parentage or owner identity. Canonical containment is resolved from the hash-bound Semantic IR and the owner-qualified identities in `source_trace`; no semantic binding may infer ownership from these summary arrays or their relative positions.
 
 ### Epistemic class bindings
 
@@ -159,9 +171,12 @@ randomness_contract_bindings[]:
 
 failure_behavior_bindings[]:
     failure_behavior_binding_id
-    owner_scope_path[]:
-        scope_kind
-        scope_id
+    governed_scope_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     source_card_ids[]
     requested_failure_behavior_id
     effective_failure_behavior_id
@@ -171,7 +186,9 @@ failure_behavior_bindings[]:
 
 `failure_behavior_binding_id` is the stable record identity used by result and failure provenance. It is distinct from the generic computation `scope_id` and remains resolvable even when several bindings or policy transitions concern one governed computation.
 
-The owning source scope is identified by its complete ordered absolute `owner_scope_path[]`, not a bare kind/local ID. The path terminates at the JOB, DECK, CARD, or other frozen scope that owns the contract, so repeated local IDs under sibling containers remain distinct. Distinct source requirements may not be collapsed into one execution-wide declaration unless a frozen normalization proves that collapse is lossless. Failure bindings obey the same [failure-policy transition conditions](#failure-policy-transitions) here and in the execution-scope inventory.
+Source and execution failure bindings use this one canonical representation-qualified shape. In the Semantic-trace layer, `governed_scope_ref.representation_kind` identifies Semantic IR and `governed_scope_ref.representation_identity` is the content-bound `semantic_ir_hash`; the complete ordered `owner_scope_path[]` terminates at the JOB, DECK, CARD, or other frozen scope that owns the contract. Later execution/lowered bindings keep the same field shape while naming their actual governed representation and identity. There is no alternate direct-`owner_scope_path[]` failure-binding form sharing this stable-ID namespace. Missing representation identity, truncated/ambiguous owner paths, or owner/representation mismatch fails closed.
+
+Distinct source requirements may not be collapsed into one execution-wide declaration unless a frozen normalization proves that collapse is lossless. Failure bindings obey the same [failure-policy transition conditions](#failure-policy-transitions) here and in the execution-scope inventory.
 
 ## Semantic-to-Core trace
 
@@ -303,6 +320,17 @@ extension_requirement_lowering_decisions[]:
 ```
 
 The same typed-endpoint principle applies to machinery-requirement, result-determinism, numeric-contract, randomness, and failure-behavior lowering decisions. A JOB-owned requirement must not be silently relocated to a CARD or detached from the Core scope that inherits it.
+
+For first-lowering contract decision families that can change semantics, the applicable decision record also carries:
+
+```text
+transition_authorized_by?
+transition_evidence_id?
+```
+
+For `result_determinism_lowering_decisions[]`, `randomness_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]`, any semantic change between source/requested and effective Core contracts requires both fields. `transition_authorized_by` resolves to an accepted versioned/content-bound `CONTRACT_TRANSITION` rule. `transition_evidence_id` resolves to passing `validation_evidence[]` for the exact first-lowering decision/mapped subject, requested/effective pair, complete owner-qualified source/Core scopes, and active context. Its validation event must precede application of the changed Core contract in the shared event-order domain. A rule assertion without passing subject-bound pre-application evidence is unauthorized and fails closed; both fields may be absent only when no semantic transition occurred.
+
+The authority/evidence relation is preserved into the resulting execution-contract record rather than reconstructed later. Result-determinism and randomness scopes retain the same `transition_authorized_by` and `transition_evidence_id`; failure-behavior bindings retain the same authority identity in `mapping_or_transition_rule_id` plus the same `transition_evidence_id`. IR hashes, mapping metadata, or post-application success cannot substitute for this relation.
 
 Machinery requirements additionally need an explicit requirement-level association at this first boundary:
 

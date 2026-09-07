@@ -188,6 +188,8 @@ When extension requirements, machinery requirements, failure behavior, qualifier
 
 At this first boundary, `machinery_requirement_lowering_decisions[]` uses identified `mapping_group_id` records with typed `source_scope_refs[]` and `core_scope_refs[]`, plus nonempty deterministic `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`. Every machinery-requirement reference pairs its local `machinery_requirement_id` with the complete representation-relative `owner_scope_path[]` of the scope that owns it; source/Core scope arrays are correspondence context and never a positional join. Records also retain source CARD provenance and `mapping_rule_id`. Resolve each qualified requirement in the hash-bound source Semantic IR or resulting Core IR. Separate unrelated requirements sharing a scope; a frozen rule defines every split/fusion relation and the target selector/complete capability set reaching each lower requirement. Scope correspondence, repeated local IDs, or array position cannot substitute for an owner-qualified requirement identity. A reconstruction exception must recover both ownership and every qualified requirement association.
 
+For `result_determinism_lowering_decisions[]`, `randomness_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]`, a first-lowering semantic change requires both `transition_authorized_by` and `transition_evidence_id`. The rule must be accepted, versioned/content-bound `CONTRACT_TRANSITION` authority; the evidence must be passing and bound to the exact lowering decision, requested/effective contract pair, complete owner-qualified Semantic/Core scopes, and active context, with validation preceding application in the shared event-order domain. Preserve the same authority/evidence into the resulting execution-scope record rather than treating the Core IR hash as proof. For failure behavior, the preserved authority occupies `mapping_or_transition_rule_id`; result-determinism and randomness preserve `transition_authorized_by` directly.
+
 Unsupported semantic constructs or qualifiers fail explicitly. Do not silently drop, no-op, default, or defer their meaning to a backend.
 
 ## Vector/Dataflow IR work
@@ -371,6 +373,7 @@ effect_attempt_ids[]?
 external_tool_ids[]
 backend_selection_scope_ids[]
 generated_artifact_ids[]?
+machinery_use_record_ids[]
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
@@ -399,6 +402,8 @@ evidence_validation_id?
 Reject incompatible semantic/evidence-class combinations. Generic output status is not an epistemic promotion mechanism. Any non-class-preserving transition requires both `evidence_rule_id` resolving to accepted content-bound `EPISTEMIC_TRANSITION` authority and `evidence_validation_id` resolving to passing validation evidence for this exact output, artifact hash, original source classes, concrete producers, contributing evidence/inputs, target evidence class, and claim-publication event. Missing, stale, unknown, context-mismatched, unverifiable, or late rule/evidence fails closed.
 
 When an effect materially produces or exposes an output, link the output to concrete attempt IDs and link those attempts back to the output. Every output carries explicit `external_tool_ids[]`: use an empty array only when no material external tool contributed. When an external tool materially supplies evidence/data, the nonempty output array and the tool's concrete subject links must agree reciprocally; broad source-CARD attribution or omission of the array is not evidence of no tool participation.
+
+Every output also carries explicit `machinery_use_record_ids[]`. It identifies the exact protected-use occurrence or occurrences that materially produced, supplied, or exposed the output, and every listed use must reciprocally name the output in `machinery_use_records[].output_ids[]`. The array is empty only when no protected machinery use materially contributed. A shared CARD execution, backend-selection scope/decision, backend unit, or generated artifact cannot substitute for this occurrence-level join when several launches or retries are possible.
 
 ## External-tool provenance work
 
@@ -454,9 +459,14 @@ sequence_index
 effect_begin_sequence_index?
 effect_end_sequence_index?
 completion_state
+acquired_input_ids[]
 observable_output_ids[]
-external_tool_ids[]?
+external_tool_ids[]
 ```
+
+`acquired_input_ids[]` is explicit on every attempt and reciprocates `inputs[].effect_attempt_ids[]`. It may be nonempty even when the CARD later fails or the attempt publishes no output. For `completion_state = NOT_STARTED`, both `acquired_input_ids[]` and `observable_output_ids[]` are empty because no protected acquisition or observable effect began.
+
+`external_tool_ids[]` is explicit on every attempt. Use an empty array only when no material external model, prover, process, service, or other tool participated in that concrete attempt. Every listed tool resolves to `external_tool_versions[]` and reciprocally lists the attempt in its `effect_attempt_ids[]`; omission is incomplete provenance, not an assertion of no tool participation. A `NOT_STARTED` attempt necessarily has an empty tool array.
 
 Every contextual effect authorization record must identify the attempt/declaration/CARD **and concrete `card_execution_id`**, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and `authorization_sequence_index?`. All required capabilities must be granted before effect begin. When ordering auditability is required, `authorization_sequence_index` and `effect_begin_sequence_index` are in one frozen monotonic event-order domain and must satisfy `authorization_sequence_index < effect_begin_sequence_index`. A denied attempt has no begin event. Generic attempt `sequence_index` is not a substitute.
 
