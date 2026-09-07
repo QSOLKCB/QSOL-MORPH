@@ -307,13 +307,21 @@ machinery_requirement_lowering_decisions[]:
     mapping_group_id
     source_scope_refs[]
     core_scope_refs[]
-    source_machinery_requirement_ids[]
-    lower_machinery_requirement_ids[]
+    source_machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
+    lower_machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
     source_card_ids[]
     mapping_rule_id
 ```
 
-Both scope arrays contain typed `scope_ref` values. Source requirement IDs resolve in the input Semantic IR and lower requirement IDs in the resulting Core IR, qualified by the corresponding IR hashes and owning scopes. Both requirement-ID sets are nonempty, deterministic, and duplicate-free. Unrelated requirements sharing a scope use separate mapping groups. Splits or frozen legal fusions must identify every source/lower requirement and a frozen rule defining the exact relation, including the target selector and complete capability set for each lower requirement. Neither shared scope IDs nor list position can substitute for that association.
+Both scope arrays contain the complete-path `scope_ref` values defined above. Source and lower machinery requirements are owner-qualified composite references pairing `owner_scope_path[]` with the local `machinery_requirement_id`; they resolve in the input Semantic IR and resulting Core IR respectively. The reference sets are nonempty, deterministic, and duplicate-free by complete qualified identity. Splits or frozen legal fusions must preserve every source/lower qualified requirement and a frozen rule defining the exact relation, including target selector and complete capability set. Shared scope IDs, repeated local requirement IDs, and list position cannot substitute for this association.
 
 A mapping family may be omitted only when a frozen deterministic reconstruction rule proves both scope correspondence and every applicable requirement-ID association without loss. Generic metadata or IR hashes alone are not such a rule. See [Semantic-to-Core machinery preservation](SEMANTIC-TO-CORE-LOWERING.md#protected-machinery-requirements).
 
