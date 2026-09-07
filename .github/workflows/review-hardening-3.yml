@@ -1,0 +1,30 @@
+name: One-shot review projection hardening
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/scripts/review_hardening_3.py
+      - name: Commit patch and clean helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/scripts/review_hardening_3.py .github/workflows/review-hardening-3.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "docs: harden provenance projection identity"
+          git push origin HEAD:docs/foundation-specification
