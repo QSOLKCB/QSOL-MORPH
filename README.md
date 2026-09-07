@@ -457,7 +457,7 @@ cache_reuse_record_ids[]?
 
 `producer_card_ids[]` identifies canonical semantic producers. `producer_card_execution_ids[]` identifies the concrete runtime CARD execution(s) that actually produced or materially supplied the output and resolves through `card_executions[]` to the DECK execution and canonical CARD.
 
-When present, `evidence_status` is class-discriminated, conceptually carrying `evidence_class`, evidence `status`, and optional `evidence_rule_id`. It must be compatible with the output's `semantic_class` and any explicit evidence transition. Generic output `status` remains an execution/artifact state and cannot by itself promote TEST to VALIDATION or VALIDATION to PROOF.
+When present, `evidence_status` is class-discriminated, conceptually carrying `evidence_class`, evidence `status`, optional `evidence_rule_id`, and optional `evidence_validation_id`. It must be compatible with the output's `semantic_class` and any explicit evidence transition. For every non-class-preserving transition, both IDs become mandatory and must resolve to the accepted content-bound rule plus passing subject-bound evidence for this exact output/artifact/producers/context before publication. Generic output `status` remains an execution/artifact state and cannot by itself promote TEST to VALIDATION or VALIDATION to PROOF.
 
 `input_ids[]` identifies the exact immutable input records that materially contributed to the output under the frozen provenance-dependency rule. It is not a copy of all inputs available during the run.
 

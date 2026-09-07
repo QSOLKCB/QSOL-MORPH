@@ -87,11 +87,14 @@ failure_behavior_bindings[]
 
 ```text
 epistemic_class_bindings[]:
+    owner_scope_path[]:
+        scope_kind
+        scope_id
     card_id
     semantic_class
 ```
 
-Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association. Epistemic class is bound directly to canonical CARD identity.
+Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association. Epistemic class is bound to the CARD's complete ordered absolute `owner_scope_path[]` plus local `card_id`; the path terminates at that CARD. Sibling DECKs may therefore each contain local `CARD 7` with different research classes without collision. Missing, truncated, reordered, or owner-mismatched class paths fail closed.
 
 ### Declared effect requirements
 
@@ -133,28 +136,32 @@ Every traced machinery requirement resolves by the complete tuple `(owner_scope_
 
 ```text
 result_determinism_bindings[]:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
     source_card_ids[]
     requested_result_determinism
 
 numeric_contract_bindings[]:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
     source_card_ids[]
     numeric_contract_id
     numeric_contract_hash
 
 randomness_contract_bindings[]:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
     source_card_ids[]
     requested_randomness_mode
 
 failure_behavior_bindings[]:
     failure_behavior_binding_id
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
     source_card_ids[]
     requested_failure_behavior_id
     effective_failure_behavior_id
@@ -164,7 +171,7 @@ failure_behavior_bindings[]:
 
 `failure_behavior_binding_id` is the stable record identity used by result and failure provenance. It is distinct from the generic computation `scope_id` and remains resolvable even when several bindings or policy transitions concern one governed computation.
 
-The owning scope may be a JOB, DECK, CARD, or another scope frozen by the semantic model. Distinct source requirements may not be collapsed into one execution-wide declaration unless a frozen normalization proves that collapse is lossless. Failure bindings obey the same [failure-policy transition conditions](#failure-policy-transitions) here and in the execution-scope inventory.
+The owning source scope is identified by its complete ordered absolute `owner_scope_path[]`, not a bare kind/local ID. The path terminates at the JOB, DECK, CARD, or other frozen scope that owns the contract, so repeated local IDs under sibling containers remain distinct. Distinct source requirements may not be collapsed into one execution-wide declaration unless a frozen normalization proves that collapse is lossless. Failure bindings obey the same [failure-policy transition conditions](#failure-policy-transitions) here and in the execution-scope inventory.
 
 ## Semantic-to-Core trace
 
@@ -333,16 +340,18 @@ This boundary uses the same cardinality-aware result-binding map semantics.
 
 ### Typed second-lowering contract mappings
 
-The second lowering preserves exactly which typed Core scope maps to which typed Vector/Dataflow scope. Bare arrays such as `core_scope_ids[]` and `vector_dataflow_scope_ids[]` are not sufficient because JOB, DECK, CARD, region, kernel, and generated-unit namespaces may overlap.
+The second lowering preserves exactly which Core scope maps to which Vector/Dataflow scope using complete representation-relative containment paths. Bare IDs or one-level kind/local-ID pairs are insufficient because enclosing Core and Vector/Dataflow scopes may independently reuse CARD, region, kernel, and generated-unit IDs. Every ancestor needed to distinguish the terminal local scope participates in mapping identity.
 
 ```text
 core_scope_refs[]:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
 
 vector_dataflow_scope_refs[]:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
 ```
 
 A generic mapping record may contain:
@@ -371,14 +380,22 @@ Use the applicable mapping family for:
 machinery_requirement_mapping_decisions[]:
     core_scope_refs[]
     vector_dataflow_scope_refs[]
-    source_machinery_requirement_ids[]
-    lower_machinery_requirement_ids[]
+    source_machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
+    lower_machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
     source_card_ids[]
     mapping_rule_id
     backend_unit_ids[]?
 ```
 
-The source/lower requirement-ID arrays are cardinality-aware. Scope correspondence and source CARD identity do not identify which requirement was mapped when one Core scope owns several machinery requirements. Each lower requirement must preserve the source target selector/class and complete capability set or identify the frozen rule that transformed them.
+The source/lower machinery-requirement arrays contain complete owner-qualified references rather than parallel local IDs. Scope correspondence and source CARD identity do not identify which requirement was mapped when local requirement IDs can repeat. Each lower qualified requirement must preserve the corresponding source target selector/class and complete capability set or identify the frozen rule that transformed them.
 
 `extension_requirement_mapping_decisions[]` additionally retains the applicable profile/version/content/contract identity and `resolved_extension_ids[]` resolving to the exact records defined above. Repeated profile/version summaries must agree with those records and cannot replace their owning-requirement or implementation-component references.
 

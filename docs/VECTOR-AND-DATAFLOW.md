@@ -384,18 +384,20 @@ vector_dataflow_lowering_diagnostics[]
 
 ### Typed mapping endpoints
 
-Every second-lowering mapping family identifies both ends with typed scope references. A bare ID is insufficient because JOB, DECK, CARD, Core-region, Vector/Dataflow-region, kernel, and backend-unit namespaces may overlap.
+Every second-lowering mapping family identifies both ends with complete representation-relative containment paths. A bare ID or one-level `{ scope_kind, scope_id }` pair is insufficient because enclosing Core/Vector scopes may each reuse local CARD, region, kernel, or backend-unit IDs. The terminal path element is the referenced scope and every ancestor needed to disambiguate it participates in identity.
 
 Candidate endpoint shapes are:
 
 ```text
 core_scope_refs[]:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
 
 vector_dataflow_scope_refs[]:
-    scope_kind
-    scope_id
+    owner_scope_path[]:
+        scope_kind
+        scope_id
 ```
 
 A generic mapping record therefore carries:
@@ -424,14 +426,22 @@ This typed-endpoint rule applies to:
 machinery_requirement_mapping_decisions[]:
     core_scope_refs[]
     vector_dataflow_scope_refs[]
-    source_machinery_requirement_ids[]
-    lower_machinery_requirement_ids[]
+    source_machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
+    lower_machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
     source_card_ids[]
     mapping_rule_id
     backend_unit_ids[]?
 ```
 
-The source/lower requirement-ID arrays are cardinality-aware. They support preservation, a requirement split across lower regions, or a frozen legal fusion while retaining which exact requirement and capability set reached which lower unit. Scope correspondence alone is insufficient when one Core scope owns multiple machinery requirements.
+The source/lower machinery-requirement arrays are cardinality-aware owner-qualified references. Each local requirement ID is structurally paired with its complete owning path, so preservation, split, or frozen legal fusion retains exactly which requirement and capability set reached each lower unit without positional inference. Scope correspondence alone is insufficient when local IDs can repeat.
 
 Every `lower_machinery_requirement_id` must resolve to a lower requirement whose target selector/class and complete required-capability set either preserve the source requirement or result from an explicitly frozen, provenance-visible transformation. MORPH must never choose which authorization requirement applies by matching only a common scope ID or source CARD.
 

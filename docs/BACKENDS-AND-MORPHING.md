@@ -184,6 +184,7 @@ backend_selection_decisions[]:
     selection_tuning_hash?
     predecessor_selection_decision_id?
     fallback_rule_id?
+    fallback_evidence_id?
     machinery_authorization_record_ids[]?
     decision_status
 ```
@@ -192,7 +193,7 @@ backend_selection_decisions[]:
 
 Policy/tuning fields are material when selection is automatic, such as `ON BEST`. An explicit target still needs enough scope and decision identity to establish which source computation and generated unit used that machinery.
 
-A denied protected target followed by an authorized fallback must remain represented as **two decisions**, not as one record whose `selected_backend` is overwritten. The fallback decision references its predecessor and the frozen `fallback_rule_id` that permitted the transition. The denied decision retains its machinery-authorization record and status; the later decision retains its own authorization record where required.
+A denied protected target followed by an authorized fallback must remain represented as **two decisions**, not as one record whose `selected_backend` is overwritten. The fallback decision references its predecessor, an accepted content-bound `BACKEND_FALLBACK` rule through `fallback_rule_id`, and passing subject-bound `fallback_evidence_id` establishing applicability to this exact predecessor/target/policy context before selection. The denied decision retains its machinery-authorization record and status; the later decision retains its own authorization record where required. Unknown, stale, mismatched, self-issued, or late fallback evidence fails closed.
 
 A single execution-wide selection scope is valid only when one frozen machinery-selection process genuinely governs the whole run. Mixed-target JOBs keep distinct scope entries.
 

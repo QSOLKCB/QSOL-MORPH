@@ -494,7 +494,7 @@ toolchain_invocations[]:
     abi?
     flags[]
     environment_or_config_hash?
-    input_ir_hashes[]?
+    input_ir_hashes[]
     input_ids[]
     input_generated_artifact_ids[]?
     output_generated_artifact_ids[]

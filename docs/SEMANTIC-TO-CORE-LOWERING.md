@@ -215,18 +215,28 @@ Each first-boundary machinery mapping is an identified cardinality-aware group:
 machinery_requirement_lowering_decisions[]:
     mapping_group_id
     source_scope_refs[]:
-        scope_kind
-        scope_id
+        owner_scope_path[]:
+            scope_kind
+            scope_id
     core_scope_refs[]:
-        scope_kind
-        scope_id
-    source_machinery_requirement_ids[]
-    lower_machinery_requirement_ids[]
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+    source_machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
+    lower_machinery_requirement_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        machinery_requirement_id
     source_card_ids[]
     mapping_rule_id
 ```
 
-The source requirement IDs resolve in the input Semantic IR; the lower requirement IDs resolve in the resulting QSOL-CORE representation. The two IR hashes and typed owning scopes qualify those identities. Both ID sets are nonempty, deterministic, and duplicate-free. Unrelated requirements sharing an owning scope use separate mapping groups; they must not be paired by array position or inferred from shared source CARDs.
+Every source/Core endpoint carries its complete representation-relative `owner_scope_path[]`. Source and lower machinery requirements are owner-qualified composite references, so repeated local requirement IDs such as `gpu` remain distinct across sibling scopes. The source references resolve in the input Semantic IR and the lower references in the resulting QSOL-CORE representation. Both reference sets are nonempty, deterministic, duplicate-free by complete qualified identity, and never paired by array position or inferred from shared source CARDs.
 
 One-to-one preservation/rename, one-to-many split, and frozen legal fusion retain the exact source-to-lower requirement relation. A multi-source or multi-target group is valid only when its frozen `mapping_rule_id` defines that relation unambiguously, including which source target selector and complete capability set governs each lower requirement. Ambiguous grouping, swapped requirements, missing endpoints, and unauthorized capability weakening fail conformance. Omission is allowed only under a frozen deterministic reconstruction rule that recovers both the owning scopes and every requirement-ID association, not merely the scope correspondence.
 

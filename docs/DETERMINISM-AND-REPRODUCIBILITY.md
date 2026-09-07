@@ -72,11 +72,12 @@ failure_behavior_bindings[]:
     requested_failure_behavior_id
     effective_failure_behavior_id
     mapping_or_transition_rule_id?
+    transition_evidence_id?
 ```
 
 `failure_behavior_binding_id` is the stable provenance-record key. Outputs and failure records reference that record key through `failure_behavior_binding_ids[]`; the generic governed computation `scope_id` is not an alias for the binding record.
 
-The frozen default fail-stop behavior has a stable identity when it materially governs execution. A manifest must not infer effective failure policy merely from skipped CARDs or DECKs.
+The frozen default fail-stop behavior has a stable identity when it materially governs execution. A manifest must not infer effective failure policy merely from skipped CARDs or DECKs. When requested and effective failure semantics differ, the rule must resolve to accepted content-bound `CONTRACT_TRANSITION` authority and `transition_evidence_id` must resolve to passing evidence for this exact binding, validated before the effective policy is applied. A representation-only mapping cannot authorize fail-stop becoming continue, retry, or compensate.
 
 ## Stable execution-contract scope records
 
@@ -206,11 +207,12 @@ backend_selection_decisions[]:
     selection_tuning_hash?
     predecessor_selection_decision_id?
     fallback_rule_id?
+    fallback_evidence_id?
     machinery_authorization_record_ids[]?
     decision_status
 ```
 
-A denied protected target followed by an authorized fallback remains two ordered decisions. The first decision is not overwritten by the fallback.
+A denied protected target followed by an authorized fallback remains two ordered decisions. The first decision is not overwritten by the fallback. A fallback requires both an accepted content-bound `BACKEND_FALLBACK` rule and passing `fallback_evidence_id` bound to this exact decision, predecessor, target context, and active policy/contracts, with validation preceding fallback selection/application.
 
 ## Protected machinery requirements, authorization, and use
 
@@ -361,7 +363,10 @@ optimization_provenance[]:
     reference_ir_hash
     optimized_ir_hash
     transformation_sequence[]
-    legality_witnesses[]
+    legality_witnesses[]:
+        legality_witness_id
+        witness_kind
+        validation_evidence_id
     vectorization_decisions[]?
     fusion_decisions[]?
     memory_placement_decisions[]?
@@ -369,6 +374,8 @@ optimization_provenance[]:
     resource_model_assumptions[]?
     generated_artifact_ids[]
 ```
+
+Each legality witness is an identified, typed, verifiable record rather than an opaque label. `validation_evidence_id` resolves to passing content-bound evidence for this exact optimization record, binding the reference/optimized IR pair, ordered transformation sequence, active numeric/determinism/randomness/failure contracts, material effects/sequencing/extensions/machinery/inputs/target context, accepted `OPTIMIZATION_LEGALITY` rule, and immutable/versioned verifier identity. A witness for another IR pair or context is invalid.
 
 An optimization profile is configuration, not evidence of what actually ran.
 
@@ -424,9 +431,9 @@ Every first-boundary scope reference uses the complete ordered absolute containm
 
 At the first boundary, `machinery_requirement_lowering_decisions[]` uses identified mapping groups with typed `source_scope_refs[]` and `core_scope_refs[]`, plus nonempty, deterministic `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`. The requirement IDs resolve in the hash-bound source Semantic IR and resulting Core IR. Separate requirements sharing a scope must not be inferred from source CARD IDs or paired by position; a frozen rule must define any split/fusion relation unambiguously. The complete shape and rejection rules are shared with [Semantic-to-Core machinery preservation](SEMANTIC-TO-CORE-LOWERING.md#protected-machinery-requirements).
 
-At the second boundary, every applicable mapping family uses typed `core_scope_refs[]` and `vector_dataflow_scope_refs[]`. Bare scope-ID arrays are not sufficient where namespaces can overlap.
+At the second boundary, every applicable mapping family uses `core_scope_refs[]` and `vector_dataflow_scope_refs[]` whose entries carry complete representation-relative `owner_scope_path[]` values. Bare IDs and one-level kind/local-ID pairs are insufficient when enclosing Core/Vector scopes can reuse local IDs.
 
-For `machinery_requirement_mapping_decisions[]`, typed scope endpoints are necessary but not sufficient: each mapping also carries `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` so several requirements owned by one Core scope cannot be confused. Those arrays preserve the exact requirement/capability-set correspondence through preservation, split, or frozen legal fusion.
+For `machinery_requirement_mapping_decisions[]`, complete scope paths are necessary but not sufficient: each mapping also carries owner-qualified `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, structurally pairing every local machinery requirement ID with its complete owning path. This preserves exact requirement/capability-set correspondence through preservation, split, or frozen legal fusion without positional inference.
 
 This typed-endpoint rule applies to extension requirements, machinery requirements, result determinism, numeric contracts/modes, randomness, and failure behavior. Mapping families may be omitted only under a frozen deterministic reconstruction rule covering that family; for machinery it must reconstruct every requirement-ID association as well as the owning scopes.
 
@@ -442,11 +449,14 @@ inputs[]:
     location?
     media_or_schema_type?
     source_card_ids[]?
+    consumer_card_execution_ids[]
+    consumer_scope_refs[]?
+    effect_attempt_ids[]
 ```
 
 Every material input requires a stable `input_id` plus a canonical value or immutable content/artifact identity sufficient to distinguish what was actually consumed.
 
-Paths, URLs, dataset names, and model names are retrieval context, not immutable identity by themselves.
+Paths, URLs, dataset names, and model names are retrieval context, not immutable identity by themselves. `consumer_card_execution_ids[]` identifies the exact current-run CARD invocations that consumed the value and reciprocates `card_executions[].input_ids[]`, including failed/output-free invocations. `effect_attempt_ids[]` identifies concrete effect acquisitions and reciprocates `effect_attempts[].acquired_input_ids[]`. Genuine pre-CARD setup uses typed `consumer_scope_refs[]`; canonical `source_card_ids[]` is summary context only.
 
 ## DECK and CARD execution provenance
 
@@ -470,6 +480,8 @@ card_executions[]:
     deck_execution_id
     card_id
     card_status
+    input_ids[]
+    cache_reuse_record_ids[]?
     execution_order_index?
     governing_control_decision_id?
     governing_failure_record_id?
@@ -478,7 +490,7 @@ card_executions[]:
     failure_record_id?
 ```
 
-`card_id` identifies the canonical semantic CARD. `card_execution_id` identifies one concrete runtime execution. This distinction is material for loops, retries, calls, repeated DECK execution, or another construct that can execute the same CARD more than once.
+`card_id` identifies the canonical semantic CARD. `card_execution_id` identifies one concrete runtime execution. This distinction is material for loops, retries, calls, repeated DECK execution, or another construct that can execute the same CARD more than once. `input_ids[]` reciprocally identifies the material inputs consumed by this invocation, while `cache_reuse_record_ids[]` reciprocally identifies cache decisions applying to this current-run invocation.
 
 Candidate statuses include executed success/failure, untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. Explicit CARD skips require the same resolvable skip rule and passing applicability evidence as effect skips, with evidence bound to the exact `CARD_EXECUTION` subject. A parent skip cannot evade accounting for its effects.
 
@@ -661,6 +673,7 @@ cache_reuse_records[]:
     cache_reuse_record_id
     classification
     source_card_ids[]
+    card_execution_ids[]
     reused_computation_id?
     cache_key_hash?
     cached_artifact_hash?
@@ -728,9 +741,10 @@ evidence_status:
     evidence_class      # TEST / VALIDATION / PROOF / frozen equivalent
     status
     evidence_rule_id?
+    evidence_validation_id?
 ```
 
-`evidence_class` must be compatible with the output's `semantic_class` and explicit evidence transition. Generic output `status` is non-epistemic and cannot promote TEST into VALIDATION or PROOF.
+`evidence_class` must be compatible with the output's `semantic_class` and explicit evidence transition. Generic output `status` is non-epistemic and cannot promote TEST into VALIDATION or PROOF. Any non-class-preserving transition requires both `evidence_rule_id` resolving to accepted content-bound `EPISTEMIC_TRANSITION` authority and `evidence_validation_id` resolving to passing evidence for this exact output, artifact hash, original source classes, concrete producers, contributing evidence/inputs, target evidence class, and claim-publication event.
 
 ## Reproducibility manifest
 
