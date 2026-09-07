@@ -185,17 +185,21 @@ Protected machinery requirements are carried separately from external effects th
 A lower machinery-requirement record must preserve or deterministically map, where applicable:
 
 ```text
-machinery_requirement_id
-source_scope_kind
-source_scope_id
+machinery_requirement_ref:
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    machinery_requirement_id
 source_card_ids[]
 target_selector_or_class
 required_capabilities[]
 ```
 
+`machinery_requirement_ref` is the lower requirement's canonical owner-qualified identity. Its complete ordered `owner_scope_path[]` is interpreted relative to the exact Vector/Dataflow representation and terminates at the lower scope that owns the local `machinery_requirement_id`. Every ancestor needed to distinguish reused local scope IDs participates in identity. `source_card_ids[]` is summary provenance only and cannot replace this composite reference. Missing, truncated, reordered, ambiguous, or owner-mismatched paths fail conformance.
+
 A `GPU` or other accelerator requirement does **not** create an external effect node. It remains a machinery-authorization requirement that MORPH evaluates after target resolution and before protected machinery use.
 
-The Core→Vector/Dataflow stage may preserve the requirement directly or transform it only under a frozen, provenance-visible mapping. It may not collapse machinery requirements into effect-capability unions, discard them because a region is not yet assigned to a GPU, or leave MORPH to reconstruct permission requirements from target names.
+The Core→Vector/Dataflow stage may preserve a requirement directly only when `machinery_requirement_mapping_decisions[]` or the frozen deterministic identity-scope reconstruction rule establishes the exact source owner-qualified requirement reference that corresponds to this lower `machinery_requirement_ref`. A transformed requirement must likewise use the provenance-visible mapping family. Lowering may not copy a bare Core scope/local ID into the Vector/Dataflow record, collapse machinery requirements into effect-capability unions, discard them because a region is not yet assigned to a GPU, or leave MORPH to reconstruct permission requirements from target names.
 
 If an applicable machinery requirement cannot be represented without loss, lowering fails closed rather than silently producing an unprotected target path.
 
@@ -420,6 +424,7 @@ source_card_ids[]
 mapping_rule_id
 backend_unit_ids[]?
 transition_authorized_by?
+transition_evidence_id?
 ```
 
 This typed-endpoint rule applies to:
@@ -430,6 +435,8 @@ This typed-endpoint rule applies to:
 - `core_to_vector_numeric_contract_mapping_decisions[]`;
 - `core_to_vector_randomness_mapping_decisions[]`;
 - `failure_behavior_mapping_decisions[]`.
+
+For result-determinism or randomness mappings, whenever requested and effective semantics differ, both `transition_authorized_by` and `transition_evidence_id` are mandatory. The authority must resolve to the accepted frozen `CONTRACT_TRANSITION` rule and the evidence must resolve to passing, subject-bound validation for the exact mapped scope and requested/effective pair. Validation must precede activation of the changed lower contract in the shared event-order domain. Naming a rule without its passing applicability evidence is not sufficient; the optional notation permits absence only when no semantic transition occurred.
 
 `machinery_requirement_mapping_decisions[]` additionally identifies the stable machinery-requirement records on both sides of the lowering boundary rather than relying on a shared scope or source CARDs:
 
@@ -454,7 +461,7 @@ machinery_requirement_mapping_decisions[]:
 
 The source/lower machinery-requirement arrays are cardinality-aware owner-qualified references. Each local requirement ID is structurally paired with its complete owning path, so preservation, split, or frozen legal fusion retains exactly which requirement and capability set reached each lower unit without positional inference. Scope correspondence alone is insufficient when local IDs can repeat.
 
-Every `lower_machinery_requirement_id` must resolve to a lower requirement whose target selector/class and complete required-capability set either preserve the source requirement or result from an explicitly frozen, provenance-visible transformation. MORPH must never choose which authorization requirement applies by matching only a common scope ID or source CARD.
+Every entry in `lower_machinery_requirement_refs[]` must resolve by its complete `owner_scope_path[]` plus local `machinery_requirement_id` to a lower requirement whose target selector/class and complete required-capability set either preserve the corresponding qualified source requirement or result from an explicitly frozen, provenance-visible transformation. MORPH must never choose which authorization requirement applies by matching only a common scope ID or source CARD.
 
 The three `core_to_vector_*_mapping_decisions[]` families bind Core result-determinism, numeric-contract, and randomness scopes to the Vector/Dataflow scopes that inherit them. If a Core scope splits into several kernels, several scopes fuse into a lower region, or lower identity otherwise changes, the applicable mapping must be recorded.
 

@@ -375,6 +375,7 @@ source_card_ids[]
 mapping_rule_id
 backend_unit_ids[]?
 transition_authorized_by?
+transition_evidence_id?
 ```
 
 Use the applicable mapping family for:
@@ -385,6 +386,8 @@ Use the applicable mapping family for:
 - numeric contracts and material numeric modes;
 - randomness contracts;
 - failure behavior.
+
+For `core_to_vector_result_determinism_mapping_decisions[]` and `core_to_vector_randomness_mapping_decisions[]`, any semantic change between the requested and effective contracts requires both `transition_authorized_by` and `transition_evidence_id`. The authority must resolve to the accepted versioned/content-bound `CONTRACT_TRANSITION` rule; the evidence must resolve to passing `validation_evidence[]` for the exact mapped subject, requested/effective pair, owner-qualified source/lower scopes, and active context. Its validation event must precede application of the changed lower contract. A rule assertion without passing subject-bound pre-application evidence is an unauthorized transition and fails closed. Both fields may be absent only when the mapping is semantics-preserving and no contract transition occurred.
 
 `machinery_requirement_mapping_decisions[]` additionally identifies the stable machinery-requirement records on both sides of the lowering boundary:
 
@@ -1239,7 +1242,18 @@ The concrete producer-execution relation is required whenever runtime producer a
 
 `cache_reuse_record_ids[]` resolves to records with explicit current `card_execution_ids[]`; those subjects must match the actual material producer/dependency relation. Separate arrays of output producers and cache records are not a positional or all-to-all association.
 
-The execution-contract scope arrays resolve directly to the stable type-specific scope-record keys described above.
+The execution-contract scope arrays are normative **exact-set attributions**, not optional lists of whichever governing records a producer chooses to mention. For each output, derive the complete applicable record set independently for result determinism, numeric behavior, randomness, and failure behavior from `producer_card_execution_ids[]`, their concrete DECK/JOB containment, the canonical owner-qualified contracts that apply to those producer paths, and every material Semantic→Core / Core→Vector-Dataflow mapping or frozen deterministic identity-scope reconstruction rule needed to reach the exact lower/backend units and generated artifacts that produced the output. Frozen inheritance, composition, override, and normalization rules determine which source contracts remain materially governing; a producer may not weaken the set by simply omitting an applicable ancestor or mapped lower scope.
+
+Validation then requires exact duplicate-free set equality between the four output arrays and the independently derived applicable stable record IDs:
+
+```text
+set(result_determinism_scope_ids[]) == applicable_result_determinism_scope_ids(output)
+set(numeric_scope_ids[]) == applicable_numeric_scope_ids(output)
+set(randomness_scope_ids[]) == applicable_randomness_scope_ids(output)
+set(failure_behavior_binding_ids[]) == applicable_failure_behavior_binding_ids(output)
+```
+
+An array is empty only when its independently derived applicable set is empty. Every supplied ID must resolve to the correct type-specific ledger record **and** actually govern a material producer path; extra unrelated scopes fail just as missing applicable scopes do. When several concrete producers contribute to one output, derive the union of every materially governing scope after the frozen composition/mapping rules are applied. This validation is performed from the hash-bound source/lowering/execution evidence, never from the output's own claimed arrays, so an output cannot detach itself from a stricter or otherwise material contract by omission.
 
 ### Evidence status
 
