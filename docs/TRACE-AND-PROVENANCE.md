@@ -255,7 +255,7 @@ result_binding_map[]:
             scope_kind
             scope_id
         binding_id
-    mapping_rule_id?
+    mapping_rule_id?   # REQUIRED for every many-to-one or many-to-many group
 ```
 
 Each binding is identified by its complete typed `owner_scope_path[]` and local `binding_id` within the exact representation on that side of the hash-bound lowering boundary. At Semantic-to-Core the source and lower contexts are `semantic_ir_hash` and `core_ir_hash`; at Core-to-Vector/Dataflow they are `core_ir_hash` and `vector_dataflow_ir_hash`. A flattened manifest must keep each map associated with its boundary and both IR identities. A hash or local binding name from a different representation cannot satisfy the reference.
@@ -270,6 +270,8 @@ This model supports:
 - one-to-many split;
 - many-to-one frozen legal fusion;
 - many-to-many only when an explicit frozen rule permits it.
+
+For every many-to-one or many-to-many mapping group, `mapping_rule_id` is mandatory and resolves to the accepted frozen, content-bound rule that defines the value semantics of the fusion/reassociation and how dependent references are redirected. The rule must apply to this exact qualified source/lower binding set and lowering boundary. Missing, unknown, wrong-boundary, context-mismatched, or unverifiable rule identity rejects the mapping rather than silently choosing which source value a dependent consumes. One-to-one preservation/rename and one-to-many split may omit the field only where the frozen default/reconstruction semantics unambiguously define that non-fusing relation.
 
 `source_bindings[]` and `lower_bindings[]` use deterministic canonical ordering by the complete qualified references, with no duplicate member in an array. Path segments retain containment order. Positional inference and sorting by `binding_id` alone are not sufficient. A map is required whenever result identities are preserved or transformed unless a frozen rule permits deterministic reconstruction of the complete mapping, including every owner path and both representation identities. Identity of local name text alone is not that reconstruction rule. Both mandatory lowerings and all manifest projections use this same qualified map.
 
@@ -1190,7 +1192,13 @@ Results are identified records rather than bare hashes plus one shared semantic 
 ```text
 outputs[]:
     output_id
-    result_binding?
+    result_binding_ref?:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        binding_id
     artifact_hash
     artifact_location?
     semantic_class
@@ -1210,6 +1218,8 @@ outputs[]:
     cache_reuse_record_ids[]?
     evidence_status?
 ```
+
+`result_binding_ref?`, when present, identifies exactly one named result binding by `(representation_kind, representation_identity, owner_scope_path[], binding_id)`. `representation_identity` is the content-bound identity of the named Semantic/Core/Vector-Dataflow representation, normally its IR hash. The complete ordered owner path terminates at the binding-defining scope and includes every ancestor needed to distinguish reused local names. If the output is attributed to producers or bindings in another representation, the applicable `result_binding_map[]` chain must connect those qualified endpoints to this exact referenced binding. After a legal fusion, the output may name the fused lower binding; it must not choose one source `v0` by scalar text, producer-array position, or first match. Omit the field only when the output genuinely has no result-binding identity. Missing representation identity, truncated/ambiguous owner paths, unresolved bindings, or an absent required mapping chain fail provenance validation.
 
 `producer_card_ids[]` records the canonical semantic producers. `producer_card_execution_ids[]` records the concrete runtime CARD execution(s) that actually produced, materially supplied, or published the output. Every concrete producer resolves through `card_executions[]` to its `deck_execution_id` and canonical `card_id`.
 

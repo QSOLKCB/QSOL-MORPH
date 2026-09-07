@@ -215,7 +215,13 @@ Require identified `outputs[]`, each carrying at least:
 
 ```text
 output_id
-result_binding?
+result_binding_ref?:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    binding_id
 artifact_hash
 artifact_location?
 semantic_class
@@ -235,6 +241,8 @@ randomness_scope_ids[]
 failure_behavior_binding_ids[]
 cache_reuse_record_ids[]?
 ```
+
+`result_binding_ref?`, when present, is required to carry representation kind/content identity, complete owner path, and local binding ID and to resolve through the applicable cardinality-aware result-binding map chain. A bare binding name is not an acceptable PR #5 result identity, including for fused producers or sibling scopes that reuse the same local name.
 
 `producer_card_ids[]` identifies canonical semantic producers. **`producer_card_execution_ids[]` identifies the concrete runtime producer executions and is required by the PR #5 gate.** A canonical CARD ID alone cannot distinguish outputs from separate loop iterations, retries, calls, or repeated DECK executions.
 

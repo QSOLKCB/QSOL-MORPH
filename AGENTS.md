@@ -182,7 +182,7 @@ A legal lowering must preserve or explicitly validate before erasure:
 - tagged source/effect/failure sequencing constraints;
 - CARD / DECK / JOB provenance.
 
-Result-binding mapping must be cardinality-aware. One source result may legally split into several lower bindings, and several source bindings may legally fuse only under a frozen rule. Do not use scalar mapping fields or positional arrays that cannot represent those transformations unambiguously.
+Result-binding mapping must be cardinality-aware. One source result may legally split into several lower bindings, and several source bindings may legally fuse only under a frozen rule. Every many-to-one or many-to-many mapping group therefore requires `mapping_rule_id` resolving to the accepted frozen rule for that exact qualified source/lower binding set; never infer fusion legality from array position, equal local names, or producer success. Do not use scalar mapping fields or positional arrays that cannot represent those transformations unambiguously.
 
 When extension requirements, machinery requirements, failure behavior, qualifiers, determinism, numerics, or randomness are materially consumed/remapped/grouped/normalized, provenance must record the corresponding lowering-decision family. IR hashes are not enough. An extension-scope decision may be omitted only under a frozen deterministic identity-scope reconstruction rule that actually preserves ownership.
 
@@ -258,9 +258,12 @@ failure_behavior_bindings[]:
     requested_failure_behavior_id
     effective_failure_behavior_id
     mapping_or_transition_rule_id?
+    transition_evidence_id?
 ```
 
 Outputs and failure records reference applicable `failure_behavior_binding_ids[]`. The frozen default fail-stop behavior has a stable identity when it materially governs execution; it must not be inferred only from skipped CARDs or DECKs.
+
+For a representation-only failure-policy mapping, `mapping_or_transition_rule_id` resolves to an accepted content-bound `FAILURE_BEHAVIOR_MAPPING` rule proving semantic preservation. Whenever requested and effective failure semantics differ, both `mapping_or_transition_rule_id` and `transition_evidence_id` are mandatory: the rule is an accepted `CONTRACT_TRANSITION`, and the evidence is passing, subject-bound `validation_evidence[]` for this exact `FAILURE_BEHAVIOR_BINDING`, requested/effective pair, owning governed scope, and active context. Validation must precede application in the shared event-order domain. A rule assertion without passing pre-application evidence cannot authorize fail-stop becoming continue, retry, compensation, or another semantic change.
 
 A recorded transition is evidence, not authorization. Whenever requested and effective result-determinism or randomness contracts differ, require `transition_authorized_by` resolving to a `CONTRACT_TRANSITION` rule and `transition_evidence_id` resolving to passing evidence for that exact execution-scope record and requested/effective pair. Validate the accepted source/policy authority and its version/content identity before effective-contract activation or use. Missing, stale, unknown, context-mismatched, unverifiable, or late authority/evidence fails closed. Optional fields may be absent only when no transition occurs.
 
@@ -287,7 +290,7 @@ backend_selection_scopes[]:
     final_selection_decision_id?
 ```
 
-`backend_selection_scope_id` is the stable identity of the selection-scope record. `scope_kind` + `scope_id` identify the computation governed by that record. They are not aliases. Decisions, machinery authorization/use records, generated artifacts, and outputs reference `backend_selection_scope_id`.
+`backend_selection_scope_id` is the stable identity of the selection-scope record. The full `governed_scope_ref = { representation_kind, representation_identity, owner_scope_path[] }` identifies the canonical computation governed by that record; the terminal path element is the governed scope and every disambiguating ancestor participates in identity. The governed computation and selection-scope record are not aliases. Decisions, machinery authorization/use records, generated artifacts, and outputs reference `backend_selection_scope_id`, while validation resolves its complete `governed_scope_ref`.
 
 and ordered decisions:
 
@@ -349,7 +352,13 @@ Each output is independently identified and binds its own provenance:
 
 ```text
 output_id
-result_binding?
+result_binding_ref?:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    binding_id
 artifact_hash
 artifact_location?
 semantic_class
@@ -368,6 +377,8 @@ failure_behavior_binding_ids[]
 cache_reuse_record_ids[]?
 evidence_status?
 ```
+
+`result_binding_ref?`, when present, identifies the output's exact binding by representation kind/content identity, complete owner path, and local binding ID. Resolve it directly or through the applicable cardinality-aware result-binding maps; never infer a binding from scalar local text, producer-array order, or first-match lookup after a fusion.
 
 `producer_card_ids[]` identifies canonical semantic producers. `producer_card_execution_ids[]` identifies the concrete runtime producer executions and must resolve through `card_executions[]` to their canonical CARD and DECK execution. The canonical CARD ID alone is insufficient when a CARD may execute more than once.
 

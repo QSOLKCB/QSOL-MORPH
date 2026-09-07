@@ -716,7 +716,13 @@ Verified cache reuse does not prove cold reconstructability.
 ```text
 outputs[]:
     output_id
-    result_binding?
+    result_binding_ref?:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        binding_id
     artifact_hash
     artifact_location?
     semantic_class
@@ -736,6 +742,8 @@ outputs[]:
     cache_reuse_record_ids[]?
     evidence_status?
 ```
+
+`result_binding_ref?` is the representation- and owner-qualified result identity defined by the canonical trace contract: representation kind/content identity, complete binding-owner path, and local binding ID. It resolves through the applicable cardinality-aware result-binding maps when the producer and named output binding live in different representations; local binding text or producer-array position is never sufficient, including after fusion.
 
 `producer_card_ids[]` records canonical semantic producers. `producer_card_execution_ids[]` records the concrete CARD execution(s) that actually produced, materially supplied, or published the output. Each concrete producer ID resolves to `card_executions[]`, which identifies its DECK execution and canonical CARD.
 

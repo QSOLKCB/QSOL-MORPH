@@ -193,7 +193,7 @@ backend_selection_decisions[]:
     decision_status
 ```
 
-`scope_id` identifies the computation governed by target selection; `backend_selection_scope_id` identifies the selection-scope record that governs it; `backend_selection_decision_id` identifies one concrete decision in the selection/fallback history. Decision IDs are unique and ordered. The scope's `final_selection_decision_id`, when execution proceeds, identifies the decision whose machinery was actually used.
+The complete `governed_scope_ref = { representation_kind, representation_identity, owner_scope_path[] }` identifies the computation governed by target selection; `backend_selection_scope_id` identifies the selection-scope record that governs it; `backend_selection_decision_id` identifies one concrete decision in the selection/fallback history. Local `scope_kind`/`scope_id` pairs and source CARD summaries are not canonical governed-computation identity. Decision IDs are unique and ordered. The scope's `final_selection_decision_id`, when execution proceeds, identifies the decision whose machinery was actually used.
 
 Policy/tuning fields are material when selection is automatic, such as `ON BEST`. An explicit target still needs enough scope and decision identity to establish which source computation and generated unit used that machinery.
 

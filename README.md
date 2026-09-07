@@ -434,7 +434,13 @@ Each `outputs[]` entry binds:
 
 ```text
 output_id
-result_binding?
+result_binding_ref?:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    binding_id
 artifact_hash
 artifact_location?
 semantic_class
@@ -454,6 +460,8 @@ randomness_scope_ids[]
 failure_behavior_binding_ids[]
 cache_reuse_record_ids[]?
 ```
+
+`result_binding_ref?`, when present, is the qualified binding endpoint: representation kind/content identity, complete owner path, and local binding ID. It must resolve directly or through the applicable cardinality-aware lowering maps, so sibling `v0` bindings or a fused lower `v0` cannot be selected by text or producer position.
 
 `producer_card_ids[]` identifies canonical semantic producers. `producer_card_execution_ids[]` identifies the concrete runtime CARD execution(s) that actually produced or materially supplied the output and resolves through `card_executions[]` to the DECK execution and canonical CARD.
 
