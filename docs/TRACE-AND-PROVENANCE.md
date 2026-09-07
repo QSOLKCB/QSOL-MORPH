@@ -459,7 +459,11 @@ machinery_authorization_records[]:
     backend_selection_scope_id
     backend_selection_decision_id
     source_card_ids[]
-    machinery_requirement_ids[]
+    machinery_requirement_refs[]:
+        owner_scope_ref:
+            scope_kind
+            scope_id
+        machinery_requirement_id
     required_capabilities[]
     granted_capabilities[]
     denied_capabilities[]
@@ -471,9 +475,9 @@ machinery_authorization_records[]:
 
 ### Canonical machinery coverage
 
-Before accepting any machinery authorization, resolve every `machinery_requirement_ids[]` entry to exactly one requirement in the hash-bound canonical input and its actual owning scope. Validate the trace requirement's identity, owner, target selector/class, and complete capability set against that canonical record, not against another runtime copy. For requirements carried through lowering, validate the source/lower requirement-ID associations and frozen mapping rules against both IR hashes through every traversed boundary. A map cannot silently discard a source permission or manufacture authorization. Unknown, ambiguous, mismatched, or duplicate requirement identities fail closed; a locally scoped requirement ID needs its unambiguous owning-scope context rather than a first-match lookup.
+Before accepting any machinery authorization, resolve every `machinery_requirement_refs[]` entry by the complete tuple `(owner_scope_ref.scope_kind, owner_scope_ref.scope_id, machinery_requirement_id)` to exactly one requirement in the hash-bound canonical input. `owner_scope_ref` names the requirement's actual canonical owner and is not inferred from `source_card_ids[]`, backend scope, or list position. Validate the trace requirement's identity, owner, target selector/class, and complete capability set against that canonical record, not against another runtime copy. For requirements carried through lowering, validate the source/lower requirement-ID associations and frozen mapping rules against both IR hashes through every traversed boundary. A map cannot silently discard a source permission or manufacture authorization. Unknown, ambiguous, mismatched, duplicate, or owner-mismatched requirement references fail closed; a bare locally scoped requirement ID is never sufficient.
 
-For an authorization record `A`, define `C(A)` as the union of the complete canonical capability sets of every uniquely resolved requirement named by `A.machinery_requirement_ids[]`. The membership and target applicability of each individual requirement remain validated even when capability names overlap. Require:
+For an authorization record `A`, define `C(A)` as the union of the complete canonical capability sets of every uniquely resolved requirement named by `A.machinery_requirement_refs[]`. The membership, owner, and target applicability of each individual requirement remain validated even when capability names or local requirement IDs overlap. Require:
 
 ```text
 for each referenced requirement R:
@@ -509,11 +513,14 @@ machinery_use_records[]:
     card_execution_ids[]
     initiating_scope_ref?
     machinery_authorization_record_ids[]
+    output_ids[]
     protected_use_start_sequence_index
     protected_use_stop_sequence_index?
 ```
 
 `card_execution_ids[]` identifies the concrete CARD invocations participating in this use, not all invocations of the source CARD or backend unit. It is nonempty for CARD-governed work, and every ID resolves through `card_executions[]` to the corresponding canonical CARD and DECK execution in this run. A repeated launch, retry, or loop iteration receives a distinct use record with the correct concrete invocation IDs; an event index alone is not this join.
+
+`output_ids[]` identifies all outputs materially produced or exposed by this exact protected-use event. Every listed output reciprocally contains this `machinery_use_record_id` in `outputs[].machinery_use_record_ids[]`, and every output-side machinery-use reference resolves back to a use record whose `output_ids[]` contains that output. The relation is occurrence-specific: matching CARD execution, backend-selection scope, generated artifact, or authorization records cannot substitute for the exact use-record join when the same protected machinery is launched more than once. A protected use that produces or exposes no output records an empty array rather than borrowing another use's output.
 
 For genuine pre-CARD machinery setup only, the CARD-execution array may be empty and `initiating_scope_ref` is required instead. This is a typed `{ scope_kind, scope_id }` reference to the actual aggregate RUN or DECK_EXECUTION that initiated setup, resolving to `run_id` or `deck_execution_id`. It must not invent a CARD execution. A use serving several CARD executions must list the actual participating executions under the frozen lowering/execution mapping.
 
@@ -982,7 +989,7 @@ effect_attempts[]:
     backend_detail?
     acquired_input_ids[]
     observable_output_ids[]
-    external_tool_ids[]?
+    external_tool_ids[]
 ```
 
 `card_id` identifies the canonical declaration owner. `card_execution_id` identifies the concrete runtime invocation in which this attempt occurred. Attempts from different retries, loop iterations, calls, or repeated DECK executions must never collapse merely because they share one canonical CARD ID.
@@ -1008,6 +1015,8 @@ ABORTED_CLEAN
 PARTIAL
 UNKNOWN
 ```
+
+For `completion_state = NOT_STARTED`, no protected effect began. `effect_begin_sequence_index` and `effect_end_sequence_index` are absent, and both `acquired_input_ids[]` and `observable_output_ids[]` are empty. `external_tool_ids[]` is also empty because no material external-tool invocation can be attributed to an effect attempt that never began. An output MUST NOT reciprocally reference a `NOT_STARTED` attempt through `outputs[].effect_attempt_ids[]`; such a trace is contradictory and fails closed.
 
 Known completion takes precedence over uncertainty about broader external consequences. Completion belongs to the effect attempt, not to the enclosing CARD outcome.
 
@@ -1062,13 +1071,15 @@ external_tool_versions[]:
     material_identity_value?
     endpoint_or_location?
     source_card_ids[]?
-    effect_attempt_ids[]?
-    output_ids[]?
+    effect_attempt_ids[]
+    output_ids[]
 ```
 
 For a material external tool, service, model, prover, process, or instrument, `tool_name_or_service` and a mutable endpoint are labels/locators only. `material_identity_status = IDENTIFIED` requires an immutable or versioned `material_identity_value`, such as an executable/content hash, tool version bound strongly enough for the active claim, model/version ID, immutable artifact ID, or frozen equivalent.
 
 If exact material identity cannot be established, record `material_identity_status = UNAVAILABLE` (or a frozen equivalent) and the strongest replay/evidence claim must be weakened or rejected according to the frozen policy. Identity unavailability may never be silently treated as full reproducibility.
+
+Every material external-tool record has explicit `effect_attempt_ids[]` and `output_ids[]` arrays, with at least one concrete subject across the two arrays. Each referenced effect attempt reciprocally lists the tool in `effect_attempts[].external_tool_ids[]`; each referenced output reciprocally lists it in `outputs[].external_tool_ids[]`. Conversely, every attempt/output external-tool reference resolves to a tool record that names that exact subject. A canonical `source_card_ids[]` summary, shared endpoint, equal tool name, or repeated material identity cannot reconstruct this occurrence-level relation across retries. A material tool with no concrete attempt or output subject is incomplete provenance and fails closed rather than floating at CARD scope.
 
 Extension resolution identifies the adapter/profile contract. It does not substitute for the actual tool, service, model, prover, process, or instrument identity.
 
@@ -1124,8 +1135,9 @@ outputs[]:
     producer_card_execution_ids[]
     input_ids[]
     effect_attempt_ids[]?
-    external_tool_ids[]?
+    external_tool_ids[]
     backend_selection_scope_ids[]
+    machinery_use_record_ids[]
     generated_artifact_ids[]?
     result_determinism_scope_ids[]
     numeric_scope_ids[]
@@ -1141,9 +1153,11 @@ The concrete producer-execution relation is required whenever runtime producer a
 
 `input_ids[]` identifies the exact immutable inputs materially contributing to the output. Execution-wide input availability is not a substitute, and this transitive output relation does not replace each input's direct concrete consumer/acquisition links.
 
-`effect_attempt_ids[]`, where applicable, identifies concrete effect attempts that produced or exposed the output. Those attempts reciprocally list the output in `observable_output_ids[]`.
+`effect_attempt_ids[]`, where applicable, identifies concrete effect attempts that produced or exposed the output. Those attempts reciprocally list the output in `observable_output_ids[]`. A referenced attempt must have begun; `NOT_STARTED` attempts cannot appear in this relation.
 
-`external_tool_ids[]`, where applicable, identifies the exact material tools/services/models/provers that supplied the output.
+`external_tool_ids[]` is an explicit array identifying the exact material tools/services/models/provers that supplied the output, and every listed tool reciprocally names this output in `external_tool_versions[].output_ids[]`. It is empty when no material external tool supplied the output.
+
+`machinery_use_record_ids[]` is an explicit array identifying the exact protected-use event or events that materially produced or exposed the output. Every listed use reciprocally names this output in `machinery_use_records[].output_ids[]`. It is empty only when no protected machinery use materially contributed to the output. CARD execution, backend-selection scope, generated-artifact identity, and authorization IDs remain supporting context but cannot replace this occurrence-level join.
 
 `generated_artifact_ids[]` identifies the exact executable/kernel/bytecode artifact that ran where applicable. The artifact links onward to its optimization provenance, its direct toolchain producer, and its ordered transitive toolchain ancestry.
 
@@ -1221,8 +1235,9 @@ At minimum, a future validator should reject or fail closed when:
 - a declared effect loses its per-effect capability binding;
 - declaration, attempt, and authorization capability sets do not exactly match the hash-bound canonical declaration, or their owner/execution/reciprocal identity links disagree;
 - a protected machinery requirement disappears before MORPH;
-- a machinery authorization's required set differs from the exact canonical union of its resolved requirements, or a successful grant does not cover that exact set;
+- a machinery authorization uses a bare or owner-mismatched requirement ID instead of an exact typed owner-qualified `machinery_requirement_refs[]` entry, its required set differs from the exact canonical union of those resolved requirements, or a successful grant does not cover that exact set;
 - a machinery use omits an independently applicable canonical requirement or uses grants for another target, scope, or policy context, even when its listed records and event ordering agree;
+- an output that materially depends on protected machinery cannot be joined reciprocally to the exact `machinery_use_record_id` occurrence that produced or exposed it;
 - a machinery-requirement mapping cannot identify the exact source and lower requirement records at either lowering boundary when multiple requirements share a scope;
 - a result-binding map cannot represent the actual split/fusion cardinality;
 - a result-binding endpoint lacks its complete typed owner path or cannot resolve uniquely within the correct hash-bound representation;
@@ -1247,6 +1262,7 @@ At minimum, a future validator should reject or fail closed when:
 - CARD_NOT_REACHED or another non-reach reason has no validated typed control/failure/verified-skip cause for the exact invocation;
 - any applicable declared effect lacks both attempt and legitimate non-attempt accounting for a selected concrete CARD execution;
 - an effect begins before its authorization completed;
+- a `NOT_STARTED` effect attempt claims an acquired input, observable output, material external tool, or is reciprocally cited by an output;
 - protected machinery begins before every applicable authorization completed;
 - denied protected machinery nevertheless has a use-start record;
 - a reachable required effect is omitted;
@@ -1269,7 +1285,8 @@ At minimum, a future validator should reject or fail closed when:
 - a mutable input locator substitutes for immutable input identity;
 - an input loses its actual concrete consumers or effect-acquisition attempts, or a failed/output-free invocation loses consumed-input attribution;
 - reciprocal input/consumer/acquisition links disagree, captures are assigned by canonical CARD or path alone, or a denied/unstarted acquisition claims a captured input;
-- a material external tool has neither immutable/versioned material identity nor an explicit identity-unavailable state that weakens the claim.
+- a material external tool has neither immutable/versioned material identity nor an explicit identity-unavailable state that weakens the claim;
+- a material external tool lacks a concrete effect-attempt/output subject, or its `effect_attempt_ids[]` / `output_ids[]` links disagree with reciprocal attempt/output `external_tool_ids[]` references.
 
 ### Conformance cases for the future trace validator
 
@@ -1290,6 +1307,10 @@ These are documentation acceptance cases for the applicable roadmap gates, not a
 | Typed sequencing identity | Every directed edge resolves by endpoint kind, complete typed owner path, and stable ID in its containing representation, under the shared serialization contract. | Drop kind/path; confuse CARD `7` with effect `7`; join repeated local CARD IDs under different DECKs; reverse direction while retaining ID text; resolve against a different representation. |
 | Qualified lower bindings | Each side of both lowering maps resolves its full owner path and binding ID in the correct input/output IR; a split names both distinct scoped `v0` bindings and a fusion retains each qualified source. | Keep local `v0` only; omit an enclosing scope; substitute a different IR; sort names and infer owners; duplicate a fully qualified binding; use an identity exception that cannot reconstruct ownership. |
 | Concrete runtime input consumers and acquisition | Two reads/samples by repeated CARD invocations retain distinct captured input identities, exact consumer execution links, reciprocal CARD input links, and actual acquisition attempt/input links, including when an invocation fails with no output. | Keep only canonical source CARD IDs; swap consumers or acquisition attempts; collapse independent equal-content captures without occurrence mapping; use an output as the only join; fabricate inputs for denied/unstarted reads or CARD consumers for build-only inputs. |
+| Owner-qualified machinery authorization | Each authorization names every requirement by typed owner scope plus local requirement ID, resolves that tuple uniquely in the canonical input, and validates the exact canonical capability union. | Bare local requirement ID; infer owner from source CARDs; confuse equal IDs owned by JOB and CARD; owner-mismatched lowering copy; first-match lookup. |
+| Repeated protected-use output attribution | Two protected launches under one CARD execution/scope retain distinct `machinery_use_record_id` values and reciprocal use/output links, so each output resolves to the exact launch that produced or exposed it. | Infer use from CARD execution/scope/artifact alone; attach both outputs to both launches; omit the use-side or output-side reciprocal link; borrow another launch's authorization/use occurrence. |
+| Material external-tool attribution | Every material tool record has at least one concrete effect-attempt/output subject and reciprocal `external_tool_ids[]` links; retries using different tool/model versions remain separately attributable. | Tool floats only at `source_card_ids[]`; omit both subject arrays; swap retry/output subjects; one-sided attempt/output link; equal endpoint/name used as attribution. |
+| NOT_STARTED effect attempt | A denied/unstarted attempt has no begin/end event, acquired inputs, observable outputs, or material external tools, and no output cites it as a producer/exposer. | Nonempty `observable_output_ids[]`; output reciprocally cites the unstarted attempt; acquired input or tool attribution despite no begin event. |
 
 For every case involving referenced rules or evidence, also reject missing content, hash mismatch, an unaccepted authority/verifier, a wrong subject namespace, and evidence that cannot establish the required pre-application ordering. A positive example is conditional on an actually accepted frozen rule; the table does not create one by example. The [serialization conformance cases](SERIALIZATION.md#sequencing-conformance-cases) additionally cover typed endpoint round trips across nested and flattened formats.
 
