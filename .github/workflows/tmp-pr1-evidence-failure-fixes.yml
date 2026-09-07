@@ -1,0 +1,122 @@
+name: temporary PR1 evidence and failure fixes
+
+on:
+  push:
+    branches:
+      - docs/foundation-specification
+    paths:
+      - .github/workflows/tmp-pr1-evidence-failure-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/foundation-specification
+          fetch-depth: 0
+
+      - name: Apply review fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one match, found {count}: {old[:100]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "README.md",
+              "`machinery_requirement_lowering_decisions[]` additionally uses identified cardinality-aware mapping groups with typed `source_scope_refs[]` / `core_scope_refs[]` and explicit `source_machinery_requirement_ids[]` / `lower_machinery_requirement_ids[]`. Requirement IDs resolve in the hash-bound Semantic IR and resulting Core IR. Separate requirements sharing one scope cannot be inferred from source CARDs or paired by array position; a frozen rule defines every split/fusion relation and the exact target selector/capability set reaching each lower requirement. A reconstruction exception must recover every requirement-ID association as well as scope ownership.",
+              "`machinery_requirement_lowering_decisions[]` additionally uses identified cardinality-aware mapping groups with typed `source_scope_refs[]` / `core_scope_refs[]` plus mandatory owner-qualified `source_machinery_requirement_refs[]` / `lower_machinery_requirement_refs[]`. Each requirement reference pairs its local `machinery_requirement_id` with the complete representation-relative `owner_scope_path[]`; the scope arrays remain correspondence context and are never a positional join for requirement identity. The qualified references resolve in the hash-bound Semantic IR and resulting Core IR. A frozen rule defines every split/fusion relation and the exact target selector/capability set reaching each lower requirement. A reconstruction exception must recover every owner-qualified requirement association as well as scope ownership."
+          )
+
+          replace_once(
+              "README.md",
+              "For machinery mappings, typed scope correspondence alone is insufficient when one Core scope owns several requirements. Provenance also carries `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]`, preserving which exact target selector and capability set reached each lower region.",
+              "For machinery mappings, typed scope correspondence alone is insufficient when one Core scope owns several requirements. Provenance therefore carries owner-qualified `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, with every local `machinery_requirement_id` paired to its complete representation-relative `owner_scope_path[]`. The Core/Vector scope arrays remain mapping context only, so split/fusion groups cannot pair repeated local IDs by position or shared source CARD summaries; the qualified references preserve which exact target selector and capability set reached each lower region."
+          )
+
+          replace_once(
+              "ROADMAP.md",
+              "- `backend_selection_decisions[]`, each with stable decision ID, requested target, selected backend/version/architecture/device, automatic-selection policy/tuning identity where applicable, predecessor/fallback-rule identity where applicable, linked machinery authorization, order, and status;",
+              "- `backend_selection_decisions[]`, each with stable decision ID, requested target, selected backend/version/architecture/device, automatic-selection policy/tuning identity where applicable, predecessor/fallback-rule identity plus subject-bound `fallback_evidence_id` where fallback applies, linked machinery authorization, order, and status;"
+          )
+
+          replace_once(
+              "ROADMAP.md",
+              "Fallback from a denied target is legal only under a frozen pre-execution rule and must remain a new ordered selection decision rather than overwriting the denied decision.",
+              "Fallback from a denied target is legal only under a frozen pre-execution rule plus passing subject-bound fallback evidence for the exact predecessor/fallback decision and evaluated context. `fallback_rule_id` resolves to the accepted frozen rule and `fallback_evidence_id` resolves to `validation_evidence[]`; both must be validated before the fallback selection is applied, with `validation_sequence_index < application_sequence_index` in the shared order domain. Missing, stale, wrong-kind, context-mismatched, unverifiable, or late fallback evidence fails closed. The fallback remains a new ordered selection decision rather than overwriting the denied decision."
+          )
+
+          replace_once(
+              "ROADMAP.md",
+              "Whenever requested and effective result-determinism or randomness contracts differ, `transition_authorized_by` must resolve to a `CONTRACT_TRANSITION` rule and `transition_evidence_id` to passing evidence for that exact execution-scope record and requested/effective pair. Verify applicable authority before effective-contract activation or use; the shared order domain requires `validation_sequence_index < application_sequence_index`. Missing, stale, wrong-kind, context-mismatched, unverifiable, or late authority/evidence fails closed. Optional fields may be absent only when no transition occurs, not for an undocumented downgrade.",
+              "Whenever requested and effective result-determinism or randomness contracts differ, `transition_authorized_by` must resolve to a `CONTRACT_TRANSITION` rule and `transition_evidence_id` to passing evidence for that exact execution-scope record and requested/effective pair. Whenever `failure_behavior_bindings[]` changes `requested_failure_behavior_id` to a different `effective_failure_behavior_id`, `mapping_or_transition_rule_id` must likewise resolve to an accepted `CONTRACT_TRANSITION` rule and `transition_evidence_id` to passing evidence for that exact `failure_behavior_binding_id` and requested/effective policy pair. Verify every applicable authority/evidence pair before effective-contract or failure-policy activation/use; the shared order domain requires `validation_sequence_index < application_sequence_index`. Missing, stale, wrong-kind, context-mismatched, unverifiable, or late authority/evidence fails closed. Optional fields may be absent only when no semantic transition occurs, not for an undocumented downgrade, continuation, retry, or compensation change."
+          )
+
+          replace_once(
+              "ROADMAP.md",
+              "When present, `evidence_status` is class-discriminated and must be compatible with `semantic_class`. Generic output status cannot silently promote TEST, VALIDATION, or PROOF class.",
+              "When present, `evidence_status` is class-discriminated and must be compatible with `semantic_class`. Generic output status cannot silently promote TEST, VALIDATION, or PROOF class. For every non-class-preserving epistemic transition, both `evidence_rule_id` and `evidence_validation_id` are mandatory: the rule must resolve to accepted content-bound `EPISTEMIC_TRANSITION` authority, and the validation ID must resolve to passing subject-bound evidence for this exact output, artifact hash, concrete producers, contributing evidence/inputs, requested evidence class/status, and claim-publication context. That evidence must be validated before the stronger or different claim is published; missing, stale, wrong-kind, failed, context-mismatched, unverifiable, or late evidence rejects the transition."
+          )
+
+          replace_once(
+              "ROADMAP.md",
+              "    failure_behavior_binding_ids[]\n    failure_class",
+              "    failure_behavior_binding_ids[]\n    result_determinism_scope_ids[]\n    numeric_scope_ids[]\n    randomness_scope_ids[]\n    failure_class"
+          )
+
+          replace_once(
+              "ROADMAP.md",
+              "`failure_behavior_binding_ids[]` resolves to the exact stable policy bindings active for this failure and its propagation/handling, including the applicable frozen default fail-stop binding. A resulting retry/skip path or generic scope match cannot substitute for that relation. Rejected requested policies are not effective handling policies; pre-CARD rejections retain the actual setup/rejection-handling binding.",
+              "`failure_behavior_binding_ids[]` resolves to the exact stable policy bindings active for this failure and its propagation/handling, including the applicable frozen default fail-stop binding. A resulting retry/skip path or generic scope match cannot substitute for that relation. Rejected requested policies are not effective handling policies; pre-CARD rejections retain the actual setup/rejection-handling binding. Each failure record also carries the complete applicable `result_determinism_scope_ids[]`, `numeric_scope_ids[]`, and `randomness_scope_ids[]`, derived independently from its failing scope, concrete execution context where applicable, and validated lowering/contract mappings. Those IDs resolve to the retained execution-contract ledgers; an empty array means that no scope from that family applies, not that attribution was omitted. Selective omission or substitution with a generic scope ID fails the PR #5 gate."
+          )
+
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              "    failure_behavior_binding_ids[]\n    failure_class",
+              "    failure_behavior_binding_ids[]\n    result_determinism_scope_ids[]\n    numeric_scope_ids[]\n    randomness_scope_ids[]\n    failure_class"
+          )
+
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              "`failure_behavior_binding_ids[]` is required and resolves to the exact `failure_behavior_bindings[]` records governing this failure and its propagation or handling. It includes the applicable frozen default fail-stop binding, not just explicit recovery policies. When several policies or transitions concern one computation, the failure references those actually active at that event; it must not infer policy from the resulting path or a generic scope ID. A rejected requested policy is not an effective handling policy. Pre-CARD rejection records retain the applicable setup/rejection-handling binding without inventing a CARD culprit. Missing or incompatible governing bindings make the failure trace incomplete.",
+              "`failure_behavior_binding_ids[]` is required and resolves to the exact `failure_behavior_bindings[]` records governing this failure and its propagation or handling. It includes the applicable frozen default fail-stop binding, not just explicit recovery policies. When several policies or transitions concern one computation, the failure references those actually active at that event; it must not infer policy from the resulting path or a generic scope ID. A rejected requested policy is not an effective handling policy. Pre-CARD rejection records retain the applicable setup/rejection-handling binding without inventing a CARD culprit. Missing or incompatible governing bindings make the failure trace incomplete.\n\nEach failure record also carries the complete applicable `result_determinism_scope_ids[]`, `numeric_scope_ids[]`, and `randomness_scope_ids[]`. Derive those sets independently from the typed failing scope, the concrete CARD/DECK execution where applicable, and the validated lowering/contract mappings, then require the recorded arrays to equal the complete applicable ledger sets. An empty array is valid only when no execution-contract scope in that family governs the failure. A producer may not omit a stricter parent scope, a material numeric mode, or the RNG contract merely because no output was published. Every referenced scope ID resolves to the retained type-specific execution-contract ledger."
+          )
+
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              "failure_records[]\nfailure_behavior_bindings[]\nprimary_failure_record_id?",
+              "failure_records[]\nfailure_behavior_bindings[]\nresult_determinism_scopes[]\nnumeric_execution_scopes[]\nrandomness_execution_scopes[]\nprimary_failure_record_id?"
+          )
+
+          replace_once(
+              "docs/TRACE-AND-PROVENANCE.md",
+              "A failure trace includes the backend-selection scope and decision ledgers referenced by its machinery authorization/use records, including denied candidates and fallback predecessors, not just the final target. Every `failure_behavior_binding_ids[]` reference resolves to the retained governing policy bindings. A standalone failure manifest must preserve the complete transitive closure of its references, including applicable rules, evidence, requirements, consumed inputs, cache subjects, and observable outputs, either inline or through retrievable content-bound trace records. An unresolvable ID or an unbound mutable external trace link is incomplete provenance. Consumed input and cache-to-invocation relations remain required even when `observable_output_ids[]` is empty.",
+              "A failure trace includes the backend-selection scope and decision ledgers referenced by its machinery authorization/use records, including denied candidates and fallback predecessors, not just the final target. It also retains `result_determinism_scopes[]`, `numeric_execution_scopes[]`, and `randomness_execution_scopes[]` needed by each failure record's exact scope-ID attribution, even when execution fails before producing an output. Every `failure_behavior_binding_ids[]` reference resolves to the retained governing policy bindings. A standalone failure manifest must preserve the complete transitive closure of its references, including applicable execution-contract scopes, rules, evidence, requirements, consumed inputs, cache subjects, and observable outputs, either inline or through retrievable content-bound trace records. An unresolvable ID, selectively omitted applicable contract scope, or unbound mutable external trace link is incomplete provenance. Consumed input and cache-to-invocation relations remain required even when `observable_output_ids[]` is empty."
+          )
+          PY
+
+      - name: Commit patch and remove helper
+        shell: bash
+        run: |
+          git config user.name "Trent Slade"
+          git config user.email "73952179+EmergentMonk@users.noreply.github.com"
+          git rm .github/workflows/tmp-pr1-evidence-failure-fixes.yml
+          git add README.md ROADMAP.md docs/TRACE-AND-PROVENANCE.md
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No changes staged"
+            exit 1
+          fi
+          git commit -m "docs: align evidence and failure provenance gates"
+          git push origin HEAD:docs/foundation-specification
