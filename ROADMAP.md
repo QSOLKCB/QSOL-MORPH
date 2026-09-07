@@ -231,7 +231,7 @@ producer_card_ids[]
 producer_card_execution_ids[]
 input_ids[]
 effect_attempt_ids[]?
-external_tool_ids[]?
+external_tool_ids[]
 backend_selection_scope_ids[]
 generated_artifact_ids[]?
 machinery_use_record_ids[]
@@ -249,6 +249,8 @@ cache_reuse_record_ids[]?
 Every `producer_card_execution_id` resolves to `card_executions[]`, which identifies the concrete DECK execution and canonical CARD.
 
 `input_ids[]` identifies the exact immutable inputs materially contributing to that output. Execution-wide input availability is not a substitute for per-output attribution.
+
+`external_tool_ids[]` is mandatory on every output. Use an explicit empty array only when no material external tool supplied or materially affected that output. Every listed tool must resolve to `external_tool_versions[]` and reciprocally list the output in its `output_ids[]`; when a material model, prover, process, service, or other external tool contributed, omission of that tool or of the array is incomplete provenance and fails the PR #5 gate. Producer CARD identity alone cannot substitute for this concrete output/tool join.
 
 `machinery_use_record_ids[]` identifies the exact protected-use occurrence(s) that produced or materially supplied the output and reciprocates `machinery_use_records[].output_ids[]`. A shared CARD execution, backend-selection scope, generated artifact, or backend unit cannot replace this occurrence-level join when several protected launches occur.
 
@@ -477,7 +479,7 @@ Specify:
 - result-binding maps;
 - extension requirement mapping;
 - qualifier decisions;
-- identified cardinality-aware machinery-requirement mappings with complete ordered source/Core scope paths and explicit `source_machinery_requirement_ids[]` / `lower_machinery_requirement_ids[]`;
+- identified cardinality-aware machinery-requirement mappings using composite `source_machinery_requirement_refs[]` / `lower_machinery_requirement_refs[]`, where every entry pairs its local `machinery_requirement_id` with the complete ordered representation-relative `owner_scope_path[]`;
 - result-determinism, numeric, randomness, and failure-behavior mapping;
 - effect/capability preservation;
 - complete tagged sequencing preservation;
@@ -489,7 +491,7 @@ Implement PR #8.
 
 Every material lowering decision must be provenance-bearing. Required decision families include extension requirements, qualifiers, machinery requirements, result determinism, numerics, randomness, and failure behavior whenever consumed, grouped, normalized, remapped, or otherwise transformed.
 
-`machinery_requirement_lowering_decisions[]` requires identified mapping groups, complete ordered absolute `source_scope_refs[]` / `core_scope_refs[]` containment paths, and nonempty deterministic `source_machinery_requirement_ids[]` / `lower_machinery_requirement_ids[]`. Resolve requirement IDs in the hash-bound source Semantic IR and resulting Core IR. Separate unrelated requirements sharing a scope; a frozen rule defines any split/fusion relation and the target selector/capability set reaching each lower requirement. Scope correspondence or source CARD IDs alone are insufficient. Omission is legal only under a frozen rule reconstructing every requirement-ID association as well as ownership.
+`machinery_requirement_lowering_decisions[]` requires identified mapping groups, complete ordered absolute `source_scope_refs[]` / `core_scope_refs[]` containment paths, and nonempty deterministic composite `source_machinery_requirement_refs[]` / `lower_machinery_requirement_refs[]`. Every requirement reference pairs the local `machinery_requirement_id` with its complete representation-relative `owner_scope_path[]`; requirement IDs and scope arrays are never positionally paired. Resolve each composite source/lower reference in the hash-bound source Semantic IR and resulting Core IR. Separate unrelated requirements even when they share a local ID such as `gpu`; a frozen rule defines any split/fusion relation and the target selector/capability set reaching each lower requirement. Scope correspondence, bare requirement-ID arrays, or source CARD IDs alone are insufficient. Omission is legal only under a frozen rule reconstructing every owner-qualified requirement association.
 
 `result_binding_map[]` is required whenever identities are preserved or transformed unless a frozen deterministic reconstruction rule applies.
 
@@ -519,7 +521,7 @@ Require:
 - Vector/Dataflow IR identity/hash;
 - cardinality-aware `result_binding_map[]`;
 - typed Core → Vector/Dataflow scope mappings for extension, machinery, result-determinism, numeric, randomness, and failure-behavior contract families;
-- for `machinery_requirement_mapping_decisions[]`, explicit `source_machinery_requirement_ids[]` and `lower_machinery_requirement_ids[]` in addition to typed scopes, so multiple requirements owned by one Core scope cannot be swapped or detached;
+- for `machinery_requirement_mapping_decisions[]`, composite `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, each pairing a local `machinery_requirement_id` with its complete representation-relative `owner_scope_path[]` in addition to typed group-level scope mappings, so repeated local IDs across source/lower owners cannot be swapped, detached, or positionally inferred;
 - lowering diagnostics and conformance/rejection fixtures.
 
 Omission of a mapping family is allowed only under a frozen deterministic identity-scope reconstruction rule covering that family.
