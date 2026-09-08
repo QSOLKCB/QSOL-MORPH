@@ -36,6 +36,7 @@ It must preserve, where applicable:
 
 - scalar and vector data operations;
 - result/data identities consumed by dependency edges;
+- representation-qualified epistemic class bindings retained by QSOL-CORE, including their source-binding lineage and frozen mapping-rule identity whenever the bound subject is renamed, split, fused, relocated, or otherwise transformed;
 - branches and control-flow regions;
 - call/return boundaries and call state;
 - explicit effects and their stable declared identities;
@@ -177,7 +178,6 @@ runtime effect-attempt provenance hook
 ```
 
 `declared_effect_ref` is the canonical representation-qualified effect-declaration identity that survives the mandatory lowering path. `representation_identity` is the content-bound identity of the representation that actually owns the declaration, such as `semantic_ir_hash` for a retained Semantic declaration or `core_ir_hash` for direct QSOL-CORE entry. Its complete ordered `owner_scope_path[]` is interpreted relative to that named representation. For Semantic lineage, the path identifies the actual JOB/DECK/CARD containment and terminates at the declaring CARD. For a Core-owned effect, the path is the complete Core-relative containment path through the real declaration owner, such as function/block/operation or another frozen Core scope, and no Semantic JOB/DECK/CARD ancestry is fabricated. A local effect ID or `(card_id, declared_effect_id)` pair is insufficient. Core→Vector/Dataflow lowering must preserve this complete composite identity directly or under a frozen provenance-visible mapping whose lower record can reconstruct the same representation-qualified declaration. A later `effect_attempt_id` identifies a concrete runtime attempt. Declaration and attempt identities remain distinct so retries, duplicate attempts, or same-kind effects from one execution subject can be audited. Missing, truncated, reordered, wrong-representation, or owner-mismatched effect paths fail conformance rather than being guessed from nearby CARD or operation IDs.
-
 A file write, process launch, network action, clock access, AI call, or other effect must not disappear merely because the surrounding numeric work becomes a vector graph.
 
 Capability authorization remains an execution boundary. Every capability in the complete required set for an effect must be granted before the corresponding protected effect begins.
@@ -229,7 +229,7 @@ provided the active scoped numeric, failure, ordering, and semantic contracts pe
 
 Fusion must not be justified solely by performance. It must be semantically legal.
 
-Fusion may not swallow an effect, control boundary, result/dependency identity, machinery requirement, extension requirement, or potentially failing operation in a way that changes observable ordering, authorization, failure behavior, or profile ownership.
+Fusion may not swallow an effect, control boundary, result/dependency identity, epistemic class binding, machinery requirement, extension requirement, or potentially failing operation in a way that changes observable ordering, authorization, research-class lineage, failure behavior, or profile ownership.
 
 ## Masks
 
@@ -392,6 +392,7 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 result_binding_map[]
+epistemic_class_bindings[]
 sequencing_constraint_mapping_decisions[]
 extension_requirement_mapping_decisions[]
 machinery_requirement_mapping_decisions[]
@@ -403,6 +404,8 @@ vector_dataflow_lowering_diagnostics[]
 ```
 
 `result_binding_map[]` must use a frozen cardinality-aware representation that can express preserved/renamed identities, one-to-many splits, many-to-one fusion, and any permitted many-to-many mapping without positional inference.
+
+`epistemic_class_bindings[]` uses the shared representation-qualified binding contract from `TRACE-AND-PROVENANCE.md`. Every Vector/Dataflow binding derived from a retained Core binding identifies the exact lower representation and subject and carries `source_epistemic_class_binding_ids[]` resolving the complete source-binding lineage. If the bound subject is renamed, split, fused, relocated, changes owner path/kind, or otherwise does not survive under a frozen deterministic identity reconstruction, `mapping_rule_id` is mandatory and resolves to the accepted frozen class-preservation/mapping rule for the exact source-binding set and lower subject. The lower binding itself is therefore the provenance-bearing class-mapping record; a copied `semantic_class`, source CARD summary, local ID match, or output label cannot substitute for it. A legitimate direct lower-entry path with no applicable class binding remains unclassified rather than manufacturing upstream lineage.
 
 ### Sequencing edge mappings
 
@@ -514,7 +517,7 @@ The three `core_to_vector_*_mapping_decisions[]` families bind Core result-deter
 
 The applicable mapping family may be omitted only when a frozen deterministic identity-scope reconstruction rule proves that family's mapping is lossless. IR hashes alone do not establish scope correspondence.
 
-MORPH must receive a specific identifiable Vector/Dataflow IR together with every still-applicable execution contract, extension requirement, machinery requirement, and sequencing relation. It must not be possible for a changed lower graph, ordering edge, profile ownership, or authorization requirement to hide behind the same Semantic IR/Core IR/MORPH identities.
+MORPH must receive a specific identifiable Vector/Dataflow IR together with every still-applicable execution contract, extension requirement, machinery requirement, epistemic class binding, and sequencing relation. It must not be possible for a changed lower graph, ordering edge, research-class lineage, profile ownership, or authorization requirement to hide behind the same Semantic IR/Core IR/MORPH identities.
 
 ## Conformance requirement
 
@@ -524,6 +527,7 @@ Representative tests should include:
 
 - scalar-only QSOL-CORE programs;
 - producer/consumer result-binding preservation plus rename/split/fusion mapping cardinalities;
+- epistemic-class binding preservation across unchanged subjects plus rename/split/fusion/relocation cases, with exact source-binding lineage and frozen mapping rules required for transformed subjects;
 - branches and calls;
 - multiple same-kind declared effects with distinct `declared_effect_id` values, including direct-Core declarations whose representation-qualified owner path has no Semantic CARD lineage;
 - effectful operations with single and multiple capability requirements;
@@ -541,7 +545,7 @@ Representative tests should include:
 - determinism/randomness contract preservation;
 - semantic-changing failure-policy mapping with pre-application transition authority/evidence and distinct target-binding evidence lineage;
 - declared-effect/runtime-attempt provenance identity and completion states;
-- unsupported constructs, sequencing mappings, or machinery requirements failing closed rather than bypassing the IR.
+- unsupported constructs, sequencing mappings, epistemic-class mappings, or machinery requirements failing closed rather than bypassing the IR.
 
 ## Performance principle
 
