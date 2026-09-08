@@ -180,6 +180,7 @@ It carries or represents:
 
 - scalar and vector operations;
 - result/data identities and dependencies;
+- representation-qualified epistemic class bindings plus their source-binding/mapping lineage;
 - control flow and calls;
 - explicit effects with declared effect IDs and complete capability sets;
 - protected machinery requirements/metadata where still material;
@@ -190,7 +191,7 @@ It carries or represents:
 
 A non-vectorizable operation is not permission to bypass this IR.
 
-Core→Vector/Dataflow provenance records not only result-binding correspondence but also contract-scope mappings for extension requirements, result determinism, numeric behavior, randomness, machinery requirements, and failure behavior whenever Core scopes are split, fused, renamed, relocated, or otherwise remapped into lower execution regions/units.
+Core→Vector/Dataflow provenance records not only result-binding correspondence and epistemic-class binding lineage but also contract-scope mappings for extension requirements, result determinism, numeric behavior, randomness, machinery requirements, and failure behavior whenever Core scopes or bound subjects are split, fused, renamed, relocated, or otherwise remapped into lower execution regions/units.
 
 For machinery mappings, typed scope correspondence alone is insufficient when one Core scope owns several requirements. Provenance therefore carries owner-qualified `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, with every local `machinery_requirement_id` paired to its complete representation-relative `owner_scope_path[]`. The Core/Vector scope arrays remain mapping context only, so split/fusion groups cannot pair repeated local IDs by position or shared source CARD summaries; the qualified references preserve which exact target selector and capability set reached each lower region.
 
@@ -292,7 +293,7 @@ external_tool_ids[]
 
 `effect_authorization_record_id` links the concrete attempt to the contextual required/granted/denied capability decision and policy that governed it. Execution-wide capability summaries do not substitute for this per-attempt authorization record.
 
-For every attempt marked `COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN`, the effect is known to have begun. `effect_begin_sequence_index` is therefore mandatory, the linked authorization must be `GRANTED` with a concrete `authorization_sequence_index` in the same frozen monotonic event-order domain, and `authorization_sequence_index < effect_begin_sequence_index` must hold. `NOT_STARTED` has no begin/end event and empty `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]`; no output may cite it through `effect_attempt_ids[]`. Generic `sequence_index` is not authorization-order proof.
+For every attempt marked `COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN`, the effect is known to have begun. `effect_begin_sequence_index` is therefore mandatory, the linked authorization must be `GRANTED` with a concrete `authorization_sequence_index` in the same frozen monotonic event-order domain, and `authorization_sequence_index < effect_begin_sequence_index` must hold. For every `COMPLETED`, `ABORTED_CLEAN`, or `PARTIAL` attempt, `effect_end_sequence_index` is also mandatory, is in that same event-order domain, and must satisfy `effect_begin_sequence_index < effect_end_sequence_index`. `UNKNOWN` may omit the end index only when the attempt's termination/completion boundary genuinely cannot be established; if a definite termination event is known, the end index is recorded. `NOT_STARTED` has no begin/end event and empty `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]`; no output may cite it through `effect_attempt_ids[]`. Generic `sequence_index` is neither authorization-order nor effect-boundary-order proof.
 
 `observable_output_ids[]` is the reciprocal side of output `effect_attempt_ids[]`: it identifies the exact outputs this concrete attempt produced, exposed, published, or materially supplied. `external_tool_ids[]`, where material, identifies the exact tool/service/model/prover used by this attempt, so retries or multiple tools invoked by one execution subject do not collapse into broad CARD attribution.
 
@@ -379,6 +380,7 @@ canonical Semantic-IR identity/hash when present
 stable run/JOB/DECK/CARD IDs when Semantic lineage exists
 identified deck_executions[] / card_executions[] when Semantic execution exists
 identified operation_executions[] for direct lower-entry execution
+representation-qualified epistemic_class_bindings[]
 representation-qualified effect_requirements[]
 representation-qualified machinery_requirements[]
 semantic-to-core spec + implementation identity when traversed
@@ -387,6 +389,7 @@ semantic-to-core extension/contract decisions[] when traversed
 QSOL-CORE IR hash
 core-to-vector/dataflow spec + implementation identity when traversed
 core-to-vector result_binding_map[] when traversed
+core-to-vector epistemic_class_bindings[] with source-binding/mapping lineage when traversed
 core-to-vector extension/contract-scope mapping decisions[] when traversed
 Vector/Dataflow IR hash when traversed
 MORPH/compiler identity
@@ -452,8 +455,13 @@ result_binding_ref?:
 artifact_hash
 artifact_location?
 semantic_class
+epistemic_class_binding_ids[]
 status
-evidence_status?
+evidence_status?:
+    evidence_class
+    status
+    evidence_rule_id
+    evidence_validation_id
 producer_execution_refs[]:
     representation_kind
     representation_identity
@@ -482,13 +490,15 @@ cache_reuse_record_ids[]?
 
 `producer_execution_refs[]` is the canonical nonempty concrete producer relation. Semantic CARD producers resolve through `card_executions[]`; a legitimate direct QSOL-CORE producer resolves through `operation_executions[]` to the actual `operation_execution_id`. `producer_card_ids[]` / `producer_card_execution_ids[]` are conditional verified Semantic-lineage projections only and are absent rather than fabricated when no Semantic ancestry exists.
 
-When present, `evidence_status` is class-discriminated, conceptually carrying `evidence_class`, evidence `status`, optional `evidence_rule_id`, and optional `evidence_validation_id`. It must be compatible with the output's `semantic_class` and any explicit evidence transition. For every non-class-preserving transition, both IDs become mandatory and must resolve to the accepted content-bound rule plus passing subject-bound evidence for this exact output/artifact/producers/context before publication. Generic output `status` remains an execution/artifact state and cannot by itself promote TEST to VALIDATION or VALIDATION to PROOF.
+`epistemic_class_binding_ids[]` is always explicit. Independently derive the complete applicable representation-qualified class-binding set from `producer_execution_refs[]`, the entered representation, and every traversed class-preservation mapping, then require duplicate-free exact-set equality. A classified output must have a nonempty applicable set that justifies its exact `semantic_class`. Legitimate lower-entry output with no applicable class binding uses `semantic_class = UNCLASSIFIED` (or frozen no-claim equivalent), an empty binding array, and no `evidence_status`; operational success cannot manufacture TEST/VALIDATION/PROOF provenance.
+
+`evidence_status` is conditionally present by class, but its rule/evidence IDs are not optional once the output is evidence-bearing. Every TEST, VALIDATION, PROOF, or frozen evidence-bearing class requires `evidence_status`, `evidence_rule_id`, and `evidence_validation_id`, including class-preserving TEST→TEST, VALIDATION→VALIDATION, and PROOF→PROOF claims. For class preservation, the rule resolves to accepted content-bound `EVIDENCE_STATUS` authority and the validation ID resolves to passing output-bound substantive evidence for this exact artifact, class bindings, concrete producers, material inputs/tools/evidence identities, and claim-publication event before publication. For a non-class-preserving transition, the rule instead resolves to accepted `EPISTEMIC_TRANSITION` authority and the same output-bound validation additionally proves the exact source-class-to-target-class transition. Generic output `status` remains an execution/artifact state and cannot itself create or preserve an evidence claim.
 
 `input_ids[]` identifies the exact immutable input records that materially contributed to the output under the frozen provenance-dependency rule. It is not a copy of all inputs available during the run.
 
 `effect_attempt_ids[]`, when applicable, identifies the concrete authorized effect attempts that produced, exposed, or materially supplied the output. Each referenced attempt reciprocally names the output in `observable_output_ids[]` and must have begun; `NOT_STARTED` is never a valid output producer/exposer. `external_tool_ids[]` is always an explicit array, empty when no material tool contributed; material tools carry explicit attempt/output subject arrays and reciprocal links. `machinery_use_record_ids[]` likewise names the exact protected-use occurrences that produced or exposed the output and reciprocates `machinery_use_records[].output_ids[]`. These joins prevent retries, repeated protected launches, or multiple tools invoked by one execution subject from collapsing into ambiguous attribution.
 
-`backend_selection_scope_ids[]` identifies the machinery-selection scope. `generated_artifact_ids[]`, when applicable, identifies the **exact executable/kernel/bytecode artifact that actually ran or supplied the result**. This distinction matters when reference and optimized artifacts share one backend-selection scope.
+`backend_selection_scope_ids[]` is a normative duplicate-free exact-set attribution. Independently derive every applicable backend-selection scope from the concrete `producer_execution_refs[]`, their representation-qualified governed scopes, final executable selection decisions, and any material interpreted/reference/backend execution relation used by those producers. Require the recorded IDs to equal that complete producer-derived set: an unrelated scope is invalid, and omitting a producer's actual scope is equally invalid. This rule applies even when there is no generated artifact or protected-machinery use record from which a consumer might otherwise infer the scope. `generated_artifact_ids[]`, when applicable, identifies the **exact executable/kernel/bytecode artifact that actually ran or supplied the result**; it complements rather than replaces backend-scope attribution.
 
 `failure_behavior_binding_ids[]` resolves to the exact identified failure-policy records that governed whether the producer path continued, failed, recovered, or compensated. Generic source-scope IDs are not substitutes for the stable binding-record keys.
 
