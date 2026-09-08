@@ -423,6 +423,7 @@ vector_dataflow_scope_refs[]
 source_card_ids[]
 mapping_rule_id
 backend_unit_ids[]?
+transition_decision_id?
 transition_authorized_by?
 transition_evidence_id?
 ```
@@ -436,7 +437,9 @@ This typed-endpoint rule applies to:
 - `core_to_vector_randomness_mapping_decisions[]`;
 - `failure_behavior_mapping_decisions[]`.
 
-For result-determinism or randomness mappings, whenever requested and effective semantics differ, both `transition_authorized_by` and `transition_evidence_id` are mandatory. The authority must resolve to the accepted frozen `CONTRACT_TRANSITION` rule and the evidence must resolve to passing, subject-bound validation for the exact mapped scope and requested/effective pair. Validation must precede activation of the changed lower contract in the shared event-order domain. Naming a rule without its passing applicability evidence is not sufficient; the optional notation permits absence only when no semantic transition occurred.
+For result-determinism, randomness, **or failure-behavior** mappings, whenever requested and effective semantics differ, `transition_decision_id`, `transition_authorized_by`, and `transition_evidence_id` are mandatory. The decision ID identifies the exact Core→Vector/Dataflow semantic-transition decision. The authority must resolve to the accepted frozen `CONTRACT_TRANSITION` rule and the evidence must resolve to passing validation whose singular subject is that exact lowering transition decision, binding the requested/effective pair, complete owner-qualified Core/lower scope endpoints, and active context. Validation must precede activation of the changed lower contract in the shared event-order domain. Naming a rule without its passing applicability evidence is not sufficient; the optional notation permits absence only when no semantic transition occurred.
+
+A resulting result-determinism scope, randomness scope, or failure-behavior binding receives its own subject-bound transition evidence rather than reusing the lowering decision's evidence ID. That target evidence preserves the same applicable transition authority and includes the lowering decision's `transition_evidence_id` in `related_evidence_ids[]`. One-to-many mappings therefore create distinct target-scope evidence records that may reference the same lowering-decision evidence; a fused target cites every applicable lowering evidence record. This is the same evidence-lineage contract used at Semantic→Core and defined canonically in `TRACE-AND-PROVENANCE.md`.
 
 `machinery_requirement_mapping_decisions[]` additionally identifies the stable machinery-requirement records on both sides of the lowering boundary rather than relying on a shared scope or source CARDs:
 
@@ -492,6 +495,7 @@ Representative tests should include:
 - machinery-requirement identity preservation/split/fusion cases where one Core scope owns multiple requirements with different capability sets;
 - machinery and failure-behavior mapping cases with overlapping textual scope IDs in different namespaces;
 - determinism/randomness contract preservation;
+- semantic-changing failure-policy mapping with pre-application transition authority/evidence and distinct target-binding evidence lineage;
 - declared-effect/runtime-attempt provenance identity and completion states;
 - unsupported constructs or machinery requirements failing closed rather than bypassing the IR.
 
