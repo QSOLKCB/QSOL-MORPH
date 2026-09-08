@@ -22,6 +22,7 @@ A complete trace should be able to answer:
 - how QSOL-CORE lowered into the mandatory Vector/Dataflow IR when that boundary was traversed;
 - how result bindings were preserved, renamed, split, fused, or otherwise mapped;
 - how extension, machinery, result-determinism, numeric, randomness, and failure-behavior scopes mapped through both mandatory lowerings;
+- how every execution-relevant qualifier was preserved or consumed, under which frozen rule, and what exact Core facts or constraints represent its validated effect;
 - which machinery-selection decisions were considered, denied, superseded, or finally used;
 - which protected machinery requirements applied and whether authorization completed before protected use began;
 - which protected effects were declared for each concrete execution subject, authorized, attempted, completed, aborted, partially observed, or legitimately not attempted;
@@ -258,6 +259,50 @@ Each nonempty `source_requirement_refs[]` entry is a composite reference to one 
 Each nonempty `governing_scope_refs[]` identifies the actual representation-relative scope path(s) and IR version in which the resolution interprets syntax, adapters, effects, or lowering hooks. Source ownership remains separately preserved. Validate each full path against the hash-bound representation and reject missing, truncated, reordered, ambiguous, or owner-mismatched paths. Then validate that the resolved profile/version satisfies every referenced source requirement, that any required contract identity matches, and that the identified implementation components implement that exact contract. Unknown versions, mismatched hashes, missing components, unresolved owners, or an unestablished requirement-to-resolution association fail closed before the extension is used.
 
 Different resolutions of one source range have different resolution identities and retain their actual governed scopes. Several requirements may share a resolution only when each one is explicitly referenced and satisfied. Both extension-lowering mapping families reference applicable `resolved_extension_ids[]`; a permitted identity-mapping reconstruction may omit a redundant mapping record, never the exact material resolution or its source/owner association. A frozen reconstruction rule must recover the same requirement, resolution, and governed-scope relation without guessing from a profile name.
+
+### Qualifier lowering decisions
+
+Execution-relevant qualifiers are not opaque lowering metadata. Every qualifier that is consumed, transformed, relocated, or otherwise represented by something other than a verbatim lower qualifier uses an identified decision record:
+
+```text
+qualifier_lowering_decisions[]:
+    qualifier_lowering_decision_id
+    source_qualifier_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        qualifier_key_path[]
+        qualifier_value_hash
+    disposition                 # PRESERVED | CONSUMED
+    core_scope_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+    resulting_core_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        result_kind
+        result_key_or_id
+        result_value_hash?
+    resolved_extension_ids[]?
+    lowering_rule_id?
+    validation_evidence_id?
+```
+
+`qualifier_lowering_decision_id` is the stable decision identity. `source_qualifier_ref` resolves the exact qualifier in the hash-bound Semantic IR by representation identity, complete owning path, deterministic key/path inside `qualifiers{}`, and canonical value hash. The full qualifier value must be obtainable from the hash-bound Semantic IR or an equivalent content-bound reference; the hash is not permission to ignore an unavailable value. Target/adapter/placement/tuning/extension-control qualifiers with the same key text under different CARD/DECK/JOB owners remain distinct because their complete owner paths differ.
+
+`core_scope_refs[]` identifies every Core scope whose meaning, machinery constraints, authorization requirements, or lowering behavior is affected by this decision. `resulting_core_refs[]` identifies the exact lower facts that represent the qualifier's effect, such as preserved lower qualifier metadata, target constraints, machinery requirements, adapter/extension bindings, placement constraints, tuning constraints, or another frozen Core fact/decision. Each result ref resolves in `core_ir_hash` by complete owner path plus its frozen kind/key/ID and, where the value itself is material, its canonical value hash. A Core IR hash alone, a broad target label, or source CARD summary cannot show what happened to the qualifier.
+
+For `disposition = PRESERVED`, the resulting Core refs must prove exact value-preserving representation or an explicitly frozen deterministic identity reconstruction. No opaque decision entry is needed merely to restate a qualifier that remains byte/semantics-identical under the frozen representation, but if a decision record is emitted it must still resolve consistently.
+
+For `disposition = CONSUMED`, or for any non-verbatim transformation whose effect can change machinery, authorization, placement, tuning, extension behavior, legality, or execution semantics, both `lowering_rule_id` and `validation_evidence_id` are mandatory. `lowering_rule_id` resolves to an accepted versioned/content-bound `rule_records[]` entry of kind `QUALIFIER_LOWERING`. `validation_evidence_id` resolves to passing `validation_evidence[]` with `subject_kind = QUALIFIER_LOWERING_DECISION` and `subject_id = qualifier_lowering_decision_id`. Its evaluated context binds the exact source qualifier/value, `semantic_ir_hash`, `core_ir_hash`, complete target scope/result refs, applicable resolved extension identities/contracts, active execution contracts, and any machinery/capability implications needed by the rule.
+
+The rule must explicitly permit consuming or transforming this qualifier into those exact Core facts under that context. Validation must complete before the transformed lower fact is applied or relied upon in the shared event-order domain. A generic extension presence record, backend choice, post-lowering success, or unvalidated rule name does not authorize qualifier consumption. If an extension owns/interprets the qualifier, `resolved_extension_ids[]` is required and must resolve to the exact profile/version/content/contract records that authorize the rule's interpretation.
+
+Unsupported or unverifiable execution-relevant qualifiers fail lowering. They must not be silently erased, defaulted, or converted into an unrelated Core fact. One source qualifier may legitimately produce several Core facts only when all resulting refs are explicit and the accepted rule/evidence validates that exact relation; several source qualifiers must not be collapsed into one decision unless a frozen rule defines and proves that composition without losing ownership or value identity.
 
 ### Cardinality-aware result-binding maps
 
@@ -575,7 +620,7 @@ These are exact canonical set equalities, not subset containment or agreement be
 
 Every referenced requirement must apply to this record's exact backend-selection decision, target, source/owning scope, and policy context. A grant for another requirement, resource, candidate, or invocation context does not count merely because it uses the same capability names. The record's selection decision must resolve to its recorded selection scope, and source CARD associations must agree with the canonical ownership and validated lowering relation.
 
-Before accepting a protected use, independently derive the **complete applicable requirement set** from the hash-bound canonical program, the actual selection decision/target, the concrete participating CARD executions or genuine pre-CARD scope, and the frozen scope/extension/lowering applicability rules. Do not derive completeness solely from the requirement IDs or authorization IDs that the producer chose to list. Every applicable JOB-, DECK-, CARD-, and inherited/lowered machinery requirement must be accounted for.
+Before accepting a protected use, independently derive the **complete applicable requirement set** from the hash-bound canonical program or lower representation, the actual selection decision/target, the concrete participating representation-qualified execution subjects or genuine pre-execution initiating scope, and the frozen scope/extension/lowering applicability rules. Do not derive completeness solely from the requirement IDs or authorization IDs that the producer chose to list. Every applicable JOB-, DECK-, CARD-, lower-operation-, inherited-, and lowered machinery requirement must be accounted for under the actual entry/lineage path.
 
 The union of requirement identities covered by the use's linked, context-compatible successful authorization records must equal that independently derived set, with no missing or unrelated requirement. For each requirement, the covering authorization must satisfy its entire canonical capability set; grants from unrelated records or contexts cannot be pooled to repair a partial decision. Several requirements sharing one capability still retain their individual identity and policy applicability. A grouping of requirements is valid only when the same context actually governs every member and the record evaluates their exact canonical union.
 
@@ -590,8 +635,17 @@ machinery_use_records[]:
     backend_selection_decision_id
     backend_unit_id?
     generated_artifact_ids[]
-    source_card_ids[]
-    card_execution_ids[]
+    execution_subject_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        subject_kind
+        subject_id
+        execution_id
+    source_card_ids[]?
+    card_execution_ids[]?
     initiating_scope_ref?
     machinery_authorization_record_ids[]
     output_ids[]
@@ -599,13 +653,15 @@ machinery_use_records[]:
     protected_use_stop_sequence_index?
 ```
 
-`card_execution_ids[]` identifies the concrete CARD invocations participating in this use, not all invocations of the source CARD or backend unit. It is nonempty for CARD-governed work, and every ID resolves through `card_executions[]` to the corresponding canonical CARD and DECK execution in this run. A repeated launch, retry, or loop iteration receives a distinct use record with the correct concrete invocation IDs; an event index alone is not this join.
+`execution_subject_refs[]` is the canonical concrete participant relation for this protected use. For execution-governed machinery work it is nonempty and every entry uses the shared representation-qualified `execution_subject_ref`. A Semantic CARD participant resolves through `card_executions[]`; a direct QSOL-CORE participant uses `subject_kind = CORE_OPERATION` and resolves through `operation_executions[]` to its exact `operation_execution_id` in the hash-bound Core representation. Future frozen lower representations use their own explicit subject kinds. A repeated launch, retry, loop iteration, call, or repeated Core operation invocation receives the correct concrete execution refs; an event index, backend unit, local operation/CARD ID, or source summary is not this join.
+
+`source_card_ids[]` and `card_execution_ids[]` are conditional Semantic-lineage projections. When verified Semantic CARD participants exist, these arrays agree exactly with the CARD-backed subset of `execution_subject_refs[]` and resolve through the retained lineage. On a legitimate direct Core run without Semantic lineage they are absent rather than fabricated or treated as empty substitutes for the actual Core execution subjects. A use may include both lower and retained Semantic references only when the frozen lineage/execution mapping proves that relation without double-counting one occurrence.
 
 `generated_artifact_ids[]` identifies the exact generated executable, kernel, bytecode, or equivalent artifact bytes actually launched or consumed by this protected-use occurrence. Every reference resolves to `generated_artifacts[]` and must be compatible with this use's backend-selection scope, concrete selection decision, and backend unit. The array is nonempty whenever protected use executes generated code, including a use that later fails before producing any output. It is empty only when the protected operation genuinely consumes no generated artifact. `backend_unit_id`, selection scope, output attribution, or the scope's final decision cannot reconstruct this identity when reference and optimized variants coexist.
 
-`output_ids[]` identifies all outputs materially produced or exposed by this exact protected-use event. Every listed output reciprocally contains this `machinery_use_record_id` in `outputs[].machinery_use_record_ids[]`, and every output-side machinery-use reference resolves back to a use record whose `output_ids[]` contains that output. The relation is occurrence-specific: matching CARD execution, backend-selection scope, generated artifact, or authorization records cannot substitute for the exact use-record join when the same protected machinery is launched more than once. A protected use that produces or exposes no output records an empty array rather than borrowing another use's output.
+`output_ids[]` identifies all outputs materially produced or exposed by this exact protected-use event. Every listed output reciprocally contains this `machinery_use_record_id` in `outputs[].machinery_use_record_ids[]`, and every output-side machinery-use reference resolves back to a use record whose `output_ids[]` contains that output. The relation is occurrence-specific: matching execution subject, backend-selection scope, generated artifact, or authorization records cannot substitute for the exact use-record join when the same protected machinery is launched more than once. A protected use that produces or exposes no output records an empty array rather than borrowing another use's output.
 
-For genuine pre-CARD machinery setup only, the CARD-execution array may be empty and `initiating_scope_ref` is required instead. This is a typed `{ scope_kind, scope_id }` reference to the actual aggregate RUN or DECK_EXECUTION that initiated setup, resolving to `run_id` or `deck_execution_id`. It must not invent a CARD execution. A use serving several CARD executions must list the actual participating executions under the frozen lowering/execution mapping.
+For genuine pre-execution RUN/DECK machinery setup only, `execution_subject_refs[]` may be empty and `initiating_scope_ref` is required instead. This is a typed `{ scope_kind, scope_id }` reference to the actual aggregate RUN or DECK_EXECUTION that initiated setup, resolving to `run_id` or `deck_execution_id`. It must not invent a CARD or Core operation execution. A direct QSOL-CORE operation performing protected work is **not** pre-execution setup and therefore must use its real Core execution subject. A use serving several execution subjects must list the actual participating subjects under the frozen lowering/execution mapping.
 
 Authorization and use indices live in one frozen monotonic event-order domain. Every applicable successful machinery authorization satisfies:
 
@@ -737,7 +793,7 @@ output
 
 ## Referenced rules and validation evidence
 
-A rule name or a producer's success label is not evidence of permission. Contract transitions, explicit skips, verified cache substitutions, backend fallback, epistemic transitions, and optimization acceptance use shared, resolvable rule and evidence records:
+A rule name or a producer's success label is not evidence of permission. Contract transitions, qualifier consumption, explicit skips, verified cache substitutions, backend fallback, epistemic transitions, and optimization acceptance use shared, resolvable rule and evidence records:
 
 ```text
 rule_records[]:
@@ -766,15 +822,15 @@ validation_evidence[]:
     evidence_location?
 ```
 
-Candidate `rule_kind` values include `CONTRACT_TRANSITION`, `EFFECT_SKIP`, `CACHE_SUBSTITUTION`, `BACKEND_FALLBACK`, `FAILURE_BEHAVIOR_MAPPING`, `EPISTEMIC_TRANSITION`, and `OPTIMIZATION_LEGALITY`. `authority_kind` distinguishes a frozen source/specification authority from an execution policy. The authority ID and version/content identity must resolve to the authority actually accepted for this run; a backend cannot authorize itself by inventing a rule record. Rule content must be embedded or retrievable through a content-bound location, and its hash must verify. The rule definition includes its permitted operation, scope, and applicability conditions. A record of kind `FAILURE_BEHAVIOR_MAPPING` permits only a verified representation change, not a change in failure semantics.
+Candidate `rule_kind` values include `CONTRACT_TRANSITION`, `QUALIFIER_LOWERING`, `EFFECT_SKIP`, `CACHE_SUBSTITUTION`, `BACKEND_FALLBACK`, `FAILURE_BEHAVIOR_MAPPING`, `EPISTEMIC_TRANSITION`, and `OPTIMIZATION_LEGALITY`. `authority_kind` distinguishes a frozen source/specification authority from an execution policy. The authority ID and version/content identity must resolve to the authority actually accepted for this run; a backend cannot authorize itself by inventing a rule record. Rule content must be embedded or retrievable through a content-bound location, and its hash must verify. The rule definition includes its permitted operation, scope, and applicability conditions. A record of kind `FAILURE_BEHAVIOR_MAPPING` permits only a verified representation change, not a change in failure semantics. A `QUALIFIER_LOWERING` rule permits only the exact qualifier preservation/consumption/transformation relation its content and validated context define; it is not generic permission to drop qualifiers.
 
-`subject_kind` defines the target namespace: `LOWERING_TRANSITION_DECISION`, `RESULT_DETERMINISM_SCOPE`, `RANDOMNESS_SCOPE`, `FAILURE_BEHAVIOR_BINDING`, `CARD_EXECUTION`, `OPERATION_EXECUTION`, `EFFECT_NON_ATTEMPT_RECORD`, `CACHE_REUSE_RECORD`, `BACKEND_SELECTION_DECISION`, `OUTPUT`, or `OPTIMIZATION_RECORD` resolves to that ledger's stable record key. `LOWERING_TRANSITION_DECISION` resolves to the stable `transition_decision_id` on a first- or second-lowering semantic-transition record. The evidence must name the same rule as the subject's rule reference and bind the exact subject and evaluated context, not another run, invocation, contract, cache entry, target decision, output, IR pair, or downstream execution scope. `verifier_identity` identifies the verification method and its immutable/versioned implementation.
+`subject_kind` defines the target namespace: `LOWERING_TRANSITION_DECISION`, `QUALIFIER_LOWERING_DECISION`, `RESULT_DETERMINISM_SCOPE`, `RANDOMNESS_SCOPE`, `FAILURE_BEHAVIOR_BINDING`, `CARD_EXECUTION`, `OPERATION_EXECUTION`, `EFFECT_NON_ATTEMPT_RECORD`, `CACHE_REUSE_RECORD`, `BACKEND_SELECTION_DECISION`, `OUTPUT`, or `OPTIMIZATION_RECORD` resolves to that ledger's stable record key. `LOWERING_TRANSITION_DECISION` resolves to the stable `transition_decision_id` on a first- or second-lowering semantic-transition record. `QUALIFIER_LOWERING_DECISION` resolves to `qualifier_lowering_decision_id`. The evidence must name the same rule as the subject's rule reference and bind the exact subject and evaluated context, not another run, invocation, contract, cache entry, target decision, output, IR pair, qualifier, or downstream execution scope. `verifier_identity` identifies the verification method and its immutable/versioned implementation.
 
 `related_evidence_ids[]`, when present, is an ordered duplicate-free provenance relation to other validation evidence whose facts are material inputs to this subject's validation. Every referenced evidence ID resolves in the same trace closure, has independently valid rule/subject/context/content/order, and precedes the dependent evidence's application where that predecessor is required for authorization. A related evidence record never changes the dependent evidence's singular `subject_kind`/`subject_id` and cannot substitute for evidence bound directly to the dependent subject. The relation is acyclic. In particular, an execution-scope transition created by lowering uses its own subject-bound evidence and cites the applicable lowering-transition evidence through this field; it does not reuse the lowering evidence ID as though both records had one subject.
 
 Evidence content must likewise be embedded or retrievable and hash-verifiable. It contains the evaluated context and checks needed to establish applicability; `evaluated_context_hash` binds that context canonically. An `outcome = PASS` string alone is insufficient. Validation must establish that the evidence supports the rule under the current source, policy, inputs, and execution contracts. Unknown IDs, unavailable definitions, wrong kinds, stale versions, mismatched context, and failed or unverifiable evidence fail closed.
 
-For an applied transition, skip, cache substitution, fallback, or optimized-variant acceptance, `application_sequence_index` is required and denotes the actual subject's activation, skip, substitution, selection, claim-publication, or acceptance event. It shares the frozen monotonic event-order domain with `validation_sequence_index`, which must precede it. A rejected decision has no application event. Reporting a rule or validating it after application cannot retroactively authorize behavior.
+For an applied transition, qualifier consumption/transformation, skip, cache substitution, fallback, or optimized-variant acceptance, `application_sequence_index` is required and denotes the actual subject's activation, lower-fact application, skip, substitution, selection, claim-publication, or acceptance event. It shares the frozen monotonic event-order domain with `validation_sequence_index`, which must precede it. A rejected decision has no application event. Reporting a rule or validating it after application cannot retroactively authorize behavior.
 
 These records are provenance about operational permission and checks, not TEST/VALIDATION/PROOF research outputs and not capability grants. Referencing them never bypasses effect or protected-machinery authorization. An epistemic transition requires its specific rule's substantive research evidence in addition to the operational record that verifies it; ordinary operational authorization cannot manufacture that evidence.
 
@@ -1462,7 +1518,7 @@ The primary failure resolves through `failure_records[]` to an always-present ty
 
 Effect-attempt completion is independent of CARD/lower-operation success. A completed process effect may coexist with a failed execution subject if the process completed and returned a non-success status under the active contract.
 
-Protected machinery authorization outcomes are not enough by themselves. If protected machinery actually began, `machinery_use_records[]` preserve the concrete use, its CARD-execution or pre-CARD initiating-scope relation, complete canonical requirement coverage, and ordering evidence.
+Protected machinery authorization outcomes are not enough by themselves. If protected machinery actually began, `machinery_use_records[]` preserve the concrete use, its representation-qualified execution-subject relation or genuine pre-execution initiating-scope relation, complete canonical requirement coverage, generated artifact identity where applicable, and ordering evidence. A direct Core machinery use must remain joined to its actual Core operation execution even when it fails before producing an output.
 
 ## Provenance validation rules
 
@@ -1476,8 +1532,12 @@ At minimum, a future validator should reject or fail closed when:
 - a protected machinery requirement disappears before MORPH;
 - a machinery authorization uses a bare or incompletely qualified requirement ID instead of an exact absolute-owner-path-qualified `machinery_requirement_refs[]` entry, its required set differs from the exact canonical union of those resolved requirements, or a successful grant does not cover that exact set;
 - a machinery use omits an independently applicable canonical requirement or uses grants for another target, scope, or policy context, even when its listed records and event ordering agree;
+- an execution-governed machinery use cannot be joined to its concrete representation-qualified `execution_subject_refs[]`, including the actual `operation_execution_id` for direct Core work;
+- conditional machinery-use CARD arrays disagree with verified Semantic lineage or are fabricated for a lower-entry use;
 - an output that materially depends on protected machinery cannot be joined reciprocally to the exact `machinery_use_record_id` occurrence that produced or exposed it;
 - a machinery-requirement mapping cannot identify the exact source and lower requirement records at either lowering boundary when multiple requirements share a scope;
+- an execution-relevant qualifier is consumed, transformed, relocated, or otherwise non-verbatim without an identified `qualifier_lowering_decision_id`, exact owner-qualified source qualifier/value, resolvable resulting Core scopes/facts, accepted applicable `QUALIFIER_LOWERING` rule, and passing subject-bound pre-application evidence;
+- a qualifier-lowering decision cites an extension-owned interpretation without the exact resolved extension identity/contract, or a rule/evidence pair for a different qualifier/value/scope;
 - a result-binding map cannot represent the actual split/fusion cardinality;
 - a result-binding endpoint lacks its complete typed owner path or cannot resolve uniquely within the correct hash-bound representation;
 - a sequencing endpoint loses its kind, owner path, stable ID, or direction during serialization/lowering;
@@ -1494,8 +1554,8 @@ At minimum, a future validator should reject or fail closed when:
 - a failed CARD/DECK/lower-operation outcome lacks its exact `failure_record_id` or substitutes matching class/stage summaries;
 - a concrete output cannot be joined to at least one representation-qualified producer execution subject;
 - Semantic producer CARD arrays are required by retained lineage but disagree with the producer execution refs, or are fabricated for a direct lower-entry output;
-- a CARD-governed machinery use cannot be joined to its concrete participating CARD executions;
-- a genuine pre-CARD machinery use fabricates CARD executions or omits its typed initiating runtime scope;
+- a genuine pre-execution machinery setup fabricates execution subjects or omits its typed initiating runtime scope;
+- a direct Core protected machinery use is misclassified as pre-execution setup instead of naming its operation execution;
 - an EXTERNAL-ENTROPY randomness scope cannot resolve to the exact protected RANDOM acquisition attempt(s), and to immutable entropy input identity where required by the audit/replay contract;
 - an effect attempt or non-attempt cannot be joined to its representation-qualified concrete execution subject;
 - an effect attempt/authorization for direct QSOL-CORE execution requires or fabricates a Semantic `card_id` / `card_execution_id` instead of resolving a Core operation execution;
@@ -1537,7 +1597,9 @@ These are documentation acceptance cases for the applicable roadmap gates, not a
 | Case | Accept only when | Reject mutations |
 | --- | --- | --- |
 | Direct Core protected effect | `input_representation = QSOL_CORE`; the effect declaration resolves in the hash-bound Core IR; authorization and attempt use the same Core `execution_subject_ref` / `operation_execution_id`; all required capabilities are granted before begin; Semantic CARD fields are absent unless independently retained as verified lineage. | Fabricated `card_id`/`card_execution_id`; missing Core operation execution; declaration resolved through a nonexistent Semantic IR; local operation ID without representation/owner path; authorization for another Core invocation. |
+| Direct Core protected machinery use | `execution_subject_refs[]` contains the actual Core `CORE_OPERATION` / `operation_execution_id`, applicable requirements are derived for that subject/selection context, and all authorizations precede use. | Empty execution subjects treated as pre-execution setup; fabricated CARD execution; another Core invocation's subject; scope/event index used as the concrete join. |
 | Direct Core output | A nonempty `producer_execution_refs[]` entry resolves to the actual Core `operation_execution_id`; complete applicable contract scopes are derived from that Core producer and retained mappings; Semantic producer arrays are absent unless verified lineage exists. | Empty producer refs; fabricated CARD producers; treating absent upstream Semantic history as an error; deriving scopes only from nonexistent CARD executions. |
+| Qualifier consumption | The exact owner-qualified source qualifier/value resolves in Semantic IR; the decision identifies every material Core scope/fact; an accepted `QUALIFIER_LOWERING` rule and passing subject-bound evidence validate that exact effect before application; extension-owned interpretation resolves its exact extension contract. | Opaque `qualifier_lowering_decisions[]` entry; dropped/defaulted qualifier; wrong value/owner/Core fact; rule without evidence; evidence for another qualifier; validation after lower fact application. |
 | Multi-capability effect | Canonical declaration, trace declaration, attempt, and authorization all require `{AI_MODEL, NETWORK}`; every required capability is granted to the same attempt before begin. | Copy only `AI_MODEL` into both runtime records; truncate the trace declaration too; substitute another declaration or retry; omit or deny `NETWORK`. |
 | Failure-policy change | An accepted CONTRACT_TRANSITION rule and passing lowering-decision evidence authorize the exact fail-stop-to-retry transition before activation; the resulting `FAILURE_BEHAVIOR_BINDING` has distinct subject-bound evidence that cites the lowering evidence through `related_evidence_ids[]`. A representation-only rename instead proves unchanged semantics under its mapping rule. | Missing/stale rule; late evidence; same evidence ID reused for lowering and binding; target evidence omits required lowering lineage; evidence for another decision/binding; continue disguised as representation mapping; requested/effective labels whose content changed. |
 | CARD not reached | A typed controlling decision, blocking failure, or verified skip actually prevents this exact invocation and its effect under the active contract. | No cause; cause from another loop iteration; handled nonblocking failure; dangling/circular cause; unverified parent skip. |
@@ -1552,7 +1614,7 @@ These are documentation acceptance cases for the applicable roadmap gates, not a
 | Qualified lower bindings | Each side of both lowering maps resolves its full owner path and binding ID in the correct input/output IR; a split names both distinct scoped `v0` bindings and a fusion retains each qualified source. | Keep local `v0` only; omit an enclosing scope; substitute a different IR; sort names and infer owners; duplicate a fully qualified binding; use an identity exception that cannot reconstruct ownership. |
 | Concrete runtime input consumers and acquisition | Repeated CARD/Core operation invocations retain distinct captured input identities, exact `consumer_execution_refs[]`, and actual acquisition attempt/input links, including when an invocation fails with no output. | Keep only canonical source CARD IDs; swap consumers or acquisition attempts; collapse independent equal-content captures without occurrence mapping; use an output as the only join; fabricate inputs for denied/unstarted reads. |
 | Absolute owner-path machinery authorization | Each authorization names every requirement by the complete ordered JOB/DECK/CARD owner path plus local requirement ID, resolves that tuple uniquely in the canonical input, and validates the exact canonical capability union. Repeated CARD/requirement IDs under sibling DECKs remain distinct. | Bare local requirement ID; immediate owner only; missing/swapped ancestor; infer owner from source CARDs; confuse `D1/CARD 7/gpu` with `D2/CARD 7/gpu`; owner-mismatched lowering copy; first-match lookup. |
-| Repeated protected-use output attribution | Two protected launches under one CARD execution/scope retain distinct `machinery_use_record_id` values and reciprocal use/output links, so each output resolves to the exact launch that produced or exposed it. | Infer use from CARD execution/scope/artifact alone; attach both outputs to both launches; omit the use-side or output-side reciprocal link; borrow another launch's authorization/use occurrence. |
+| Repeated protected-use output attribution | Two protected launches under one concrete execution subject/scope retain distinct `machinery_use_record_id` values and reciprocal use/output links, so each output resolves to the exact launch that produced or exposed it. | Infer use from CARD/Core execution/scope/artifact alone; attach both outputs to both launches; omit the use-side or output-side reciprocal link; borrow another launch's authorization/use occurrence. |
 | Material external-tool attribution | Every material tool record has at least one concrete effect-attempt/output subject and reciprocal `external_tool_ids[]` links; retries using different tool/model versions remain separately attributable. | Tool floats only at `source_card_ids[]`; omit both subject arrays; swap retry/output subjects; one-sided attempt/output link; equal endpoint/name used as attribution. |
 | NOT_STARTED effect attempt | A denied/unstarted attempt has no begin/end event, acquired inputs, observable outputs, or material external tools, and no output cites it as a producer/exposer. | Nonempty `observable_output_ids[]`; output reciprocally cites the unstarted attempt; acquired input or tool attribution despite no begin event. |
 
