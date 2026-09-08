@@ -307,7 +307,9 @@ machinery_use_records[]:
 
 `execution_subject_refs[]` is the canonical execution-governed identity for protected machinery use. Semantic CARD use records resolve those references to `card_executions[]`; direct QSOL-CORE use records resolve them to the exact `CORE_OPERATION` / `operation_execution_id` in `operation_executions[]`. `source_card_ids[]` and `card_execution_ids[]`, when present, are verified Semantic-lineage projections of the CARD-backed subset and must agree with the subject references; they are absent on a direct Core run with no Semantic lineage. Repeated uses under one backend scope/decision cannot collapse retries, iterations, or repeated Core-operation invocations into canonical source IDs.
 
-Genuine pre-execution RUN/DECK setup that is not governed by any CARD or lower operation may use an empty `execution_subject_refs[]` only with `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. A direct Core operation is not pre-CARD setup and must use its actual operation execution subject. Shared uses list every concrete participating execution subject under the frozen execution mapping. `generated_artifact_ids[]` names the exact generated code artifact(s) actually executed by the use and remains populated even when the use fails before producing an output; every ID must match the use's backend scope/decision/unit. `output_ids[]` names every output materially produced or exposed by this exact protected-use occurrence and is reciprocal with `outputs[].machinery_use_record_ids[]`; matching CARD/operation identity, backend scope, or generated artifact is not an occurrence-level substitute.
+Every protected use must reference the selection scope's `final_selection_decision_id`, and that decision must resolve within the scope as final/executable under the frozen selection contract. A denied, rejected, superseded, or merely considered predecessor cannot be used as the protected-use decision. Linked machinery authorizations and the generated artifact actually launched must govern/match that same final decision. Earlier candidate artifacts may remain in provenance, but their existence does not make them executable after a fallback becomes final.
+
+Genuine pre-execution RUN/DECK setup that is not governed by any CARD or lower operation may use an empty `execution_subject_refs[]` only with `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. A direct Core operation is not pre-CARD setup and must use its actual operation execution subject. Shared uses list every concrete participating execution subject under the frozen execution mapping. `generated_artifact_ids[]` names the exact generated code artifact(s) actually executed by the use and remains populated even when the use fails before producing an output; every ID must match the use's backend scope/final decision/unit. `output_ids[]` names every output materially produced or exposed by this exact protected-use occurrence and is reciprocal with `outputs[].machinery_use_record_ids[]`; matching CARD/operation identity, backend scope, or generated artifact is not an occurrence-level substitute.
 
 Authorization and protected-use indices belong to one frozen monotonic event-order domain. Every protected use references all applicable successful authorization records, each satisfying:
 
@@ -315,7 +317,7 @@ Authorization and protected-use indices belong to one frozen monotonic event-ord
 authorization_sequence_index < protected_use_start_sequence_index
 ```
 
-Denied machinery has no protected-use start record.
+Denied machinery has no protected-use start record. Correct ordering does not make a predecessor/denied/superseded selection decision executable.
 
 ## Generated artifact provenance
 
@@ -353,6 +355,14 @@ toolchain_invocations[]:
     target_or_architecture?
     abi?
     flags[]
+    argument_vector[]:
+        argument_index
+        argument_kind
+        argument_text
+        input_id?
+        generated_artifact_id?
+        ir_hash?
+        output_generated_artifact_id?
     environment_or_config_hash?
     input_ir_hashes[]
     input_ids[]
@@ -364,6 +374,12 @@ toolchain_invocations[]:
 
 `material_tool_identity` must be an immutable/versioned identity adequate to distinguish the actual tool used for the active reproducibility claim, such as version plus executable/content hash, immutable tool artifact ID, or frozen equivalent.
 
+`argument_vector[]` is the exact ordered, duplicate-preserving argument sequence supplied after the identified executable. `argument_index` is contiguous from zero and array order agrees with the indices; `argument_text` preserves the exact token under the frozen invocation encoding. Candidate kinds distinguish flags/options/literals, immutable non-generated inputs, generated-artifact inputs, IR inputs, output arguments, separators, response-file arguments, or another frozen typed token. Repeated flags, libraries, separators, and input references remain repeated occurrences rather than being deduplicated or sorted.
+
+When a token names a material object, its typed reference is required and resolves to the same immutable object listed in `input_ids[]`, `input_generated_artifact_ids[]`, `input_ir_hashes[]`, or `output_generated_artifact_ids[]` as applicable. Those arrays remain direct graph/inventory summaries; they do not reconstruct position. Thus static-library order, `--whole-archive`/`--no-whole-archive` scope, group delimiters, duplicate libraries, and other positional driver/linker semantics remain reproducible. Two invocations with the same flag/input sets but different argument vectors are materially different.
+
+Response files, wrapper scripts, shell commands, or other indirections require an equivalent frozen exact command sequence plus immutable content identities for the response/script/material inputs. A mutable response-file path or sorted flag set is not sufficient. `flags[]` is summary/configuration metadata and cannot replace `argument_vector[]` when ordering can affect generated bytes or symbol resolution.
+
 `input_ir_hashes[]` is explicit and must contain every exact IR snapshot directly consumed by the invocation. It is nonempty for any compilation/code-generation step that consumes IR, optimized or not, and empty only for a step that consumes no IR. Tool, flags, target, backend-unit, source summaries, or output hashes cannot reconstruct this direct input identity.
 
 `input_ids[]` resolves to immutable `inputs[]` records for every material input not generated in this run, including prebuilt objects, static libraries, headers, startup files, sysroots, and implicit toolchain dependencies. It is empty only when no such inputs were consumed. A composite input must bind the complete material dependency set through a frozen content-manifest representation. Mutable paths, library names, flags, and tool versions alone do not identify the actual dependency bytes; missing material input identity invalidates a complete/reproducible build-provenance claim.
@@ -374,7 +390,14 @@ For a normal compile/link chain:
 
 ```text
 compile-1: source/IR -> obj-1
-link-1:    obj-1 + prebuilt-lib-1 -> exe-1
+link-1 argv:
+    0: --whole-archive
+    1: obj-1
+    2: prebuilt-lib-1
+    3: --no-whole-archive
+    4: -o
+    5: exe-1
+
 link-1.input_generated_artifact_ids = [obj-1]
 link-1.input_ids = [prebuilt-lib-1]
 
@@ -385,11 +408,11 @@ exe-1.direct_producer_toolchain_invocation_id = link-1
 exe-1.toolchain_invocation_chain_ids = [compile-1, link-1]
 ```
 
-The compiler directly outputs `obj-1`; the linker directly outputs `exe-1`. `prebuilt-lib-1` resolves to its consumed immutable identity in `inputs[]`, not a fabricated generated artifact. The executable still retains the complete ordered material chain without falsely claiming the compiler directly emitted it.
+The compiler directly outputs `obj-1`; the linker directly outputs `exe-1`. `prebuilt-lib-1` resolves to its consumed immutable identity in `inputs[]`, not a fabricated generated artifact. The executable still retains the complete ordered material chain, while `argument_vector[]` retains the exact positional command semantics, without falsely claiming the compiler directly emitted the executable.
 
 Where intermediate generated artifacts are retained, the ordered chain must be consistent with the direct input/output artifact graph. Any future frozen representation that omits intermediates must define how the transitive chain remains content-bound and verifiable.
 
-A run-wide compiler-version list is summary metadata only and cannot substitute for artifact-specific invocation identity, flags, target/ABI, configuration, immutable material inputs, direct producer, or transitive chain.
+A run-wide compiler-version list or unordered flag/input inventories are summary metadata only and cannot substitute for artifact-specific invocation identity, exact argument order, target/ABI, configuration, immutable material inputs, direct producer, or transitive chain.
 
 ## Optimization provenance
 
@@ -538,7 +561,7 @@ card_executions[]:
     failure_record_id?
 ```
 
-`card_id` identifies the canonical semantic CARD. `card_execution_id` identifies one concrete runtime execution. This distinction is material for loops, retries, calls, repeated DECK execution, or another construct that can execute the same CARD more than once. `input_ids[]` reciprocally identifies the material inputs consumed by this invocation, while `cache_reuse_record_ids[]` reciprocally identifies cache decisions applying to this current-run invocation.
+`card_id` identifies the canonical semantic CARD. `card_execution_id` identifies one concrete runtime execution. This distinction is material for loops, retries, calls, repeated DECK execution, or another construct that can execute the same CARD more than once. `input_ids[]` reciprocally identifies the material inputs consumed by this invocation, while `cache_reuse_record_ids[]` reciprocally identifies cache decisions applying through this CARD's representation-qualified runtime subject.
 
 For lower-representation entry, concrete operation execution is identified independently rather than synthesized as a CARD execution:
 
@@ -555,15 +578,22 @@ operation_executions[]:
     operation_kind
     operation_status
     input_ids[]
+    cache_reuse_record_ids[]?
     execution_order_index?
+    governing_control_decision_id?
+    governing_failure_record_id?
+    governing_skip_rule_id?
+    skip_verification_evidence_id?
     failure_record_id?
     source_card_ids[]?
     source_card_execution_ids[]?
 ```
 
-For direct `QSOL_CORE`, `operation_ref.representation_kind = QSOL_CORE` and `representation_identity = core_ir_hash`. `source_card_ids[]` / `source_card_execution_ids[]` are optional verified lineage only; they are absent when no Semantic lineage exists.
+For direct `QSOL_CORE`, `operation_ref.representation_kind = QSOL_CORE` and `representation_identity = core_ir_hash`. `source_card_ids[]` / `source_card_execution_ids[]` are optional verified lineage only; they are absent when no Semantic lineage exists. `input_ids[]` and `cache_reuse_record_ids[]` are occurrence-level joins to exact current runtime input/cache records and remain present even for failed or output-free operations where applicable.
 
-Candidate statuses include executed success/failure, untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip. Explicit CARD skips require the same resolvable skip rule and passing applicability evidence as effect skips, with evidence bound to the exact `CARD_EXECUTION` subject. A parent skip cannot evade accounting for its effects.
+`failure_record_id` is reserved for a failure caused by this operation execution and is required for a failed operation status. It is not the cause of a non-executed path. An untaken lower operation requires `governing_control_decision_id`; prior fail-stop/failure-caused block requires `governing_failure_record_id`; explicit frozen skip requires `governing_skip_rule_id` plus passing `skip_verification_evidence_id` bound to this `OPERATION_EXECUTION`; and a general not-reached status requires one of those same validated cause forms. Cause-free lower-operation non-reach is invalid.
+
+Candidate statuses include executed success/failure, untaken branch, prior fail-stop, subject not reached, and explicit frozen skip. Explicit CARD or lower-operation skips require the same resolvable skip rule and passing applicability evidence as effect skips, with evidence bound to the exact `CARD_EXECUTION` or `OPERATION_EXECUTION` subject. A parent skip cannot evade accounting for its effects.
 
 ## Typed execution-path causality and failure identity
 
@@ -605,7 +635,7 @@ Each failure also carries the complete applicable `result_determinism_scope_ids[
 
 For a CARD-caused failure, `failure_card_id` and `failure_card_execution_id` are required and must resolve consistently through `card_executions[]`. For a legitimate pre-CARD or direct lower-operation failure, those CARD fields are absent rather than fabricated; `operation_execution_id`, where applicable, identifies the actual lower execution subject.
 
-An untaken branch references `governing_control_decision_id`. Prior fail-stop or another failure-caused non-reach references `governing_failure_record_id`.
+An untaken branch references `governing_control_decision_id`. Prior fail-stop or another failure-caused non-reach references `governing_failure_record_id`. These same typed fields are carried directly by `operation_executions[]` as well as Semantic CARD/non-attempt records; `failure_record_id` on an operation means the operation itself failed and cannot be overloaded as its blocking cause.
 
 A catch-all `governing_control_or_failure_id` is invalid because it erases the target namespace.
 
@@ -798,8 +828,17 @@ Ordinary result substitution is conservative and effect-free by default. Effectf
 cache_reuse_records[]:
     cache_reuse_record_id
     classification
-    source_card_ids[]
-    card_execution_ids[]
+    execution_subject_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        subject_kind
+        subject_id
+        execution_id
+    source_card_ids[]?
+    card_execution_ids[]?
     reused_computation_id?
     cache_key_hash?
     cached_artifact_hash?
@@ -810,9 +849,15 @@ cache_reuse_records[]:
     material_cache_identity_hash
 ```
 
-Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents. `card_execution_ids[]` identifies the exact current-run invocation(s) governed by the cache decision and reciprocates `card_executions[].cache_reuse_record_ids[]`; canonical CARD identity alone is not a runtime substitution join. For `VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory and resolve to the shared rule/evidence ledgers. The rule has kind `CACHE_SUBSTITUTION`; passing evidence binds this exact reuse record, reused computation/artifact, checked cache key/artifact content, and current inputs/contracts/context before substitution. Immutable cached-output/producer provenance may supply content identity, but unknown IDs, stale evidence, a hash alone, or the classification label cannot establish verified reuse.
+Candidate classifications are `COLD_EXECUTION`, `VERIFIED_REUSE`, and `UNVERIFIED_HIT`, or frozen equivalents. Runtime cache records require nonempty representation-qualified `execution_subject_refs[]` identifying the exact current-run invocation(s) governed by the cache decision. Semantic CARD subjects resolve through `card_executions[]`; direct QSOL-CORE and other lower-entry subjects resolve through `operation_executions[]` to exact `operation_execution_id` values. `source_card_ids[]` / `card_execution_ids[]` are conditional verified Semantic projections only and are absent when no Semantic lineage exists. CARD and lower-operation execution ledgers reciprocally list their applicable `cache_reuse_record_ids[]`.
 
-For effectful substitution, the referenced rule must specifically be the applicable separately frozen replay/cache semantic; a generic cache rule is insufficient. An `UNVERIFIED_HIT` cannot satisfy a CARD or produce a verified-reuse output: verify successfully before reuse, execute cold, or fail closed. The optional notation used by other classifications does not waive verified-reuse conditions. See the complete [cache validation contract](TRACE-AND-PROVENANCE.md#cache-reuse-provenance).
+A grouped reuse record may cover several current execution subjects only when its classification, cached material, rule, and evidence apply identically to every listed subject. A cold invocation and a reused retry/lower-operation invocation therefore use distinct records even when they share one canonical CARD/operation ID. Canonical source identity, output-array position, or historical cache-producer identity is not a current substitution join.
+
+For `VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory and resolve to the shared rule/evidence ledgers. The rule has kind `CACHE_SUBSTITUTION`; passing evidence binds this exact reuse record, reused computation/artifact, checked cache key/artifact content, exact current `execution_subject_refs[]`, their material inputs/contracts/entry-lowering context, and the substitution application before it occurs. Immutable cached-output/producer provenance may supply content identity, but unknown IDs, stale evidence, a hash alone, or the classification label cannot establish verified reuse.
+
+For effectful substitution, the referenced rule must specifically be the applicable separately frozen replay/cache semantic and its evidence/accounting must apply to each exact current execution subject; a generic cache rule or another invocation's effect accounting is insufficient. An `UNVERIFIED_HIT` cannot satisfy an execution subject or produce a verified-reuse output: verify successfully before reuse, execute cold, or fail closed. The optional notation used by other classifications does not waive verified-reuse conditions. See the complete [cache validation contract](TRACE-AND-PROVENANCE.md#cache-reuse-provenance).
+
+A build-only diagnostic/cache record may have no runtime execution subject only under the separate non-runtime provenance conditions in the canonical trace; that exception cannot satisfy a CARD/Core/lower-operation invocation or justify fabricated Semantic lineage.
 
 Verified cache reuse does not prove cold reconstructability.
 
@@ -969,11 +1014,11 @@ For a Semantic-IR entry that lowers to Core, `semantic_ir_hash`, the Semantic→
 
 `source_hash`, `job_id`, `deck_executions[]`, `card_ids[]`, `card_executions[]`, and `job_status` are present only when that source/semantic JOB lineage or execution structure exists for the entered representation or is explicitly retained as verifiable provenance. `operation_executions[]` carries concrete lower-operation execution for direct Core or another lower-representation entry when applicable. Their absence/presence must follow actual execution structure; no lower-entry run may fabricate Semantic JOB/CARD identities or a JOB-level outcome. Conversely, once a present downstream record references semantic, lowering, Core, Vector/Dataflow, or MORPH provenance, the referenced layer and its complete transitive validation closure become mandatory.
 
-`control_decisions[]` and `failure_records[]` provide typed resolvable causes for untaken or blocked execution subjects and effect non-attempts. A failure record always identifies its typed failing scope, exact `failure_behavior_binding_ids[]`, and complete applicable result-determinism/numeric/randomness scope IDs; CARD identity is present only when a CARD execution actually caused that failure, while direct lower-operation failure uses its operation execution identity.
+`control_decisions[]` and `failure_records[]` provide typed resolvable causes for untaken or blocked execution subjects and effect non-attempts. The same typed cause references are carried directly by `operation_executions[]`: lower-operation untaken/fail-stop/not-reached/explicit-skip statuses must resolve their controlling decision, blocking failure, or verified skip rather than overloading `failure_record_id`. A failure record always identifies its typed failing scope, exact `failure_behavior_binding_ids[]`, and complete applicable result-determinism/numeric/randomness scope IDs; CARD identity is present only when a CARD execution actually caused that failure, while direct lower-operation failure uses its operation execution identity.
 
 Failure manifests retain `backend_selection_scopes[]` and `backend_selection_decisions[]`, including denied candidates and fallback predecessors referenced by machinery records. They preserve the complete transitive reference closure, including policy bindings, requirements, rules, evidence, execution-contract scope ledgers, and observable outputs, inline or through retrievable content-bound trace records. Dangling IDs do not constitute complete failure provenance.
 
-Every protected machinery use links to all applicable successful authorization records, its representation-qualified `execution_subject_refs[]` when execution-governed, or a genuine pre-execution RUN/DECK initiating scope only when no CARD/lower operation governs the use, and preserves authorization-before-use ordering. Semantic CARD IDs are conditional verified lineage projections, not the primary subject identity.
+Every protected machinery use links to all applicable successful authorization records, its representation-qualified `execution_subject_refs[]` when execution-governed, or a genuine pre-execution RUN/DECK initiating scope only when no CARD/lower operation governs the use, and preserves authorization-before-use ordering. The use's `backend_selection_decision_id` is the scope's final executable decision; a predecessor/denied/superseded candidate cannot be recorded as executed machinery. Semantic CARD IDs are conditional verified lineage projections, not the primary subject identity.
 
 Every begun protected effect preserves authorization-before-begin ordering and carries its representation-qualified `effect_requirement_ref` and `execution_subject_ref`. Semantic `card_id` / `card_execution_id` are required only for CARD-backed attempts and are absent on legitimate direct Core operation attempts without Semantic lineage.
 
@@ -983,9 +1028,11 @@ Every changed requested/effective result-determinism or randomness contract requ
 
 Every EXTERNAL-ENTROPY randomness scope links to the exact protected RANDOM acquisition attempt(s) and immutable entropy input identity where material.
 
+Every runtime cache record binds the actual current representation-qualified `execution_subject_refs[]`; CARD IDs/executions are only conditional Semantic projections. Direct-Core cache substitution therefore remains joined to the exact `operation_execution_id`, including when no output is produced.
+
 Every output binds nonempty representation-qualified `producer_execution_refs[]`, exact material input IDs, applicable effect attempts/tools, exact generated artifacts, stable execution-contract/failure-policy records, cache reuse, and compatible evidence status. CARD producer arrays are retained only as verified Semantic-lineage projections.
 
-Every generated artifact identifies its exact production backend-selection decision, direct producer invocation, and exact ordered transitive toolchain ancestry. Direct invocation input/output artifact edges remain truthful, and immutable `input_ids[]` identify all material non-generated toolchain dependencies. Run-wide compiler/version summaries are not a substitute.
+Every generated artifact identifies its exact production backend-selection decision, direct producer invocation, and exact ordered transitive toolchain ancestry. Every toolchain invocation also retains its duplicate-preserving ordered `argument_vector[]` whenever command-line ordering is material; direct invocation input/output artifact edges remain truthful, and immutable `input_ids[]` identify all material non-generated toolchain dependencies. Run-wide compiler/version summaries or unordered flag/input sets are not substitutes.
 
 Every material external tool either has an immutable/versioned identity adequate for the active claim or an explicit identity-unavailable status that weakens that claim.
 
@@ -1007,10 +1054,10 @@ QSOL-MORPH states the strongest reproducibility guarantee actually provided by a
 
 An implementation fails closed when a required determinism, numeric, randomness, effect capability, machinery capability, failure behavior, extension, effect-accounting, material-tool identity, toolchain-build provenance, or other frozen execution contract cannot be satisfied.
 
-A permitted weakening of a determinism, randomness, or replay guarantee requires the resolvable frozen pre-execution authority and verification evidence defined above. Recording a weaker effective value is not itself permission. Effect and machinery authorization, declared-effect accounting, truthful failure attribution, and reference integrity remain mandatory: a transition cannot authorize hidden entropy acquisition, work begun before authorization, an omitted reachable required effect, fabricated provenance, or a dangling evidence reference. Such violations produce structured failure. Unavailable material-tool identity or incomplete build-input provenance cannot support a full reproducibility claim.
+A permitted weakening of a determinism, randomness, or replay guarantee requires the resolvable frozen pre-execution authority and verification evidence defined above. Recording a weaker effective value is not itself permission. Effect and machinery authorization, declared-effect accounting, truthful failure attribution, and reference integrity remain mandatory: a transition cannot authorize hidden entropy acquisition, work begun before authorization, an omitted reachable required effect, fabricated provenance, protected use attached to a non-final selection decision, or a dangling evidence reference. Such violations produce structured failure. Unavailable material-tool identity, incomplete build-input provenance, or a lossy/unordered material command reconstruction cannot support a full reproducibility claim.
 
 General execution failure and effect-attempt completion semantics are documented separately in [Failure and Partial-Effect Semantics](FAILURE-AND-PARTIAL-EFFECTS.md).
 
 ## Design principle
 
-> Nondeterminism, failure policy, typed execution path, concrete representation-qualified execution-subject identity, machinery-selection history, authorization order, cache reuse, external tools, optimization decisions, direct toolchain production, transitive toolchain ancestry, generated-artifact identity, immutable inputs, and entropy acquisition are scientific inputs, not invisible implementation details.
+> Nondeterminism, failure policy, typed execution path, concrete representation-qualified execution-subject identity, final machinery selection, authorization order, cache reuse, external tools, optimization decisions, direct toolchain production, exact ordered invocation arguments, transitive toolchain ancestry, generated-artifact identity, immutable inputs, and entropy acquisition are scientific inputs, not invisible implementation details.
