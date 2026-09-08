@@ -74,7 +74,9 @@ LoweredCard {
 }
 ```
 
-`sequencing_constraints[]` retains the canonical tagged Semantic-IR ordering field. Effect-order and failure-order may be deterministic projections of those tagged constraints, but they are not alternative lower fields and may not replace, flatten, or discard other sequencing kinds. If a future normative lower representation uses a different encoding, the conversion must be frozen, lossless, and provenance-visible.
+`sequencing_constraints[]` retains the canonical tagged Semantic-IR ordering field. Effect-order and failure-order may be deterministic projections of those tagged constraints, but they are not alternative lower fields and may not replace, flatten, or discard other sequencing kinds.
+
+If every sequencing edge and both of its typed endpoints remain source-qualified and unchanged under a frozen deterministic reconstruction rule, the lower representation may preserve that relation directly. If lowering renames, splits, fuses, relocates, or otherwise changes an endpoint or edge encoding, it must emit `sequencing_constraint_lowering_decisions[]` identifying the exact source edge(s), exact lower edge(s), direction, endpoint kinds, complete owner paths, and the frozen rule/evidence that validates that mapping. Retaining only the original edge text while changing the containing representation is not sufficient provenance.
 
 `failure_behavior` retains the canonical Semantic-IR field name. If a future normative specification introduces a differently named lower representation, that conversion must itself be frozen and provenance-visible rather than being implied by an undocumented alias.
 
@@ -157,6 +159,8 @@ PROVE PROPERTY WITH LEAN
 must retain its explicit external proof/evidence boundary.
 
 Lowering changes representation. It does not upgrade claims.
+
+When QSOL-CORE retains an epistemic class, that class is a representation-qualified lower-IR binding, not an informal comment or inherited assumption. The Core binding must resolve to the exact Core owner/operation or value scope and retain the validated source class relation through the lowering trace. If a hand-built or direct-entry Core representation has no such binding, downstream outputs from that representation are `UNCLASSIFIED`/no-claim unless a later explicit evidence-bearing contract creates a valid class binding; they must never invent `TEST`, `VALIDATION`, or `PROOF` merely because an output exists.
 
 ## Effects and capabilities
 
@@ -275,16 +279,76 @@ The resulting execution-contract record preserves the same transition authority 
 
 A backend may eventually operate on raw machine numbers, but unit and type checks required by the semantic contract must occur before information is discarded.
 
-A lowering must either:
+Preservation or erasure is itself a provenance-bearing lowering decision. A lowering that does not encode the required unit/type checks and normalization explicitly into QSOL-CORE operations uses an identified record:
 
-1. encode the required checks/normalization into QSOL-CORE operations; or
-2. establish a validated premise that permits safe erasure of the higher-level metadata.
+```text
+type_unit_lowering_decisions[]:
+    type_unit_lowering_decision_id
+    source_fact_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        fact_kind              # TYPE | UNIT | frozen equivalent
+        fact_key_or_id
+        fact_value_hash
+    core_fact_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        fact_kind
+        fact_key_or_id
+        fact_value_hash?
+    disposition               # PRESERVED | NORMALIZED | ERASED
+    lowering_rule_id?
+    validation_evidence_id?
+```
+
+Every source fact resolves in the hash-bound Semantic IR through its complete owner path and content identity. `core_fact_refs[]` identifies the exact Core facts/checks/normalized representation that remain after lowering. A bare type name, unit text, source CARD summary, or Core IR hash is not a source-to-lower relation.
+
+For `PRESERVED`, a decision may be omitted only under a frozen deterministic identity reconstruction rule that proves the exact fact survives unchanged. For `NORMALIZED` or `ERASED`, both `lowering_rule_id` and `validation_evidence_id` are mandatory. The rule resolves to accepted, versioned, content-bound `TYPE_UNIT_LOWERING` authority, and the evidence resolves to passing validation whose singular subject is this exact `type_unit_lowering_decision_id`. The evaluated context binds the exact source type/unit facts, conversion or normalization semantics, range/domain premises, resulting Core facts/operations, active numeric/failure contracts, and every material dependency needed to justify erasure.
+
+Validation must complete **before** the source metadata is discarded or the normalized Core value is made available. Post-erasure success, a generic “validated premise” label, equal output bytes, or an IR hash cannot substitute for that subject-bound pre-erasure evidence. If the source-to-Core relation cannot be proven under an accepted rule, the higher-level type/unit metadata remains explicit or lowering fails closed.
 
 Silent unit loss is not valid lowering.
 
 ## Ordering and failure
 
 Lowering must preserve source-observable ordering constraints through the canonical tagged `sequencing_constraints[]` representation or a separately frozen lossless equivalent.
+
+When endpoint identity changes, preservation is represented explicitly:
+
+```text
+sequencing_constraint_lowering_decisions[]:
+    sequencing_mapping_id
+    source_edge_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        constraint_kind
+        predecessor_endpoint_ref
+        successor_endpoint_ref
+        edge_hash
+    lower_edge_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        constraint_kind
+        predecessor_endpoint_ref
+        successor_endpoint_ref
+        edge_hash
+    mapping_rule_id?
+    validation_evidence_id?
+```
+
+Each endpoint reference uses the shared typed sequencing-endpoint contract: endpoint kind, complete owner path, and stable local ID in the named representation. Direction is part of edge identity; predecessor and successor are never interchangeable. `edge_hash` content-binds the tagged constraint plus both directed qualified endpoints.
+
+If the edge and endpoints are unchanged and remain source-qualified under a frozen deterministic reconstruction rule, the explicit mapping record may be omitted. Any rename, split, fusion, relocation, retargeting, direction change, or alternative lower encoding requires a nonempty mapping group plus accepted `SEQUENCING_LOWERING` rule and passing `validation_evidence_id` bound to this exact mapping before the lower edge becomes operative. A mapping that drops an edge, reverses direction, changes endpoint kind, or cannot account for every resulting edge fails conformance.
 
 Only CARDs proven **pure and total** under the active contract may be freely reordered solely from dependency information.
 
@@ -302,7 +366,7 @@ If a semantic construct or execution-relevant qualifier has no legal QSOL-CORE l
 
 It must not:
 
-- drop the construct, result binding, qualifier, machinery requirement, extension requirement, or tagged sequencing constraint;
+- drop the construct, result binding, qualifier, machinery requirement, extension requirement, tagged sequencing constraint, type, or unit;
 - replace it with a no-op without a frozen rule;
 - silently weaken an execution or scoped numeric contract;
 - translate an unknown epistemic class into ordinary data;
@@ -329,7 +393,7 @@ Fixtures should cover at least:
 - scalar data and arithmetic;
 - producer/consumer result bindings and dependency identity, including preserved, renamed, split, and fused mappings;
 - XOR and other logic;
-- units/types;
+- units/types, including verified normalization/erasure and rejection when the pre-erasure premise cannot be proven;
 - observations and assumptions;
 - TEST / VALIDATION / PROOF boundaries;
 - execution-relevant qualifiers, including target/adapter/tuning/extension-control qualifiers;
@@ -338,9 +402,9 @@ Fixtures should cover at least:
 - multiple machinery requirements sharing one source scope but reaching different Core scopes, plus missing, swapped, ambiguous, split, and frozen-fusion requirement-ID mappings;
 - seeded randomness;
 - multiple scoped numeric contracts and legal normalization/rejection cases;
-- explicit failure behavior and tagged sequencing constraints, including non-effect/failure sequencing kinds;
+- explicit failure behavior and tagged sequencing constraints, including non-effect/failure sequencing kinds and owner-qualified endpoint rename/split/fusion mappings;
 - extension-owned constructs and qualifiers, including JOB/DECK/CARD scoped extension requirements where permitted and scope-preserving/remapped extension provenance;
-- unsupported construct/qualifier/machinery-requirement/sequencing-constraint rejection.
+- unsupported construct/qualifier/machinery-requirement/sequencing-constraint/type/unit rejection.
 
 A reference lowering implementation should pass those fixtures before backend code generation is considered conforming.
 
@@ -359,6 +423,8 @@ result_binding_map[]
 resolved_extensions[]
 extension_requirement_lowering_decisions[]
 qualifier_lowering_decisions[]
+type_unit_lowering_decisions[]
+sequencing_constraint_lowering_decisions[]
 machinery_requirement_lowering_decisions[]
 result_determinism_lowering_decisions[]
 numeric_contract_lowering_decisions[]
@@ -372,6 +438,8 @@ The canonical identity fields are `semantic_to_core_spec_version` and `semantic_
 `extension_requirement_lowering_decisions[]` binds each materially transformed source extension requirement to the Core scope(s) that inherit it. Every source/Core scope endpoint is represented by its complete ordered absolute containment path in that representation, not only a kind/local-ID pair; source Semantic paths include JOB/DECK/CARD ancestors as applicable. The record also retains source CARD provenance, resolved profile/version/content/contract identity, and the frozen mapping rule. It may be omitted only under a frozen deterministic identity-scope reconstruction rule that actually covers extension ownership.
 
 `machinery_requirement_lowering_decisions[]` uses the identified mapping groups defined in [Protected machinery requirements](#protected-machinery-requirements), including mandatory `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`. Each reference pairs the complete representation-relative `owner_scope_path[]` with its local `machinery_requirement_id`; separate ID arrays, positional pairing, or shared source CARD summaries are not substitutes. A frozen reconstruction exception must recover every owner-qualified requirement association as well as scope ownership.
+
+`type_unit_lowering_decisions[]` identifies every source type/unit fact that is normalized or erased, the exact Core facts/operations that replace it, and the accepted rule plus subject-bound evidence validated before erasure. `sequencing_constraint_lowering_decisions[]` identifies every source/lower ordering edge mapping whose endpoint identity, direction, or encoding is not losslessly reconstructible by the frozen identity rule. Neither family may be replaced by a generic “validated premise” or by the two IR hashes.
 
 `result_determinism_lowering_decisions[]`, `numeric_contract_lowering_decisions[]`, `randomness_lowering_decisions[]`, and `failure_behavior_lowering_decisions[]` record scope preservation, grouping, identity changes, frozen normalizations, and any permitted transitions needed to explain how source requirements became Core contracts. Whenever semantics change, the applicable decision carries a stable `transition_decision_id` plus the required `transition_authorized_by` / subject-bound `transition_evidence_id`, validated before application. Numeric semantic changes additionally retain the exact requested/effective numeric contract IDs/hashes and the exact changed arithmetic/value-set semantics. Resulting execution-scope evidence remains a distinct subject-bound record where that scope family defines one and links back to the lowering evidence through `related_evidence_ids[]`; numeric execution scopes retain the effective contract/mode while the lowering transition remains resolvable through the mapping path. IR hashes, generic numeric mapping rules, and backend flags cannot establish that correspondence or authorize a transition.
 
