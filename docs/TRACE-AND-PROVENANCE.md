@@ -8,7 +8,7 @@ This document is architectural and non-normative until the relevant contracts ar
 
 The record definitions and cross-record validation conditions in this document apply wherever the same records appear, including the README, agent guidance, roadmap gates, reproducibility manifests, and failure-domain traces. Shorter inventories are projections of this model, not permission to omit conditionally required fields or weaken validation. `?` means conditional presence: the applicability rules below decide when the field is required. A standalone projection retains the transitive closure needed to validate its records, inline or through retrievable content-bound references. These architectural requirements do not freeze an executable format or implement the later roadmap phases.
 
-In particular, complete canonical machinery-capability coverage, concrete cache-substitution subjects, concrete input consumers/acquisitions, owner-qualified result bindings, and representation-qualified execution subjects are shared requirements of every projection. Canonical sequencing endpoints use the [typed endpoint contract](SERIALIZATION.md#typed-sequencing-endpoints); shorter references to sequencing or binding identity do not waive its namespace and ownership checks.
+In particular, complete canonical machinery-capability coverage, concrete cache-substitution subjects, concrete input consumers/acquisitions, owner-qualified result bindings, representation-qualified execution subjects and epistemic-class bindings, evidence-bearing output verification, lowering-edge/type-unit evidence, and material toolchain environment/configuration are shared requirements of every projection. Canonical sequencing endpoints use the [typed endpoint contract](SERIALIZATION.md#typed-sequencing-endpoints); shorter references to sequencing or binding identity do not waive its namespace and ownership checks.
 
 ## Trace questions
 
@@ -21,6 +21,8 @@ A complete trace should be able to answer:
 - how Semantic IR lowered into QSOL-CORE when that boundary was traversed;
 - how QSOL-CORE lowered into the mandatory Vector/Dataflow IR when that boundary was traversed;
 - how result bindings were preserved, renamed, split, fused, or otherwise mapped;
+- how typed sequencing edges/endpoints were preserved or mapped through each mandatory lowering;
+- how type/unit facts were preserved, normalized, or erased and under which pre-erasure evidence;
 - how extension, machinery, result-determinism, numeric, randomness, and failure-behavior scopes mapped through both mandatory lowerings;
 - how every execution-relevant qualifier was preserved or consumed, under which frozen rule, and what exact Core facts or constraints represent its validated effect;
 - which machinery-selection decisions were considered, denied, superseded, or finally used;
@@ -30,8 +32,8 @@ A complete trace should be able to answer:
 - what exact immutable inputs were consumed, by which concrete execution subjects or acquisition attempts, and which ones materially contributed to each output;
 - which concrete producer execution subjects, effect attempts, tools, generated artifacts, optimization records, direct toolchain producers, transitive toolchain ancestry, and execution-contract scopes produced each output;
 - which concrete execution subjects used cache substitution rather than cold execution and under what legality evidence;
-- what exact duplicate-preserving toolchain argument vector was used when positional command-line semantics were material;
-- what epistemic class and evidence status belongs to each output when such semantic lineage is present;
+- what exact duplicate-preserving toolchain argument vector and material out-of-argv environment/configuration were used when they could affect produced bytes;
+- what representation-qualified epistemic class binding and evidence status belongs to each classified output, or whether a lower-entry output is explicitly unclassified/no-claim;
 - whether execution failed, at what typed scope, and what had already become observable.
 
 ## Trace layers
@@ -99,16 +101,28 @@ The semantic-trace `job_ids[]`, `deck_ids[]`, and `card_ids[]` are inventory sum
 
 ### Epistemic class bindings
 
+Epistemic class is an identified, representation-qualified binding rather than a free output label:
+
 ```text
 epistemic_class_bindings[]:
+    epistemic_class_binding_id
+    representation_kind
+    representation_identity
     owner_scope_path[]:
         scope_kind
         scope_id
-    card_id
+    subject_kind
+    subject_id
     semantic_class
+    source_epistemic_class_binding_ids[]?
+    mapping_rule_id?
 ```
 
-Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association. Epistemic class is bound to the CARD's complete ordered absolute `owner_scope_path[]` plus local `card_id`; the path terminates at that CARD. Sibling DECKs may therefore each contain local `CARD 7` with different research classes without collision. Missing, truncated, reordered, or owner-mismatched class paths fail closed.
+For a canonical Semantic CARD, `representation_kind` identifies Semantic IR, `representation_identity = semantic_ir_hash`, `subject_kind = CARD`, and `subject_id = card_id`; the complete ordered `owner_scope_path[]` terminates at that CARD. Sibling DECKs may therefore each contain local `CARD 7` with different research classes without collision. Separate `card_ids[]` and `epistemic_classes[]` arrays are not an acceptable positional association.
+
+A lower representation such as QSOL-CORE or Vector/Dataflow may carry an epistemic binding only when the named hash-bound representation actually contains or retains that class fact. Its binding names that lower representation/content identity, the complete owner path, and the exact lower subject. If the binding originates from an upstream class, `source_epistemic_class_binding_ids[]` resolves the retained class lineage through the traversed lowering; a non-identity representation change uses an accepted frozen mapping rule where required by that lower representation. A lower binding does not fabricate a Semantic CARD owner merely to make a class available.
+
+A legitimate direct lower-entry representation may contain **no** epistemic binding. In that case downstream output is `semantic_class = UNCLASSIFIED` (or a frozen no-claim equivalent) with an empty `epistemic_class_binding_ids[]`; it makes no TEST, VALIDATION, or PROOF claim. Operational success, a result binding, generated bytes, or a producer-written label cannot create a research class. To publish a classified output, the independently derived applicable class-binding set must be nonempty and justify that exact class under the frozen class-preservation/evidence rules. Missing, truncated, reordered, wrong-representation, owner-mismatched, fabricated-lineage, or unresolvable class bindings fail closed.
 
 ### Declared effect requirements
 
@@ -214,6 +228,8 @@ semantic_to_core_spec_version
 semantic_to_core_implementation_version
 core_ir_hash
 result_binding_map[]
+sequencing_constraint_lowering_decisions[]
+type_unit_lowering_decisions[]
 resolved_extensions[]
 extension_requirement_lowering_decisions[]
 qualifier_lowering_decisions[]
@@ -311,6 +327,77 @@ For `disposition = CONSUMED`, or for any non-verbatim transformation whose effec
 The rule must explicitly permit consuming or transforming this qualifier into those exact Core facts under that context. Validation must complete before the transformed lower fact is applied or relied upon in the shared event-order domain. A generic extension presence record, backend choice, post-lowering success, or unvalidated rule name does not authorize qualifier consumption. If an extension owns/interprets the qualifier, `resolved_extension_ids[]` is required and must resolve to the exact profile/version/content/contract records that authorize the rule's interpretation.
 
 Unsupported or unverifiable execution-relevant qualifiers fail lowering. They must not be silently erased, defaulted, or converted into an unrelated Core fact. One source qualifier may legitimately produce several Core facts only when all resulting refs are explicit and the accepted rule/evidence validates that exact relation; several source qualifiers must not be collapsed into one decision unless a frozen rule defines and proves that composition without losing ownership or value identity.
+
+### Type and unit lowering decisions
+
+A source type or unit may be erased only through explicit, subject-bound lowering provenance unless it is preserved unchanged under a frozen deterministic reconstruction rule:
+
+```text
+type_unit_lowering_decisions[]:
+    type_unit_lowering_decision_id
+    source_fact_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        fact_kind              # TYPE | UNIT | frozen equivalent
+        fact_key_or_id
+        fact_value_hash
+    core_fact_refs[]:
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        fact_kind
+        fact_key_or_id
+        fact_value_hash?
+    disposition               # PRESERVED | NORMALIZED | ERASED
+    lowering_rule_id?
+    validation_evidence_id?
+```
+
+Every source fact resolves in the hash-bound Semantic IR through its complete owner path and content identity. `core_fact_refs[]` identifies the exact Core facts, checks, normalization operations, or preserved metadata that replace it. A generic “validated premise,” source CARD summary, or Core IR hash is not a source-to-Core fact relation.
+
+For `PRESERVED`, an explicit decision may be omitted only when the frozen identity-reconstruction rule proves that the exact type/unit fact survives unchanged. For `NORMALIZED` or `ERASED`, `lowering_rule_id` and `validation_evidence_id` are mandatory. The rule resolves to accepted versioned/content-bound `TYPE_UNIT_LOWERING` authority. Evidence has `subject_kind = TYPE_UNIT_LOWERING_DECISION` and `subject_id = type_unit_lowering_decision_id`, and binds the exact source facts, conversion/normalization semantics, range/domain premises, resulting Core facts/operations, active numeric/failure contracts, and every material dependency needed to justify erasure.
+
+Validation completes before source metadata is discarded or the normalized Core value is made operative. Post-erasure success, equal output bytes, an IR hash, or a self-issued premise label cannot retroactively authorize information loss. If the relation cannot be established under an accepted rule, the metadata remains explicit or lowering fails closed.
+
+### Sequencing-constraint lowering decisions
+
+The ordering relation is mapped at edge/endpoint level whenever it is not losslessly reconstructible as the same source-qualified edge:
+
+```text
+sequencing_constraint_lowering_decisions[]:
+    sequencing_mapping_id
+    source_edge_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        constraint_kind
+        predecessor_endpoint_ref
+        successor_endpoint_ref
+        edge_hash
+    lower_edge_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        constraint_kind
+        predecessor_endpoint_ref
+        successor_endpoint_ref
+        edge_hash
+    mapping_rule_id?
+    validation_evidence_id?
+```
+
+Every predecessor/successor endpoint uses the shared typed sequencing-endpoint contract: endpoint kind, complete owner path, and stable local ID in the named representation. Direction is part of edge identity. `edge_hash` content-binds the tagged constraint plus both directed qualified endpoints.
+
+If the source edge and endpoints survive unchanged and remain source-qualified under a frozen deterministic reconstruction rule, the explicit mapping record may be omitted. Any rename, split, fusion, relocation, retargeting, endpoint-kind change, direction change, or alternate lower encoding requires a nonempty mapping record, accepted `SEQUENCING_LOWERING` rule, and passing `validation_evidence_id` with `subject_kind = SEQUENCING_LOWERING_DECISION` and `subject_id = sequencing_mapping_id`. The evidence binds the exact directed source/lower edge sets and must validate before the lower edge becomes operative. Result-binding/scope maps and IR hashes cannot substitute for this edge-level relation.
+
+Every applicable source edge must be accounted for by the exact lower edge set under the rule. Dropping an edge, reversing direction, changing endpoint kind, or silently redirecting effect/failure ordering fails conformance.
 
 ### Cardinality-aware result-binding maps
 
@@ -439,6 +526,7 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 result_binding_map[]
+sequencing_constraint_mapping_decisions[]
 extension_requirement_mapping_decisions[]
 machinery_requirement_mapping_decisions[]
 core_to_vector_result_determinism_mapping_decisions[]
@@ -449,6 +537,12 @@ vector_dataflow_lowering_diagnostics[]
 ```
 
 This boundary uses the same cardinality-aware result-binding map semantics.
+
+### Sequencing mappings at the second boundary
+
+`sequencing_constraint_mapping_decisions[]` uses the same edge-level record shape and typed endpoint contract as `sequencing_constraint_lowering_decisions[]`, with source refs resolving in `core_ir_hash` and lower refs resolving in `vector_dataflow_ir_hash`. If a Core edge and both endpoints survive unchanged and source-qualified under a frozen deterministic reconstruction rule, the explicit mapping may be omitted. Otherwise rename/split/fusion/relocation/retargeting/endpoint-kind/direction/encoding changes require accepted `SEQUENCING_LOWERING` authority and passing evidence for the exact `sequencing_mapping_id` before the lower edge is operative.
+
+Result-binding maps, generic scope mappings, source CARD summaries, and the two IR hashes cannot establish which exact directed effect/failure/control edge became which lower edge. Every applicable source edge must be accounted for; direction reversal, dropped edges, changed endpoint kinds, or unverifiable retargeting fails closed.
 
 ### Typed second-lowering contract mappings
 
@@ -537,6 +631,7 @@ backend_selection_decisions[]
 machinery_authorization_records[]
 machinery_use_records[]
 generated_artifacts[]
+toolchain_environment_configs[]
 toolchain_invocations[]
 vectorization_decisions[]
 fusion_decisions[]
@@ -548,6 +643,8 @@ failure_behavior_bindings[]
 rule_records[]
 validation_evidence[]
 ```
+
+`optimization_profile` is MORPH/optimization configuration and exists only when that layer is actually traversed or another recorded optimization profile materially participates. A direct Core reference-machine execution that does not traverse MORPH or another optimization stage does not synthesize this field.
 
 ## Backend-selection provenance
 
@@ -735,7 +832,7 @@ Generated artifacts link concrete target output to the machinery decision that p
 
 ## Toolchain invocation provenance
 
-Run-wide compiler/tool versions are useful summaries, but they cannot identify the exact build path for one artifact when different backend units or stages use different versions, flags, targets, linkers, generated-code options, or position-sensitive argument order.
+Run-wide compiler/tool versions are useful summaries, but they cannot identify the exact build path for one artifact when different backend units or stages use different versions, flags, targets, linkers, generated-code options, position-sensitive argument order, or material out-of-argv configuration.
 
 ```text
 toolchain_invocations[]:
@@ -755,7 +852,7 @@ toolchain_invocations[]:
         generated_artifact_id?
         ir_hash?
         output_generated_artifact_id?
-    environment_or_config_hash?
+    environment_config_hash?
     input_ir_hashes[]
     input_ids[]
     input_generated_artifact_ids[]?
@@ -773,6 +870,28 @@ Whenever an argument denotes a material object already identified elsewhere, its
 Position-sensitive driver/linker semantics are therefore preserved. For example, `--whole-archive`, a static library, `--no-whole-archive`, and another library remain four ordered occurrences; two invocations with the same `flags[]`, `input_ids[]`, and generated-artifact input set but a different `argument_vector[]` are different material invocations. Static-library order, group delimiters, option scope, duplicate libraries, and other positional semantics may not be normalized away by sorting or set conversion.
 
 If an implementation uses response files, wrapper scripts, a shell command, or another indirection instead of a directly represented argv, the frozen invocation contract must preserve an equivalent exact command sequence plus the immutable content identity of every material response/script/input involved. A mutable response-file path or reconstructed flag set is not equivalent. `flags[]` is summary/configuration metadata and cannot substitute for `argument_vector[]` whenever command-line ordering can affect produced bytes or symbol resolution.
+
+### Material environment/configuration records
+
+Whenever tool behavior or emitted bytes can depend on state outside the explicit argument vector and material input edges, the invocation references a content-bound canonical environment/configuration record:
+
+```text
+toolchain_environment_configs[]:
+    environment_config_hash
+    canonical_environment_entries[]:
+        name
+        value_identity
+    working_directory_identity?
+    config_input_ids[]
+    reproducibility_input_ids[]
+    locale_or_timezone_identity?
+    record_content?
+    record_location?
+```
+
+`environment_config_hash` is the stable identity of this canonical record. Its content is embedded or retrievable and hash-verifiable. The record contains every material environment-supplied option, working-directory-dependent setting, tool configuration file/input, locale/timezone choice, reproducibility timestamp/source-date input, wrapper/driver configuration, or frozen equivalent that can alter resolution, linking, code generation, or output bytes. Secret values need not be disclosed in plaintext, but `value_identity` must content-bind the material value strongly enough for the active audit/replay claim.
+
+When any such state is material, `toolchain_invocations[].environment_config_hash` is mandatory and resolves to the exact record used. It may be absent only when the frozen invocation/tool contract proves no out-of-argv/out-of-explicit-input environment or configuration can affect behavior. A bare digest with no retrievable canonical record, implicit config-file discovery, mutable working directory, unrecorded locale/timestamp, or producer assertion that “the environment was default” is incomplete build provenance.
 
 `input_ir_hashes[]` is always explicit and contains the exact content hash(es) of every IR snapshot directly consumed by the invocation. It must be nonempty whenever the invocation consumes Semantic/Core/Vector-Dataflow/backend IR, including ordinary non-optimized code generation; it is empty only when that invocation consumes no IR. A generated artifact's direct producer must therefore content-bind the precise IR revision that produced its bytes. Source summaries, backend-unit identity, tool flags, target identity, transitive artifact ancestry, or a differing output hash cannot substitute for the direct IR input edge.
 
@@ -808,7 +927,7 @@ exe-1.toolchain_invocation_chain_ids = [compile-1, link-1]
 
 Where every intermediate generated artifact is retained, `toolchain_invocation_chain_ids[]` must be consistent with the graph reachable through direct input/output artifact edges. If a future frozen profile permits omission of intermediate artifacts, it must define how the transitive chain remains content-bound and verifiable rather than fabricating direct-output edges.
 
-A generated artifact cannot claim reproducible byte provenance from a run-wide compiler list or unordered flag/input inventories alone.
+A generated artifact cannot claim reproducible byte provenance from a run-wide compiler list or unordered flag/input/configuration inventories alone.
 
 ## Optimization provenance
 
@@ -854,7 +973,7 @@ output
 
 ## Referenced rules and validation evidence
 
-A rule name or a producer's success label is not evidence of permission. Contract transitions, qualifier consumption, explicit skips, verified cache substitutions, backend fallback, epistemic transitions, and optimization acceptance use shared, resolvable rule and evidence records:
+A rule name or a producer's success label is not evidence of permission. Contract transitions, qualifier/type-unit/sequencing lowering, explicit skips, verified cache substitutions, backend fallback, evidence-status validation/epistemic transitions, and optimization acceptance use shared, resolvable rule and evidence records:
 
 ```text
 rule_records[]:
@@ -883,17 +1002,17 @@ validation_evidence[]:
     evidence_location?
 ```
 
-Candidate `rule_kind` values include `CONTRACT_TRANSITION`, `QUALIFIER_LOWERING`, `EFFECT_SKIP`, `CACHE_SUBSTITUTION`, `BACKEND_FALLBACK`, `FAILURE_BEHAVIOR_MAPPING`, `EPISTEMIC_TRANSITION`, and `OPTIMIZATION_LEGALITY`. `authority_kind` distinguishes a frozen source/specification authority from an execution policy. The authority ID and version/content identity must resolve to the authority actually accepted for this run; a backend cannot authorize itself by inventing a rule record. Rule content must be embedded or retrievable through a content-bound location, and its hash must verify. The rule definition includes its permitted operation, scope, and applicability conditions. A record of kind `FAILURE_BEHAVIOR_MAPPING` permits only a verified representation change, not a change in failure semantics. A `QUALIFIER_LOWERING` rule permits only the exact qualifier preservation/consumption/transformation relation its content and validated context define; it is not generic permission to drop qualifiers.
+Candidate `rule_kind` values include `CONTRACT_TRANSITION`, `QUALIFIER_LOWERING`, `TYPE_UNIT_LOWERING`, `SEQUENCING_LOWERING`, `EFFECT_SKIP`, `CACHE_SUBSTITUTION`, `BACKEND_FALLBACK`, `FAILURE_BEHAVIOR_MAPPING`, `EVIDENCE_STATUS`, `EPISTEMIC_TRANSITION`, and `OPTIMIZATION_LEGALITY`. `authority_kind` distinguishes a frozen source/specification authority from an execution policy. The authority ID and version/content identity must resolve to the authority actually accepted for this run; a backend cannot authorize itself by inventing a rule record. Rule content must be embedded or retrievable through a content-bound location, and its hash must verify. The rule definition includes its permitted operation, scope, and applicability conditions. A record of kind `FAILURE_BEHAVIOR_MAPPING` permits only a verified representation change, not a change in failure semantics. A `QUALIFIER_LOWERING`, `TYPE_UNIT_LOWERING`, or `SEQUENCING_LOWERING` rule permits only the exact subject relation its content and validated context define; none is generic permission to drop metadata or retarget ordering.
 
-`subject_kind` defines the target namespace: `LOWERING_TRANSITION_DECISION`, `QUALIFIER_LOWERING_DECISION`, `RESULT_DETERMINISM_SCOPE`, `RANDOMNESS_SCOPE`, `FAILURE_BEHAVIOR_BINDING`, `CARD_EXECUTION`, `OPERATION_EXECUTION`, `EFFECT_NON_ATTEMPT_RECORD`, `CACHE_REUSE_RECORD`, `BACKEND_SELECTION_DECISION`, `OUTPUT`, or `OPTIMIZATION_RECORD` resolves to that ledger's stable record key. `LOWERING_TRANSITION_DECISION` resolves to the stable `transition_decision_id` on a first- or second-lowering semantic-transition record. `QUALIFIER_LOWERING_DECISION` resolves to `qualifier_lowering_decision_id`. The evidence must name the same rule as the subject's rule reference and bind the exact subject and evaluated context, not another run, invocation, contract, cache entry, target decision, output, IR pair, qualifier, or downstream execution scope. `verifier_identity` identifies the verification method and its immutable/versioned implementation.
+`subject_kind` defines the target namespace: `LOWERING_TRANSITION_DECISION`, `QUALIFIER_LOWERING_DECISION`, `TYPE_UNIT_LOWERING_DECISION`, `SEQUENCING_LOWERING_DECISION`, `RESULT_DETERMINISM_SCOPE`, `RANDOMNESS_SCOPE`, `FAILURE_BEHAVIOR_BINDING`, `CARD_EXECUTION`, `OPERATION_EXECUTION`, `EFFECT_NON_ATTEMPT_RECORD`, `CACHE_REUSE_RECORD`, `BACKEND_SELECTION_DECISION`, `OUTPUT`, or `OPTIMIZATION_RECORD` resolves to that ledger's stable record key. `LOWERING_TRANSITION_DECISION` resolves to the stable `transition_decision_id` on a first- or second-lowering semantic-transition record. `QUALIFIER_LOWERING_DECISION` resolves to `qualifier_lowering_decision_id`; `TYPE_UNIT_LOWERING_DECISION` resolves to `type_unit_lowering_decision_id`; `SEQUENCING_LOWERING_DECISION` resolves to `sequencing_mapping_id`. The evidence must name the same rule as the subject's rule reference and bind the exact subject and evaluated context, not another run, invocation, contract, cache entry, target decision, output, IR pair, qualifier, type/unit fact set, sequencing edge set, or downstream execution scope. `verifier_identity` identifies the verification method and its immutable/versioned implementation.
 
 `related_evidence_ids[]`, when present, is an ordered duplicate-free provenance relation to other validation evidence whose facts are material inputs to this subject's validation. Every referenced evidence ID resolves in the same trace closure, has independently valid rule/subject/context/content/order, and precedes the dependent evidence's application where that predecessor is required for authorization. A related evidence record never changes the dependent evidence's singular `subject_kind`/`subject_id` and cannot substitute for evidence bound directly to the dependent subject. The relation is acyclic. In particular, an execution-scope transition created by lowering uses its own subject-bound evidence and cites the applicable lowering-transition evidence through this field; it does not reuse the lowering evidence ID as though both records had one subject.
 
 Evidence content must likewise be embedded or retrievable and hash-verifiable. It contains the evaluated context and checks needed to establish applicability; `evaluated_context_hash` binds that context canonically. An `outcome = PASS` string alone is insufficient. Validation must establish that the evidence supports the rule under the current source, policy, inputs, and execution contracts. Unknown IDs, unavailable definitions, wrong kinds, stale versions, mismatched context, and failed or unverifiable evidence fail closed.
 
-For an applied transition, qualifier consumption/transformation, skip, cache substitution, fallback, or optimized-variant acceptance, `application_sequence_index` is required and denotes the actual subject's activation, lower-fact application, skip, substitution, selection, claim-publication, or acceptance event. It shares the frozen monotonic event-order domain with `validation_sequence_index`, which must precede it. A rejected decision has no application event. Reporting a rule or validating it after application cannot retroactively authorize behavior.
+For an applied transition, qualifier/type-unit/sequencing transformation, skip, cache substitution, fallback, evidence claim publication, or optimized-variant acceptance, `application_sequence_index` is required and denotes the actual subject's activation, lower-fact/edge application, metadata erasure, skip, substitution, selection, claim-publication, or acceptance event. It shares the frozen monotonic event-order domain with `validation_sequence_index`, which must precede it. A rejected decision has no application event. Reporting a rule or validating it after application cannot retroactively authorize behavior.
 
-These records are provenance about operational permission and checks, not TEST/VALIDATION/PROOF research outputs and not capability grants. Referencing them never bypasses effect or protected-machinery authorization. An epistemic transition requires its specific rule's substantive research evidence in addition to the operational record that verifies it; ordinary operational authorization cannot manufacture that evidence.
+These records are provenance about operational permission and checks, not capability grants. `EVIDENCE_STATUS`/`EPISTEMIC_TRANSITION` evidence is additionally bound to substantive research evidence required for the output claim; ordinary operational authorization cannot manufacture TEST/VALIDATION/PROOF evidence.
 
 ## Stable execution-contract scope records
 
@@ -1008,6 +1127,7 @@ job_id?
 deck_executions[]?
 card_executions[]?
 operation_executions[]
+epistemic_class_bindings[]
 control_decisions[]
 failure_records[]
 execution_status
@@ -1039,11 +1159,12 @@ effect_non_attempt_records[]
 cache_reuse_records[]
 external_tool_versions[]
 generated_artifacts[]
+toolchain_environment_configs[]
 toolchain_invocations[]
 start_stop_metadata?
 ```
 
-Execution-wide capability arrays and `runtime_compiler_versions[]` are summaries only. Contextual authorization records prove per-boundary authorization, and `toolchain_invocations[]` plus generated-artifact direct/ancestry links prove the exact artifact-producing build graph and, where command-line ordering is material, the exact ordered invocation argument vector. `job_id`, DECK/CARD ledgers, and Semantic CARD lineage are conditional on actual retained Semantic execution structure; direct Core entry does not synthesize them.
+Execution-wide capability arrays and `runtime_compiler_versions[]` are summaries only. Contextual authorization records prove per-boundary authorization, and `toolchain_invocations[]` plus generated-artifact direct/ancestry links prove the exact artifact-producing build graph and, where material, the exact ordered invocation argument vector and content-bound environment/configuration. `job_id`, DECK/CARD ledgers, and Semantic CARD lineage are conditional on actual retained Semantic execution structure; direct Core entry does not synthesize them. `epistemic_class_bindings[]` contains only class facts genuinely retained/declared in the represented IR lineage; its absence for direct lower entry is legal and forces no-claim output classification rather than invention.
 
 ## DECK, CARD, and lower-operation execution ledgers
 
@@ -1492,6 +1613,7 @@ outputs[]:
     artifact_hash
     artifact_location?
     semantic_class
+    epistemic_class_binding_ids[]
     status
     producer_execution_refs[]:
         representation_kind
@@ -1524,6 +1646,10 @@ outputs[]:
 
 `producer_card_ids[]` and `producer_card_execution_ids[]` are conditional retained-lineage projections. When verified Semantic lineage exists, they must be present as required by the active Semantic audit profile, agree exactly with the Semantic CARD-backed subset of `producer_execution_refs[]`, and resolve through `card_executions[]`. When no Semantic lineage exists on a legitimate lower-representation entry, both arrays are absent rather than empty placeholders that pretend to identify producers. Empty/fabricated CARD arrays cannot replace the nonempty producer-execution relation.
 
+`epistemic_class_binding_ids[]` is always explicit. For any output whose `semantic_class` makes a research/evidence claim, independently derive every applicable representation-qualified class binding from `producer_execution_refs[]`, the entered representation, and every traversed class-preservation mapping, then require the recorded IDs to equal that complete set and justify the exact claimed class. A source class may be preserved into a lower binding, but a local output label cannot substitute for the binding.
+
+If the legitimate entered lower representation has no applicable class binding for the output, `semantic_class` is `UNCLASSIFIED` (or frozen no-claim equivalent), `epistemic_class_binding_ids[]` is empty, and `evidence_status` is absent. Such an output may still be operationally successful and reproducible; it simply makes no TEST/VALIDATION/PROOF or other epistemic claim. Fabricating a class binding, copying an unrelated retained class, or writing `PROOF` directly into `semantic_class` is invalid.
+
 The concrete producer relation is required whenever runtime producer attribution is part of the trace contract. Local operation/CARD IDs alone are insufficient for loops, retries, repeated calls, repeated DECK execution, or repeated Core operation execution.
 
 `input_ids[]` identifies the exact immutable inputs materially contributing to the output. Execution-wide input availability is not a substitute, and this transitive output relation does not replace each input's direct concrete consumer/acquisition links.
@@ -1555,23 +1681,23 @@ An array is empty only when its independently derived applicable set is empty. E
 
 ### Evidence status
 
-When present, evidence status is class-discriminated:
+Evidence-bearing classes require class-discriminated output-bound validation:
 
 ```text
 evidence_status:
     evidence_class      # TEST / VALIDATION / PROOF / frozen equivalent
     status
-    evidence_rule_id?
-    evidence_validation_id?
+    evidence_rule_id
+    evidence_validation_id
 ```
 
-The evidence class must be compatible with the output's `semantic_class` and explicit evidence transition. Generic output `status` is an execution/artifact state and cannot promote epistemic class.
+For every output whose `semantic_class` is evidence-bearing (`TEST`, `VALIDATION`, `PROOF`, or a frozen equivalent requiring evidence verification), `evidence_status` is mandatory and both IDs are mandatory. Generic output `status` is an execution/artifact state; it is never research evidence.
 
-No evidence promotion is implicit. Compare the claimed class against the original hash-bound semantic producers and their actual evidence when such lineage exists, not just a producer-written output label. For any epistemic change that is not class-preserving under the frozen semantic rule, including simulation/TEST/AI output claimed as VALIDATION or PROOF, both `evidence_rule_id` and `evidence_validation_id` are mandatory. Classes are not assumed to form a numeric strength ranking; every proposed non-preserving transition needs its own applicable rule.
+For a **class-preserving** evidence-bearing output, `evidence_rule_id` resolves to an accepted versioned/content-bound `EVIDENCE_STATUS` rule for that class and `evidence_validation_id` resolves to passing `validation_evidence[]` with `subject_kind = OUTPUT` and `subject_id = output_id`. Its evaluated context binds the artifact hash, exact `epistemic_class_binding_ids[]`, concrete producer executions, material inputs/tools/evidence identities, requested evidence status, applicable proposition/test/validation/proof subject, and claim-publication event. The substantive evidence required by that class's frozen rule is retrievable, hash-verifiable, and checked by the identified accepted verifier **before publication**. For VALIDATION and PROOF, this includes the required validation evidence or proposition/proof/certificate/checker obligations. Copying `semantic_class = PROOF` from a source CARD and reporting operational `SUCCESS` does not satisfy this contract.
 
-`evidence_rule_id` resolves to an accepted, versioned, content-bound `EPISTEMIC_TRANSITION` rule. `evidence_validation_id` resolves to passing `validation_evidence[]` with `subject_kind = OUTPUT` and this exact `output_id`. Its evaluated context binds the output artifact hash, original source class bindings where present, concrete producer execution subjects, contributing input/evidence identities, requested target evidence class/status, and applicable evidence contract. The substantive evidence required by that rule must be retrievable, hash-verifiable, and checked with the identified accepted verifier before the stronger/different claim is published. For a PROOF claim this includes the applicable proposition, proof/certificate, and formal checking obligations required by the frozen proof contract; test success, model confidence, or an operational `PASS` record is not a replacement.
+For a **non-class-preserving** claim, `evidence_rule_id` instead resolves to accepted `EPISTEMIC_TRANSITION` authority and the output-bound evidence additionally proves the exact source-binding/class-to-target-class transition under the active context before publication. Classes are not assumed to form a numeric strength ranking; each transition needs an applicable rule.
 
-A missing accepted transition rule means the promotion is rejected. Unknown, wrong-kind, stale, unavailable, failed, context-mismatched, or post-publication evidence likewise rejects the claim. Assigning the stronger class directly to `outputs[].semantic_class`, omitting `evidence_status`, or routing it through an adapter cannot bypass the source-to-output class check. A distinct validation/proof CARD may produce separately identified evidence under its frozen semantics; it does not retroactively relabel the original simulation or TEST artifact. Class-preserving records need not invent transition evidence, but remain subject to their own evidence-status validation rules.
+`semantic_class = UNCLASSIFIED` requires an empty class-binding set and no `evidence_status`; it cannot be used as a back door to publish an evidence-bearing claim. A distinct validation/proof output may establish its own valid class binding/evidence subject, but it does not retroactively relabel another output. Missing, wrong-kind, stale, unavailable, failed, context-mismatched, different-output, or post-publication rule/evidence rejects the claim.
 
 ## Failure trace
 
@@ -1585,6 +1711,7 @@ job_status?
 deck_executions[]?
 card_executions[]?
 operation_executions[]
+epistemic_class_bindings[]
 control_decisions[]
 failure_records[]
 failure_behavior_bindings[]
@@ -1622,7 +1749,8 @@ At minimum, a future validator should reject or fail closed when:
 
 - stable JOB/DECK/CARD identities are missing or silently renumbered when Semantic lineage is present;
 - a lower-entry run fabricates Semantic JOB/DECK/CARD or CARD-execution identities that did not exist;
-- an epistemic class becomes detached from its CARD;
+- an epistemic class becomes detached from its owner-qualified representation subject, or a lower-entry output claims a class without an applicable representation-qualified class binding;
+- an output with no applicable class binding claims anything other than the explicit `UNCLASSIFIED`/no-claim state;
 - a declared effect loses its per-effect capability binding or representation-qualified declaration identity;
 - declaration, attempt, and authorization capability sets do not exactly match the hash-bound declaration, or their owner/execution/reciprocal identity links disagree;
 - a protected machinery requirement disappears before MORPH;
@@ -1636,9 +1764,11 @@ At minimum, a future validator should reject or fail closed when:
 - a machinery-requirement mapping cannot identify the exact source and lower requirement records at either lowering boundary when multiple requirements share a scope;
 - an execution-relevant qualifier is consumed, transformed, relocated, or otherwise non-verbatim without an identified `qualifier_lowering_decision_id`, exact owner-qualified source qualifier/value, resolvable resulting Core scopes/facts, accepted applicable `QUALIFIER_LOWERING` rule, and passing subject-bound pre-application evidence;
 - a qualifier-lowering decision cites an extension-owned interpretation without the exact resolved extension identity/contract, or a rule/evidence pair for a different qualifier/value/scope;
+- a type/unit fact is normalized or erased without an owner-qualified `type_unit_lowering_decision_id`, accepted `TYPE_UNIT_LOWERING` rule, exact resulting Core facts, and passing subject-bound evidence validated before erasure;
 - a result-binding map cannot represent the actual split/fusion cardinality;
 - a result-binding endpoint lacks its complete typed owner path or cannot resolve uniquely within the correct hash-bound representation;
 - a sequencing endpoint loses its kind, owner path, stable ID, or direction during serialization/lowering;
+- a sequencing endpoint/edge changes at either mandatory lowering without the exact source/lower edge mapping, applicable `SEQUENCING_LOWERING` rule, and passing pre-application evidence, unless the frozen unchanged-edge reconstruction rule applies;
 - a lowering scope mapping uses ambiguous untyped endpoints where namespaces can overlap;
 - a required extension ownership mapping becomes positional or implicit;
 - a material resolved extension lacks its exact profile version, contract hash, implementation-component identities, or resolvable owning requirement and governed scopes;
@@ -1683,9 +1813,11 @@ At minimum, a future validator should reject or fail closed when:
 - a generated artifact's ordered toolchain ancestry is inconsistent with the direct generated-artifact input/output graph under the active profile;
 - a transitive toolchain ancestor is falsely recorded as directly outputting a final artifact merely to satisfy chain membership;
 - a toolchain invocation omits material tool identity, immutable non-generated `input_ids[]`, material build flags/configuration, or the ordered duplicate-preserving `argument_vector[]` required to reconstruct position-sensitive invocation semantics;
+- material out-of-argv environment/configuration can affect a tool invocation but `environment_config_hash` is absent, unresolved, not content-bound/retrievable, or omits a material environment/config/reproducibility input;
 - a toolchain argument vector has missing/duplicate/noncontiguous indices, loses duplicate occurrences or positional separators, or contains typed input/artifact/IR/output references inconsistent with the invocation's material input/output ledgers;
-- output evidence status contradicts semantic class;
-- an epistemic promotion lacks its applicable frozen rule and passing subject/content-bound substantive evidence before claim publication;
+- output evidence status contradicts semantic class or class-binding provenance;
+- an evidence-bearing TEST/VALIDATION/PROOF output omits `evidence_status`, its accepted class-specific rule, or passing subject-bound substantive evidence, even when the class is preserved from source;
+- an epistemic promotion lacks its applicable frozen transition rule and passing subject/content-bound substantive evidence before claim publication;
 - a mutable input locator substitutes for immutable input identity;
 - an input loses its actual concrete consumer execution refs or effect-acquisition attempts, or a failed/output-free invocation loses consumed-input attribution;
 - reciprocal input/consumer/acquisition links disagree, captures are assigned by local CARD/operation ID or path alone, or a denied/unstarted acquisition claims a captured input;
@@ -1700,9 +1832,12 @@ These are documentation acceptance cases for the applicable roadmap gates, not a
 | --- | --- | --- |
 | Direct Core protected effect | `input_representation = QSOL_CORE`; the effect declaration resolves in the hash-bound Core IR; authorization and attempt use the same Core `execution_subject_ref` / `operation_execution_id`; all required capabilities are granted before begin; Semantic CARD fields are absent unless independently retained as verified lineage. | Fabricated `card_id`/`card_execution_id`; missing Core operation execution; declaration resolved through a nonexistent Semantic IR; local operation ID without representation/owner path; authorization for another Core invocation. |
 | Direct Core protected machinery use | `input_representation = QSOL_CORE`; each applicable machinery requirement/ref names `QSOL_CORE`, `core_ir_hash`, the complete Core-relative owner path and local requirement ID; authorization resolves that exact Core declaration/capability set; `execution_subject_refs[]` contains the actual Core `CORE_OPERATION` / `operation_execution_id`; the use references the scope's final executable decision; all authorizations precede use. | Requirement path forced to start at JOB; missing representation identity; fabricated Semantic machinery declaration or CARD execution; empty execution subjects treated as pre-execution setup; predecessor/denied/superseded decision used as the executed decision; another Core invocation's subject; scope/event index used as the concrete join. |
+| Direct Core output class | A direct Core output always has its concrete producer. If the entered Core IR has an applicable representation-qualified epistemic binding, `epistemic_class_binding_ids[]` resolves that exact binding and justifies the class. If it has none, the output is explicitly `UNCLASSIFIED` with an empty binding set and no evidence claim. | Fabricated Semantic class lineage; arbitrary `TEST`/`VALIDATION`/`PROOF`; unrelated lower binding; operational success treated as class provenance. |
 | Direct Core output | A nonempty `producer_execution_refs[]` entry resolves to the actual Core `operation_execution_id`; complete applicable contract scopes are derived from that Core producer and retained mappings; Semantic producer arrays are absent unless verified lineage exists. | Empty producer refs; fabricated CARD producers; treating absent upstream Semantic history as an error; deriving scopes only from nonexistent CARD executions. |
 | Lower-operation non-reach | The lower operation is represented by its exact `operation_execution_id`; an untaken status resolves to the controlling decision, a fail-stop/blocked status resolves to the blocking failure, and an explicit skip has accepted rule plus passing pre-application evidence bound to this OPERATION_EXECUTION. `failure_record_id` is absent unless the operation itself failed. | Cause-free NOT_REACHED; blocking failure placed in `failure_record_id`; control decision from another invocation; skip rule without evidence; fabricated CARD cause/lineage. |
 | Qualifier consumption | The exact owner-qualified source qualifier/value resolves in Semantic IR; the decision identifies every material Core scope/fact; an accepted `QUALIFIER_LOWERING` rule and passing subject-bound evidence validate that exact effect before application; extension-owned interpretation resolves its exact extension contract. | Opaque `qualifier_lowering_decisions[]` entry; dropped/defaulted qualifier; wrong value/owner/Core fact; rule without evidence; evidence for another qualifier; validation after lower fact application. |
+| Type/unit erasure | Every normalized/erased source type or unit resolves through `type_unit_lowering_decisions[]`; the accepted `TYPE_UNIT_LOWERING` rule and passing evidence bind the exact source facts, conversion/premises, Core facts/ops, and active contracts before erasure. | “Validated premise” label only; wrong unit/type; no lower fact relation; post-erasure evidence; IR hash used as proof; silent metadata loss. |
+| Sequencing lowering | Every changed directed sequencing edge maps its exact typed owner-qualified predecessor/successor endpoints to the exact lower edge set under accepted `SEQUENCING_LOWERING` authority and passing pre-application evidence; unchanged edges may use the frozen reconstruction rule. | Dropped edge; direction reversal; endpoint kind/path changed without mapping; split/fusion inferred from result map; effect/failure edge silently retargeted. |
 | Multi-capability effect | Canonical declaration, trace declaration, attempt, and authorization all require `{AI_MODEL, NETWORK}`; every required capability is granted to the same attempt before begin. | Copy only `AI_MODEL` into both runtime records; truncate the trace declaration too; substitute another declaration or retry; omit or deny `NETWORK`. |
 | Begun effect ordering | Every `COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN` attempt has a concrete begin index; its linked authorization is GRANTED, has a concrete authorization index in the same event-order domain, and the authorization index precedes begin. | Begun state with missing begin index; GRANTED authorization with missing ordering index; late authorization; generic attempt sequence used as proof; denied authorization paired with a begun state. |
 | Numeric contract transition | A representation-only numeric mapping proves identical content-bound semantics. Any semantic change carries exact requested/effective numeric contract IDs/hashes plus a stable transition-decision ID, accepted CONTRACT_TRANSITION authority, and passing subject-bound evidence validated before the changed lower contract is applied. | Strict IEEE changed to tolerance/fast-math with only a mapping rule or backend flag; missing requested/effective hashes; rule without evidence; late evidence; evidence for another scope/contract pair. |
@@ -1710,6 +1845,7 @@ These are documentation acceptance cases for the applicable roadmap gates, not a
 | Failure-policy change | An accepted CONTRACT_TRANSITION rule and passing lowering-decision evidence authorize the exact fail-stop-to-retry transition before activation; the resulting `FAILURE_BEHAVIOR_BINDING` has distinct subject-bound evidence that cites the lowering evidence through `related_evidence_ids[]`. A representation-only rename instead proves unchanged semantics under its mapping rule. | Missing/stale rule; late evidence; same evidence ID reused for lowering and binding; target evidence omits required lowering lineage; evidence for another decision/binding; continue disguised as representation mapping; requested/effective labels whose content changed. |
 | CARD not reached | A typed controlling decision, blocking failure, or verified skip actually prevents this exact invocation and its effect under the active contract. | No cause; cause from another loop iteration; handled nonblocking failure; dangling/circular cause; unverified parent skip. |
 | Backend fallback | The actual earlier denied candidate, accepted BACKEND_FALLBACK rule, and passing subject-bound evidence permit this target switch before the fallback decision; protected use is independently authorized and references the fallback/final executable decision. | Arbitrary/stale rule ID; wrong predecessor/scope; late validation; explicit target disallowing fallback; replacement mislabeled initial selection; protected use attached to the denied/superseded predecessor. |
+| Evidence-bearing class | A TEST/VALIDATION/PROOF output has `evidence_status`; its class-preserving `EVIDENCE_STATUS` rule or class-changing `EPISTEMIC_TRANSITION` rule and passing OUTPUT-bound evidence validate the exact artifact, class bindings, producers, substantive evidence obligations, and publication event. | Source PROOF copied with generic SUCCESS only; omitted evidence status; missing certificate/proposition/validation subject; another output's evidence; post-publication validation. |
 | Epistemic transition | The accepted EPISTEMIC_TRANSITION rule's substantive evidence is verified for this exact output, source class, producer executions, and requested claim before publication. | TEST success claimed as PROOF; missing proof obligations; different artifact's evidence; direct relabeling of output semantic class; omission of evidence status to evade the check. |
 | Optimization legality | Typed content-bound witnesses verify the exact IR pair, complete pass sequence, and active numeric/determinism/randomness/failure and other material contracts before optimized-variant acceptance. | Opaque `PASS`; wrong IR pair; changed tolerance or failure policy; incomplete pass coverage; unavailable verifier/evidence; finite tests represented as universal proof. |
 | Failed execution outcome | The failed execution subject's `failure_record_id` resolves to its exact governing failure or validated propagation relation. | Class/stage summaries only; another invocation's same-class failure; unresolved ID; fake CARD failure for a lower-operation or merely blocked path. |
@@ -1717,6 +1853,7 @@ These are documentation acceptance cases for the applicable roadmap gates, not a
 | Multi-capability machinery and complete use coverage | Resolve representation-qualified canonical requirements, validate their trace/lowering copies, require the exact canonical capability union and full grant, cover every independently applicable requirement for the actual final decision/use before start, and require every linked authorization to govern that same final decision. | Copy only `GPU` when a requirement needs `{GPU, NETWORK}`; truncate the trace copy too; drop a second applicable requirement; add unrelated grants; use another candidate/representation's authorization; use a predecessor decision; keep correct event order but incomplete coverage. |
 | Concrete cache substitution | Current runtime subjects are nonempty representation-qualified `execution_subject_refs[]`; CARD or direct-Core operation invocations reciprocally reference the record; two invocations of the same canonical computation retain distinct cold/reuse records; passing reuse evidence/effect accounting is bound to the exact substituted subject set. | CARD-only subject for direct Core; omit runtime execution refs; use the historical cache producer as the current subject; swap retries/operation invocations; infer a Cartesian product from a multi-producer output; reuse another invocation's effect accounting; claim both applied cold and whole-subject reuse. |
 | Ordered toolchain arguments | The invocation records a contiguous duplicate-preserving `argument_vector[]` whose exact tokens and typed input/generated-artifact/IR/output references match the material command line; summary inventories agree without replacing order. | Sort libraries; collapse duplicates; move `--whole-archive` across libraries; same `flags[]`/input sets with different argv accepted as identical; response-file path without immutable content/command semantics. |
+| Toolchain environment/config | Whenever out-of-argv environment/configuration can affect behavior, `environment_config_hash` resolves to embedded/retrievable canonical `toolchain_environment_configs[]` content that covers every material env option, cwd/config input, locale/timezone, and reproducibility timestamp/input. | Bare optional digest; missing config file/env option; implicit cwd/config discovery; unrecorded timestamp; “default environment” assertion; different config content under same claim. |
 | Typed sequencing identity | Every directed edge resolves by endpoint kind, complete typed owner path, and stable ID in its containing representation, under the shared serialization contract. | Drop kind/path; confuse CARD `7` with effect `7`; join repeated local CARD IDs under different DECKs; reverse direction while retaining ID text; resolve against a different representation. |
 | Qualified lower bindings | Each side of both lowering maps resolves its full owner path and binding ID in the correct input/output IR; a split names both distinct scoped `v0` bindings and a fusion retains each qualified source. | Keep local `v0` only; omit an enclosing scope; substitute a different IR; sort names and infer owners; duplicate a fully qualified binding; use an identity exception that cannot reconstruct ownership. |
 | Concrete runtime input consumers and acquisition | Repeated CARD/Core operation invocations retain distinct captured input identities, exact `consumer_execution_refs[]`, and actual acquisition attempt/input links, including when an invocation fails with no output. | Keep only canonical source CARD IDs; swap consumers or acquisition attempts; collapse independent equal-content captures without occurrence mapping; use an output as the only join; fabricate inputs for denied/unstarted reads. |
@@ -1729,4 +1866,4 @@ For every case involving referenced rules or evidence, also reject missing conte
 
 ## Principle
 
-> Trace meaning, not just bytes. Preserve stable semantic identity when it exists, representation-qualified concrete execution identity at every entry layer, typed scope correspondence, typed non-reach causes, unconditional declared-effect accounting, final-selection consistency, authorization-before-use ordering, truthful direct build edges, exact ordered toolchain arguments, transitive toolchain ancestry, and the exact evidence chain from immutable inputs through lowerings, optimization, toolchain invocations, and machinery to each output or failure.
+> Trace meaning, not just bytes. Preserve stable semantic identity when it exists, explicit no-claim state when it does not, representation-qualified concrete execution and class identity at every entry layer, typed scope and sequencing correspondence, typed non-reach causes, unconditional declared-effect accounting, final-selection consistency, authorization-before-use ordering, truthful direct build edges, exact ordered toolchain arguments, content-bound material environment/configuration, transitive toolchain ancestry, and the exact evidence chain from immutable inputs through lowerings, optimization, toolchain invocations, machinery, and class/evidence validation to each output or failure.
