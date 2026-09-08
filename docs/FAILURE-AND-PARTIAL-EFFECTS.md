@@ -4,7 +4,7 @@ QSOL-MORPH treats failure behavior as part of program semantics.
 
 This document is architectural and non-normative until the invariant freeze. Its purpose is to prevent the reference machine and later backends from inventing incompatible answers to the same failed computation.
 
-Record inventories here are projections of the [canonical trace contract](TRACE-AND-PROVENANCE.md#one-record-contract-not-independent-mirror-schemas), not independent weaker schemas. Conditional field requirements, exact cross-record capability equality, typed non-reach causes, and content-bound rule/evidence validation apply to failure manifests too. Shorter inventories never waive those checks.
+Record inventories here are projections of the [canonical trace contract](TRACE-AND-PROVENANCE.md#one-record-contract-not-independent-mirror-schemas), not independent weaker schemas. Conditional field requirements, exact cross-record capability equality, typed non-reach causes, representation-qualified execution subjects, and content-bound rule/evidence validation apply to failure manifests too. Shorter inventories never waive those checks.
 
 ## Core outcome model
 
@@ -94,7 +94,7 @@ Undefined target behavior is not a valid QSOL semantic contract.
 
 Effects complicate failure because the external world may already have changed.
 
-Every protected external effect is modeled as an **identified effect attempt** with its own authorization decision and completion state. A CARD may produce zero, one, or multiple effect attempts, and a DECK/JOB may accumulate many attempts across multiple CARDs.
+Every protected external effect is modeled as an **identified effect attempt** with its own authorization decision and completion state. A CARD or lower operation may produce zero, one, or multiple effect attempts, and a DECK/JOB or lower-entry execution may accumulate many attempts across multiple execution subjects.
 
 At minimum, each attempt should distinguish:
 
@@ -108,7 +108,7 @@ UNKNOWN
 
 These names are provisional, but the distinctions are semantic and must be mutually exclusive.
 
-A declared effect does not necessarily have an attempt. Its CARD may be on an untaken branch, may never be reached after an earlier fail-stop failure, or may be explicitly skipped under a frozen rule. The trace must distinguish those legitimate non-attempts from a backend silently omitting a reachable declared effect. An explicit skip must identify its governing frozen rule and passing applicability evidence for the concrete invocation; a reason label alone is not permission. Every not-reached reason, including `CARD_NOT_REACHED`, requires a validated typed control/failure cause or verified frozen skip for that exact invocation.
+A declared effect does not necessarily have an attempt. Its execution subject may be on an untaken branch, may never be reached after an earlier fail-stop failure, or may be explicitly skipped under a frozen rule. The trace must distinguish those legitimate non-attempts from a backend silently omitting a reachable declared effect. An explicit skip must identify its governing frozen rule and passing applicability evidence for the concrete invocation; a reason label alone is not permission. Every not-reached reason, including `CARD_NOT_REACHED` or a lower-subject equivalent, requires a validated typed control/failure cause or verified frozen skip for that exact invocation.
 
 A detected omission of a **reachable required effect** is not an ordinary non-attempt outcome. It is an implementation/conformance failure and must produce a structured failed execution outcome. Recording `BACKEND_OMISSION_DETECTED` (or a frozen equivalent) cannot be used to legitimize success after the backend skipped required semantic behavior.
 
@@ -160,15 +160,15 @@ A declaration that was never reached is different: if no runtime attempt object 
 
 The **effect itself reached its defined external completion boundary**.
 
-Completion is independent of whether the enclosing CARD later reports success or failure.
+Completion is independent of whether the enclosing CARD or lower operation later reports success or failure.
 
 For example, a process may run to completion and return exit status `2`. The process effect attempt is still `COMPLETED`, while the enclosing CARD may produce `FAILURE(PROCESS_FAILED)` because that completed process returned a non-success status under the active contract.
 
-Likewise, a complete file write may be `COMPLETED` even if a later validation step in the same CARD causes the CARD to fail.
+Likewise, a complete file write may be `COMPLETED` even if a later validation step in the same execution subject causes that subject to fail.
 
 If the process is known to have exited but the implementation cannot fully enumerate everything that process changed elsewhere, the attempt is still `COMPLETED`: the effect's own completion boundary is known. Broader consequence uncertainty belongs in additional provenance, not in the completion-state enum.
 
-A CARD failure must not relabel an already completed effect attempt as `PARTIAL` or `UNKNOWN` merely because the CARD outcome is failure.
+An enclosing failure must not relabel an already completed effect attempt as `PARTIAL` or `UNKNOWN` merely because the execution subject outcome is failure.
 
 ### ABORTED_CLEAN
 
@@ -192,7 +192,7 @@ Examples may include:
 - a streamed network write that transmitted some records before disconnect;
 - an external process launch/interaction that changed state but did not reach the operation's defined completion boundary.
 
-`PARTIAL` describes the effect attempt, not merely the fact that its enclosing CARD failed.
+`PARTIAL` describes the effect attempt, not merely the fact that its enclosing execution subject failed.
 
 ### UNKNOWN
 
@@ -218,9 +218,24 @@ Authorization is contextual to the concrete runtime attempt. Each identified eff
 ```text
 effect_authorization_record_id
 effect_attempt_id
-declared_effect_id
-card_id
-card_execution_id
+effect_requirement_ref:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    declared_effect_id
+execution_subject_ref:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    subject_kind
+    subject_id
+    execution_id
+card_id?
+card_execution_id?
 required_capabilities[]
 granted_capabilities[]
 denied_capabilities[]
@@ -230,9 +245,9 @@ authorization_status
 authorization_sequence_index?
 ```
 
-`card_id` identifies the canonical declaration owner. `card_execution_id` identifies the concrete retry, loop iteration, call, or other runtime invocation in which the authorization decision applies.
+`effect_requirement_ref` identifies the protected declaration in the representation that owns it. `execution_subject_ref` identifies the concrete CARD or lower-operation invocation to which authorization applies. Semantic CARD attempts require matching `card_id` and `card_execution_id`; a direct QSOL-CORE attempt resolves to `CORE_OPERATION` / `operation_execution_id`, with CARD fields absent unless verified Semantic lineage is retained.
 
-Before accepting the authorization, validate exact complete-set equality between the hash-bound canonical declaration, its trace declaration, the attempt, and the authorization record. Also validate their declaration/owner/concrete-execution identities, effect kind, and reciprocal attempt/authorization links. The canonical set must be fully granted with no denied member; granted and denied sets are disjoint. Matching truncated runtime copies are not enough: a declaration requiring `{AI_MODEL, NETWORK}` cannot be authorized by copying and granting only `{AI_MODEL}` in both runtime records. These checks are required in addition to event ordering and follow [Declaration-bound authorization validation](TRACE-AND-PROVENANCE.md#declaration-bound-authorization-validation).
+Before accepting the authorization, validate exact complete-set equality between the hash-bound declaration in the named representation, its trace declaration, the attempt, and the authorization record. Also validate their complete owner/execution identities, effect kind, and reciprocal attempt/authorization links. The canonical set must be fully granted with no denied member; granted and denied sets are disjoint. Matching truncated runtime copies are not enough: a declaration requiring `{AI_MODEL, NETWORK}` cannot be authorized by copying and granting only `{AI_MODEL}` in both runtime records. These checks are required in addition to event ordering and follow [Declaration-bound authorization validation](TRACE-AND-PROVENANCE.md#declaration-bound-authorization-validation).
 
 Authorization ordering and effect-begin ordering use the same frozen monotonic event-order domain. For every protected effect known to begin:
 
@@ -265,15 +280,24 @@ machinery_use_records[]:
     protected_use_kind
     protected_use_start_sequence_index
     protected_use_stop_sequence_index?
-    source_card_ids[]
-    card_execution_ids[]
+    execution_subject_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        subject_kind
+        subject_id
+        execution_id
+    source_card_ids[]?
+    card_execution_ids[]?
     initiating_scope_ref?
     backend_unit_id?
 ```
 
-`backend_selection_decision_id` identifies the concrete selection decision governing the use, not merely its shared selection scope. `generated_artifact_ids[]` identifies the exact generated executable/kernel/bytecode bytes actually launched by the protected use and remains available when failure occurs before any output exists; every referenced artifact must resolve consistently with the selection scope/decision/backend unit. `card_execution_ids[]` identifies the actual participating CARD invocations and is nonempty for CARD-governed work. Each ID resolves through `card_executions[]` to the correct canonical CARD, DECK execution, and run. A retry, loop iteration, or repeated DECK execution cannot be inferred from the use's event index or canonical CARD IDs.
+`backend_selection_decision_id` identifies the concrete selection decision governing the use, not merely its shared selection scope. `generated_artifact_ids[]` identifies the exact generated executable/kernel/bytecode bytes actually launched by the protected use and remains available when failure occurs before any output exists; every referenced artifact must resolve consistently with the selection scope/decision/backend unit. `execution_subject_refs[]` identifies the actual participating runtime invocations. Semantic CARD uses resolve to `card_executions[]`; direct Core uses resolve to exact `CORE_OPERATION` / `operation_execution_id` entries. `source_card_ids[]` / `card_execution_ids[]`, when present, are verified Semantic projections and cannot stand in for a lower-operation subject.
 
-For genuine pre-CARD machinery setup only, an empty CARD-execution array requires `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual initiating RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. Do not fabricate a CARD execution. Shared uses list their actual participating executions under the frozen execution mapping. `output_ids[]` is the reciprocal occurrence-level join to `outputs[].machinery_use_record_ids[]`; exact requirement identity is resolved through the linked canonical machinery authorization records and their absolute-owner-path `machinery_requirement_refs[]`, not a bare requirement-ID list on the use record. These fields follow the [canonical machinery-use contract](TRACE-AND-PROVENANCE.md#machinery-authorization-and-use-provenance).
+For genuine pre-execution RUN/DECK machinery setup only, an empty execution-subject array requires `initiating_scope_ref`, a typed `{ scope_kind, scope_id }` reference to the actual initiating RUN or DECK_EXECUTION, resolving to `run_id` or `deck_execution_id`. A direct QSOL-CORE operation is not pre-CARD setup and must identify its operation execution. Shared uses list their actual participating execution subjects under the frozen execution mapping. `output_ids[]` is the reciprocal occurrence-level join to `outputs[].machinery_use_record_ids[]`; exact requirement identity is resolved through the linked canonical machinery authorization records and their absolute-owner-path `machinery_requirement_refs[]`, not a bare requirement-ID list on the use record. These fields follow the [canonical machinery-use contract](TRACE-AND-PROVENANCE.md#machinery-authorization-and-use-provenance).
 
 Every referenced authorization must have completed before protected use begins:
 
@@ -349,18 +373,20 @@ A failed execution should be traceable with enough information to answer:
 - which aggregate run/JOB failed;
 - every DECK selected for that JOB run and the outcome of each one, including DECKs prevented from starting;
 - every CARD in those selected DECKs and whether it executed, failed, was on untaken control flow, was blocked by prior fail-stop, or was explicitly skipped under a frozen rule;
+- every lower-operation execution when the run legitimately entered QSOL-CORE or another lower representation without Semantic CARD execution structure;
 - which identified control decision or failure record caused an untaken or blocked execution path;
-- which typed scope failed, and when a CARD execution actually caused the failure, which canonical CARD and concrete CARD execution did so;
+- which typed scope failed, and which concrete CARD or lower-operation execution subject caused it when applicable;
 - which exact stable failure-behavior bindings governed the failure and its propagation or handling;
+- which exact result-determinism, numeric, and randomness scope records governed the failure;
 - at what stage the failure occurred;
 - which stable failure class applies;
 - which backend/runtime detail was reported;
 - which backend-selection scopes and ordered decisions, including denied candidates and fallback predecessors, governed authorization and use;
 - which declared effects existed;
-- which effect attempts existed, which canonical declared effect produced each one, which concrete CARD execution owned each attempt, which authorization decision governed each attempt, the complete capability set governing each attempt, the authorization-before-begin ordering evidence, and the completion state of each attempt;
-- why any declared effect had no runtime attempt for a concrete CARD execution and which typed control/failure cause or verified frozen skip rule governs that reason;
-- which protected machinery was actually used, which concrete CARD invocations or genuine pre-CARD initiating scope owned that use, which successful authorization records governed it, and whether every authorization completed before protected use began;
-- whether any output artifact became externally visible and which concrete attempt produced/exposed it;
+- which effect attempts existed, which exact representation-qualified effect declaration produced each one, which concrete execution subject owned each attempt, which authorization decision governed each attempt, the complete capability set governing each attempt, the authorization-before-begin ordering evidence, and the completion state of each attempt;
+- why any declared effect had no runtime attempt for a concrete execution subject and which typed control/failure cause or verified frozen skip rule governs that reason;
+- which protected machinery was actually used, which concrete execution subjects or genuine pre-execution initiating scope owned that use, which successful authorization records governed it, and whether every authorization completed before protected use began;
+- whether any output artifact became externally visible and which concrete attempt or machinery use produced/exposed it;
 - what determinism, numeric, randomness, capability, machinery-authorization, policy, and extension contracts were active.
 
 A minimal conceptual record may contain:
@@ -368,13 +394,17 @@ A minimal conceptual record may contain:
 ```text
 run_id
 execution_status
-job_id
-job_status
-deck_executions[]
-card_executions[]
+job_id?
+job_status?
+deck_executions[]?
+card_executions[]?
+operation_executions[]?
 control_decisions[]
 failure_records[]
 failure_behavior_bindings[]
+result_determinism_scopes[]
+numeric_execution_scopes[]
+randomness_execution_scopes[]
 primary_failure_record_id?
 backend_selection_scopes[]
 backend_selection_decisions[]
@@ -392,7 +422,7 @@ observable_output_ids[]
 
 Failure identity is carried by `failure_records[]`; the aggregate record references a `primary_failure_record_id?` when one failure is designated primary rather than duplicating a mandatory CARD field at the top level.
 
-The backend-selection ledgers are required wherever machinery authorization/use records reference their scope or decision IDs. Preserve denied candidates, fallback predecessor chains, and final decisions, not just a selected-backend label. A standalone failure manifest must retain the complete transitive closure of its references, including governing policy bindings, requirements, rules, evidence, and observable outputs, inline or through retrievable content-bound trace records. A dangling ID or an unbound mutable external trace link is incomplete provenance. The ledger definitions are those in [Trace and Provenance](TRACE-AND-PROVENANCE.md#failure-trace), not independent weaker schemas. Fallback decisions retain their applicable `BACKEND_FALLBACK` rule and subject-bound pre-application evidence; a denied candidate and a fallback sharing a scope never share authorization by implication.
+The backend-selection ledgers are required wherever machinery authorization/use records reference their scope or decision IDs. Preserve denied candidates, fallback predecessor chains, and final decisions, not just a selected-backend label. A standalone failure manifest must retain the complete transitive closure of its references, including governing policy bindings, result-determinism/numeric/randomness scope ledgers, requirements, rules, evidence, operation/CARD execution subjects, and observable outputs, inline or through retrievable content-bound trace records. A dangling ID or an unbound mutable external trace link is incomplete provenance. The ledger definitions are those in [Trace and Provenance](TRACE-AND-PROVENANCE.md#failure-trace), not independent weaker schemas. Fallback decisions retain their applicable `BACKEND_FALLBACK` rule and subject-bound pre-application evidence; a denied candidate and a fallback sharing a scope never share authorization by implication.
 
 Each selected DECK is represented through an identified record such as:
 
@@ -416,7 +446,8 @@ Execution-path causes use distinct typed namespaces. A control decision is ident
 ```text
 control_decisions[]:
     control_decision_id
-    card_execution_id
+    card_execution_id?
+    operation_execution_id?
     control_kind
     decision
     sequence_index?
@@ -427,24 +458,30 @@ failure_records[]:
     failing_scope_kind
     failing_scope_id
     failure_behavior_binding_ids[]
+    result_determinism_scope_ids[]
+    numeric_scope_ids[]
+    randomness_scope_ids[]
     failure_class
     failure_stage
     failure_card_id?
     failure_card_execution_id?
+    operation_execution_id?
     deck_execution_id?
     sequence_index?
     backend_detail?
 ```
 
-`failing_scope_kind` plus `failing_scope_id` is always present. It identifies the actual JOB, DECK execution, CARD execution, lowering, backend-selection scope, machinery boundary, or other frozen typed scope where the failure occurred.
+`failing_scope_kind` plus `failing_scope_id` is always present. It identifies the actual JOB, DECK execution, CARD execution, Core/lower-operation execution, lowering, backend-selection scope, machinery boundary, or other frozen typed scope where the failure occurred.
 
-`failure_behavior_binding_ids[]` is required and resolves to the exact stable failure-policy bindings active for this event and its handling/propagation, including the applicable frozen default fail-stop binding. A computation-scope match or a resulting retry/skip path does not identify the governing policy when multiple bindings or transitions exist. A rejected requested policy is not an effective handling policy; pre-CARD rejections retain the actual setup/rejection-handling binding. Missing, stale, or incompatible governing bindings make the failure trace incomplete.
+`failure_behavior_binding_ids[]` is required and resolves to the exact stable failure-policy bindings active for this event and its handling/propagation, including the applicable frozen default fail-stop binding. A computation-scope match or a resulting retry/skip path does not identify the governing policy when multiple bindings or transitions exist. A rejected requested policy is not an effective handling policy; pre-CARD/lower-entry rejections retain the actual setup/rejection-handling binding. Missing, stale, or incompatible governing bindings make the failure trace incomplete.
 
-For a CARD-caused failure, `failure_card_id` and `failure_card_execution_id` are required and resolve consistently through `card_executions[]`. For a failure before any CARD executes, those CARD-specific fields are absent. A producer must not fabricate a CARD attribution simply to satisfy a schema.
+`result_determinism_scope_ids[]`, `numeric_scope_ids[]`, and `randomness_scope_ids[]` are also required exact-set relations. Derive the complete applicable sets from the typed failing scope, the concrete execution subject when present, and validated lowering/contract mappings, then require every recorded ID to resolve to the retained type-specific ledger. Empty arrays are valid only when no scope in that family governs the failure. An output-free numeric or RNG failure cannot omit its governing contract merely because no result exists from which to infer it.
+
+For a CARD-caused failure, `failure_card_id` and `failure_card_execution_id` are required and resolve consistently through `card_executions[]`. For a failure before any CARD executes or in a legitimate direct lower-operation execution, those CARD-specific fields are absent. `operation_execution_id`, where applicable, names the actual lower execution subject. A producer must not fabricate a CARD attribution simply to satisfy a schema.
 
 `control_decision_id` and `failure_record_id` are not interchangeable, even if their textual values happen to overlap.
 
-Each CARD execution is likewise identified, conceptually:
+Each Semantic CARD execution is likewise identified, conceptually:
 
 ```text
 card_executions[]:
@@ -462,21 +499,38 @@ card_executions[]:
 
 For a failed CARD outcome, `failure_record_id` is required and resolves to the exact `failure_records[]` entry governing that concrete outcome, directly or through an explicitly frozen and validated propagation relation. Multiple same-class failures, retries, or propagation records cannot be distinguished by repeated `failure_class`/`failure_stage` strings. Those optional summaries may be derived only from the referenced record and never replace its stable key. A failed DECK has the same conditional requirement. A CARD merely blocked by prior failure uses its governing cause instead of fabricating a failure caused by that CARD.
 
+A lower-entry execution uses `operation_executions[]` with representation-qualified operation identity and concrete `operation_execution_id`, as defined by the canonical trace contract. It does not manufacture a CARD execution to reuse the Semantic ledger.
+
 An untaken branch points to the identified control decision that selected the other path. Prior fail-stop or another failure-caused non-reach points to the identified failure record that blocked execution. A catch-all `governing_control_or_failure_id` is not valid because it erases the target namespace.
 
-Candidate CARD outcomes may include successful execution, failed execution, untaken branch, prior fail-stop, CARD not reached, or explicit frozen skip. The exact vocabulary remains provisional, but membership in `card_ids[]` must not be mistaken for proof that the CARD ran. Explicit CARD skips require a governing skip rule and passing evidence for that exact `CARD_EXECUTION` subject under the rules below; skipping a parent CARD cannot evade accounting for its effects. Every `CARD_NOT_REACHED` outcome also requires a validated typed control/failure cause or verified skip for the exact invocation under [Required causes for non-reach](TRACE-AND-PROVENANCE.md#required-causes-for-non-reach).
+Candidate execution outcomes may include successful execution, failed execution, untaken branch, prior fail-stop, subject not reached, or explicit frozen skip. The exact vocabulary remains provisional, but Semantic membership in `card_ids[]` must not be mistaken for proof that the CARD ran. Explicit skips require a governing skip rule and passing evidence for that exact execution subject under the rules below; skipping a parent subject cannot evade accounting for its effects. Every not-reached outcome requires a validated typed control/failure cause or verified skip for the exact invocation under [Required causes for non-reach](TRACE-AND-PROVENANCE.md#required-causes-for-non-reach).
 
-Each `effect_requirements[]` entry preserves the canonical declared effect, source CARD, effect kind, and complete required-capability set.
+Each `effect_requirements[]` entry preserves the exact representation-qualified declared effect, owning path, effect kind, and complete required-capability set.
 
-Each `effect_authorization_records[]` entry preserves the contextual policy decision that governed one identified attempt and identifies the concrete `card_execution_id` in which that decision applies.
+Each `effect_authorization_records[]` entry preserves the contextual policy decision governing one identified attempt and its representation-qualified concrete execution subject.
 
 Each `effect_attempts[]` entry should be independently identifiable and may carry fields such as:
 
 ```text
 effect_attempt_id
-declared_effect_id
-card_id
-card_execution_id
+effect_requirement_ref:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    declared_effect_id
+execution_subject_ref:
+    representation_kind
+    representation_identity
+    owner_scope_path[]:
+        scope_kind
+        scope_id
+    subject_kind
+    subject_id
+    execution_id
+card_id?
+card_execution_id?
 effect_kind
 required_capabilities[]
 effect_authorization_record_id
@@ -490,16 +544,31 @@ observable_output_ids[]
 external_tool_ids[]
 ```
 
-`declared_effect_id` links the runtime attempt back to the canonical `EffectRequirement.effect_id`; `effect_attempt_id` identifies the particular runtime attempt; and `card_execution_id` identifies the concrete invocation/path in which it occurred. They are not interchangeable. `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering. For `completion_state = NOT_STARTED`, begin/end indices are absent and `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]` are empty. A retained output must never cite a `NOT_STARTED` attempt through `effect_attempt_ids[]`; failure projections inherit the same reciprocal rejection rule as the canonical trace. Material external-tool attribution also uses explicit attempt/output subject arrays and reciprocal links rather than broad CARD-only association.
+`effect_requirement_ref` links the runtime attempt to the exact effect declaration in the representation that owns it; `effect_attempt_id` identifies the particular runtime attempt; and `execution_subject_ref` identifies the concrete invocation/path in which it occurred. Semantic CARD projections are conditional. Generic `sequence_index` may order attempts as records, but it does not substitute for `effect_begin_sequence_index` when proving authorization-before-effect ordering. For `completion_state = NOT_STARTED`, begin/end indices are absent and `acquired_input_ids[]`, `observable_output_ids[]`, and `external_tool_ids[]` are empty. A retained output must never cite a `NOT_STARTED` attempt through `effect_attempt_ids[]`; failure projections inherit the same reciprocal rejection rule as the canonical trace. Material external-tool attribution also uses explicit attempt/output subject arrays and reciprocal links rather than broad CARD-only association.
 
-When a declared effect has no runtime attempt for a concrete CARD execution, an identified non-attempt record explains why:
+When a declared effect has no runtime attempt for a concrete execution subject, an identified non-attempt record explains why:
 
 ```text
 effect_non_attempt_records[]:
     effect_non_attempt_record_id
-    declared_effect_id
-    card_id
-    card_execution_id
+    effect_requirement_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        declared_effect_id
+    execution_subject_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        subject_kind
+        subject_id
+        execution_id
+    card_id?
+    card_execution_id?
     effect_kind
     non_attempt_reason
     governing_control_decision_id?
@@ -509,13 +578,13 @@ effect_non_attempt_records[]:
     backend_detail?
 ```
 
-Legitimate candidate reasons include untaken branch, prior fail-stop, CARD not reached, and explicit frozen skip, subject to mandatory cause validation. Untaken control flow requires an applicable `governing_control_decision_id`; failure-caused non-reach requires an applicable `governing_failure_record_id`; explicit skip requires the rule/evidence pair below. `CARD_NOT_REACHED` requires one of these same validated cause forms and has no cause-free exception. The cause must actually prevent the exact invocation under the active control/dependency/failure contract. An unrelated decision, another loop iteration's cause, a handled nonblocking failure, or a dangling/circular cause chain is invalid. Missing or unverifiable causes force structured conformance failure. A detected backend omission of a reachable effect is likewise a structured implementation/conformance failure, not a legitimate status label.
+Legitimate candidate reasons include untaken branch, prior fail-stop, subject not reached, and explicit frozen skip, subject to mandatory cause validation. Untaken control flow requires an applicable `governing_control_decision_id`; failure-caused non-reach requires an applicable `governing_failure_record_id`; explicit skip requires the rule/evidence pair below. A generic not-reached reason requires one of these same validated cause forms and has no cause-free exception. The cause must actually prevent the exact invocation under the active control/dependency/failure contract. An unrelated decision, another loop iteration's cause, a handled nonblocking failure, or a dangling/circular cause chain is invalid. Missing or unverifiable causes force structured conformance failure. A detected backend omission of a reachable effect is likewise a structured implementation/conformance failure, not a legitimate status label.
 
-An explicit frozen skip requires both `governing_skip_rule_id` and `skip_verification_evidence_id`. They resolve to `rule_records[].rule_id` of kind `EFFECT_SKIP` and passing `validation_evidence[].validation_evidence_id` for this exact non-attempt record, declaration, concrete CARD execution, and active semantic/policy context. Definitions, authority versions/content identities, evidence subjects, and same-domain validation-before-application ordering follow [Referenced rules and validation evidence](TRACE-AND-PROVENANCE.md#referenced-rules-and-validation-evidence). A reason label, optional control/failure link, or evidence for a different invocation is insufficient. Missing, unresolved, inapplicable, or unverifiable skip authority/evidence forces structured conformance failure rather than legitimizing an omitted reachable effect.
+An explicit frozen skip requires both `governing_skip_rule_id` and `skip_verification_evidence_id`. They resolve to `rule_records[].rule_id` of kind `EFFECT_SKIP` and passing `validation_evidence[].validation_evidence_id` for this exact non-attempt record, declaration, concrete execution subject, and active semantic/policy context. Definitions, authority versions/content identities, evidence subjects, and same-domain validation-before-application ordering follow [Referenced rules and validation evidence](TRACE-AND-PROVENANCE.md#referenced-rules-and-validation-evidence). A reason label, optional control/failure link, or evidence for a different invocation is insufficient. Missing, unresolved, inapplicable, or unverifiable skip authority/evidence forces structured conformance failure rather than legitimizing an omitted reachable effect.
 
-Declared-effect accounting is unconditional. For every selected concrete `card_execution_id`, every applicable canonical effect declaration must resolve to one or more attempts, exactly one legitimate identified non-attempt, or structured failure when accounting cannot be established or a reachable required effect was omitted. There is no optional declaration-completeness audit mode and no backend/profile/optimization switch may disable this rule.
+Declared-effect accounting is unconditional. For every selected concrete execution subject, every applicable declaration must resolve to one or more attempts, exactly one legitimate identified non-attempt, or structured failure when accounting cannot be established or a reachable required effect was omitted. There is no optional declaration-completeness audit mode and no backend/profile/optimization switch may disable this rule.
 
-The trace must not collapse multiple external actions into one aggregate `partial_effect_state`, must not collapse protected machinery use into authorization outcomes alone, and must not collapse selected DECKs or CARD execution paths into one aggregate status that loses which semantic units actually ran.
+The trace must not collapse multiple external actions into one aggregate `partial_effect_state`, must not collapse protected machinery use into authorization outcomes alone, and must not collapse selected DECKs, CARD executions, or lower-operation execution paths into aggregate status that loses which semantic/runtime units actually ran.
 
 ## Determinism and failure
 
@@ -545,10 +614,10 @@ Backends may translate failure into native mechanisms such as return codes, tagg
 
 Those are implementation choices.
 
-They must map back to the same QSOL CARD/DECK/JOB success/failure semantics, the same per-CARD/per-DECK execution ledger, the same typed control/failure causality and governing failure-policy bindings, the same per-effect authorization/attempt/non-attempt ordering semantics, the same protected-machinery selection/authorization/use ledger, and the rule that a reachable declared-effect omission is failure rather than successful execution.
+They must map back to the same QSOL success/failure semantics, the same concrete representation-qualified execution-subject ledger, the same typed control/failure causality and governing failure-policy/execution-contract bindings, the same per-effect authorization/attempt/non-attempt ordering semantics, the same protected-machinery selection/authorization/use ledger, and the rule that a reachable declared-effect omission is failure rather than successful execution.
 
-The [future trace-validator conformance cases](TRACE-AND-PROVENANCE.md#conformance-cases-for-the-future-trace-validator) also apply to failure-domain projections. In particular, matching failure summaries, matching truncated capability sets, or a cause-free not-reached label are rejection cases, not sufficient evidence.
+The [future trace-validator conformance cases](TRACE-AND-PROVENANCE.md#conformance-cases-for-the-future-trace-validator) also apply to failure-domain projections. In particular, matching failure summaries, matching truncated capability sets, a cause-free not-reached label, or fabricated Semantic lineage for a lower-entry subject are rejection cases, not sufficient evidence.
 
 ## Principle
 
-> Failure is observable behavior. Record every selected DECK, every CARD execution outcome, every typed control/failure cause, the actual governing failure policies, every declared effect's authorization/attempt or verified non-attempt reason, and every protected machinery use with its selection history and concrete invocation. Fail when a reachable required effect is omitted. Effect completion belongs to the effect attempt, not the CARD outcome. Authorization happens before the protected boundary. Do not leave any of these to backend folklore.
+> Failure is observable behavior. Record every selected DECK, every concrete execution-subject outcome, every typed control/failure cause, the actual governing failure and execution contracts, every declared effect's authorization/attempt or verified non-attempt reason, and every protected machinery use with its selection history and concrete execution subject. Fail when a reachable required effect is omitted. Effect completion belongs to the effect attempt, not the enclosing execution outcome. Authorization happens before the protected boundary. Do not leave any of these to backend folklore.
