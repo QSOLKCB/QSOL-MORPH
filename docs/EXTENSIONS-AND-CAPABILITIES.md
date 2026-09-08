@@ -148,7 +148,7 @@ Target resolution for planning/provenance is not permission to execute on that t
 
 A backend or selection policy may not silently evade a denial by switching to another target unless a frozen pre-execution fallback rule permits that transition and records it. Likewise, no synthetic effect attempt should be created solely to represent machinery permission.
 
-Trace/provenance binds each machinery authorization record to both the stable `backend_selection_scope_id` **and the concrete `backend_selection_decision_id` it governs**, plus the applicable `machinery_requirement_refs[]`, complete required/granted/denied capability sets, and responsible policy identity/version. Each requirement reference carries the complete ordered absolute `owner_scope_path[]` from JOB through DECK/CARD as applicable plus the local `machinery_requirement_id`; the immediate owner alone is insufficient when local IDs repeat under sibling containers. The selection scope alone is not enough when several candidate decisions share that scope.
+Trace/provenance binds each machinery authorization record to both the stable `backend_selection_scope_id` **and the concrete `backend_selection_decision_id` it governs**, plus the applicable `machinery_requirement_refs[]`, complete required/granted/denied capability sets, and responsible policy identity/version. Each machinery requirement reference is representation-qualified: `representation_kind` identifies the retained representation family, `representation_identity` is the content-bound identity/hash of the exact retained representation snapshot, and the complete ordered `owner_scope_path[]` is interpreted relative to that representation. For Semantic lineage the path begins at the owning JOB and continues through DECK/CARD as applicable; for direct `QSOL_CORE` entry it uses the actual Core-relative owner hierarchy and must not fabricate Semantic ancestry. The local `machinery_requirement_id` is resolved only within that qualified representation-relative owner. Identical owner paths and local IDs in different retained IR snapshots remain distinct because `representation_identity` participates in the reference. The selection scope alone is not enough when several candidate decisions share that scope.
 
 Conceptually:
 
@@ -158,6 +158,8 @@ machinery_authorization_records[]:
     backend_selection_scope_id
     backend_selection_decision_id
     machinery_requirement_refs[]:
+        representation_kind
+        representation_identity
         owner_scope_path[]:
             scope_kind
             scope_id
@@ -170,6 +172,8 @@ machinery_authorization_records[]:
     authorization_status
     authorization_sequence_index?
 ```
+
+A machinery requirement reference is invalid if its representation identity is missing, stale, mismatched to the retained trace snapshot, or if its owner path cannot resolve the local requirement unambiguously within that representation. A direct-Core authorization therefore resolves against the retained Core IR identity and Core-relative path; a Semantic authorization resolves against the retained Semantic IR identity and Semantic owner path. Cross-representation guessing, first-match lookup, or invented JOB/DECK/CARD ancestry fails closed.
 
 For example, if `ON BEST` first chooses GPU and that concrete decision is denied, then a frozen fallback rule chooses CPU and that second decision is authorized, the two authorization outcomes remain separate records keyed to their two different `backend_selection_decision_id` values. A later fallback must never overwrite or detach the denial that governed the earlier candidate.
 
