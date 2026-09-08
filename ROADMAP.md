@@ -138,6 +138,7 @@ failure_behavior_binding_ids[]
 result_determinism_scope_ids[]
 numeric_scope_ids[]
 randomness_scope_ids[]
+effect_accounting_failure_record_ids[]?
 failure_class
 failure_stage
 failure_card_id?
@@ -156,7 +157,7 @@ When a CARD's unhandled failure caused the record, `failure_card_id` and `failur
 
 When failure occurs before any CARD execution or in a legitimate lower-entry operation without Semantic lineage, such as JOB-scoped contract rejection, DECK setup failure, direct Core operation failure, lowering failure, or protected-machinery denial before CARD use, the trace must **not fabricate a CARD identity**. The typed failing scope and, where applicable, `operation_execution_id` remain authoritative and the CARD-specific fields are absent.
 
-Failure traces retain `failure_behavior_bindings[]`, `backend_selection_scopes[]`, and `backend_selection_decisions[]` alongside machinery authorization/use ledgers, including denied candidates and fallback predecessors. Standalone failure manifests preserve the complete transitive reference closure, inline or through retrievable content-bound records. Dangling selection, policy, requirement, rule, evidence, or output references fail provenance validation.
+Failure traces retain `failure_behavior_bindings[]`, `backend_selection_scopes[]`, and `backend_selection_decisions[]` alongside machinery authorization/use ledgers and `effect_accounting_failure_records[]`, including denied candidates, fallback predecessors, and exact declaration/subject accounting failures. Standalone failure manifests preserve the complete transitive reference closure, inline or through retrievable content-bound records. Dangling selection, policy, requirement, rule, evidence, effect-accounting, or output references fail provenance validation.
 
 ### Declared effects and protected machinery
 
@@ -188,9 +189,11 @@ The gate also includes:
 Require:
 
 - `backend_selection_scopes[]`, each with stable `backend_selection_scope_id`, fully qualified `governed_scope_ref` carrying representation identity plus complete representation-relative `owner_scope_path[]`, source/backend-unit provenance, ordered decision IDs, and final decision ID when execution proceeds;
-- `backend_selection_decisions[]`, each with stable decision ID, requested target, selected backend/version/architecture/device, automatic-selection policy/tuning identity where applicable, predecessor/fallback-rule identity plus subject-bound `fallback_evidence_id` where fallback applies, linked machinery authorization, order, and status;
+- `backend_selection_decisions[]`, each with stable decision ID, requested target, selected backend/version plus conditional content-bound `selected_backend_implementation_identity`, architecture/device, automatic-selection policy/tuning identity where applicable, predecessor/fallback-rule identity plus subject-bound `fallback_evidence_id` where fallback applies, linked machinery authorization, order, and status;
 - `machinery_authorization_records[]` with stable authorization identity, governing selection scope/decision, absolute-owner-path-qualified machinery requirement references, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and authorization sequence index;
 - `machinery_use_records[]` with stable use identity, governing selection scope/decision/backend unit, nonempty representation-qualified `execution_subject_refs[]` for execution-governed work, conditional verified Semantic `source_card_ids[]` / `card_execution_ids[]` projections, exact `generated_artifact_ids[]` executed where applicable, authorization IDs, protected-use start index, exact output IDs, and optional stop index.
+
+For every backend-selection decision whose status is final/executable, `selected_backend_implementation_identity` is mandatory whenever the backend implementation can affect execution semantics, numeric results, failure behavior, device interaction, or produced results. It must immutably content-bind the exact implementation that actually executes the governed work, including reference/interpreted runtimes, accelerator backends, drivers/runtime stacks, or another implementation with no generated artifact/toolchain invocation. A backend name, mutable tag/channel, device label, or ambiguous version is insufficient. `selected_backend_version` may satisfy this identity requirement only when the frozen backend contract proves that the recorded version is immutable and uniquely determines the executed implementation.
 
 `execution_subject_refs[]` is the canonical concrete participant relation for protected machinery use and uses the shared `{ representation_kind, representation_identity, owner_scope_path[], subject_kind, subject_id, execution_id }` shape. A Semantic CARD use resolves through `card_executions[]`; a direct QSOL-CORE use resolves through `operation_executions[]` and the hash-bound Core operation. Repeated launches under one scope/decision must not collapse retries or iterations. CARD arrays are present only as verified Semantic-lineage projections of the CARD-backed subset and must never be invented for Core entry.
 
@@ -269,19 +272,38 @@ failure_behavior_binding_ids[]
 cache_reuse_record_ids[]?
 ```
 
-`result_binding_ref?`, when present, is required to carry representation kind/content identity, complete owner path, and local binding ID and to resolve through the applicable cardinality-aware result-binding map chain. A bare binding name is not an acceptable PR #5 result identity, including for fused producers or sibling scopes that reuse the same local name.
+`result_binding_ref` is conditionally mandatory: whenever the output has a named result-binding identity in the entered, producer, Core, Vector/Dataflow, or another retained representation, the record must carry the representation kind/content identity, complete owner path, and local binding ID and resolve through every applicable cardinality-aware `result_binding_map[]` in its lineage. Omission is permitted only when independent inspection of the hash-bound producer/entered representations and mapping chain establishes that the output genuinely has no result-binding identity. A producer may not sever a real binding merely by omitting the field. A bare binding name is never an acceptable PR #5 result identity, including for fused producers or sibling scopes that reuse the same local name.
 
 `producer_execution_refs[]` is the canonical nonempty concrete producer relation and uses the shared representation-qualified execution-subject shape. Semantic producers resolve through `card_executions[]`; direct QSOL-CORE producers resolve through `operation_executions[]` and the hash-bound Core representation. Local CARD/operation IDs or output-array position cannot substitute for this relation.
 
 `producer_card_ids[]` and `producer_card_execution_ids[]` are conditional retained-lineage projections. When verified Semantic lineage exists they agree exactly with the Semantic CARD-backed subset of `producer_execution_refs[]` and resolve through `card_executions[]`. On a legitimate direct Core run without Semantic lineage they are absent rather than fabricated or used as empty stand-ins for the actual Core producer.
 
-`epistemic_class_binding_ids[]` is always explicit. For an output whose `semantic_class` makes a research/evidence claim, independently derive every applicable representation-qualified class binding from `producer_execution_refs[]`, the entered representation, and every traversed class-preservation mapping, and require exact duplicate-free set equality with the recorded IDs. The resolved bindings must justify the exact claimed class; copying a source class or writing a local output label is not a substitute for this ledger join. If legitimate lower entry has no applicable binding, the output is `UNCLASSIFIED` (or the frozen no-claim equivalent), the binding array is empty, and `evidence_status` is absent rather than fabricating Semantic lineage.
+`epistemic_class_binding_ids[]` is always explicit. **Before interpreting the producer-supplied `semantic_class` label**, independently derive the complete applicable representation-qualified class-binding set from `producer_execution_refs[]`, the entered representation, and every traversed class-preservation/mapping relation. Require the recorded IDs to equal that complete duplicate-free set for every output, including an output labeled `UNCLASSIFIED`; the label never controls whether derivation runs. If the derived set is nonempty, `semantic_class` must be the exact class justified by that complete set under the frozen class-preservation/composition rules, with every binding resolvable to the producer/representation lineage. Only when the independently derived set is empty may the output be `UNCLASSIFIED` (or the frozen no-claim equivalent), record an empty binding array, and omit `evidence_status`. Clearing a retained TEST/VALIDATION/PROOF binding by asserting `UNCLASSIFIED` is invalid; no implicit declassification escape hatch exists.
 
 `input_ids[]` identifies the exact immutable inputs materially contributing to that output. Execution-wide input availability is not a substitute for per-output attribution.
 
 `external_tool_ids[]` is mandatory on every output. Use an explicit empty array only when no material external tool supplied or materially affected that output. Every listed tool must resolve to `external_tool_versions[]` and reciprocally list the output in its `output_ids[]`; when a material model, prover, process, service, or other external tool contributed, omission of that tool or of the array is incomplete provenance and fails the PR #5 gate. Producer execution identity alone cannot substitute for this concrete output/tool join.
 
 `machinery_use_record_ids[]` identifies the exact protected-use occurrence(s) that produced or materially supplied the output and reciprocates `machinery_use_records[].output_ids[]`. A shared execution subject, backend-selection scope, generated artifact, or backend unit cannot replace this occurrence-level join when several protected launches occur.
+
+`backend_selection_scope_ids[]` is a normative duplicate-free exact-set attribution. Independently derive every applicable backend-selection scope from the concrete `producer_execution_refs[]`, their representation-qualified governed scopes, the actual execution path (including interpreted/reference execution with no generated artifact or protected-machinery record), every final executable selection decision, and any validated lowering/selection relation needed to associate those producers with machinery. Then require:
+
+```text
+set(backend_selection_scope_ids[]) == applicable_backend_selection_scope_ids(output)
+```
+
+The array is empty only when the independently derived applicable set is empty. Extra unrelated scopes fail just as missing producer scopes do, and generated-artifact/machinery-use records are supporting attribution rather than the sole source of scope derivation.
+
+The result-determinism, numeric, randomness, and failure-behavior arrays are likewise normative duplicate-free exact-set attributions. For each output, independently derive the complete materially governing record sets from `producer_execution_refs[]`, their representation-qualified containment, retained Semantic JOB/DECK containment where it exists, the canonical owner-qualified contracts, and every material lowering/mapping or frozen deterministic identity-scope reconstruction needed to reach the actual producer/backend units. Require:
+
+```text
+set(result_determinism_scope_ids[]) == applicable_result_determinism_scope_ids(output)
+set(numeric_scope_ids[]) == applicable_numeric_scope_ids(output)
+set(randomness_scope_ids[]) == applicable_randomness_scope_ids(output)
+set(failure_behavior_binding_ids[]) == applicable_failure_behavior_binding_ids(output)
+```
+
+Each array is empty only when its independently derived applicable set is empty. Every supplied ID must resolve to the correct ledger record and actually govern a material producer path; omitted stricter parent/mapped scopes and unrelated extras both fail the PR #5 gate. Producer-supplied arrays never define their own applicability.
 
 `failure_behavior_binding_ids[]` resolves to stable `failure_behavior_binding_id` records. A generic computation scope ID is not sufficient to identify which requested/effective failure policy governed the producer path.
 
@@ -426,7 +448,36 @@ effect_non_attempt_records[]:
     backend_detail?
 ```
 
-This prevents separate runtime invocations of one Semantic CARD or lower operation from collapsing into one ambiguous attempt/non-attempt fact. Conditional CARD fields are lineage projections, not the canonical runtime subject identity.
+When complete effect accounting itself fails, the failure is also declaration/subject-specific rather than a broad untyped escape hatch:
+
+```text
+effect_accounting_failure_records[]:
+    effect_accounting_failure_record_id
+    failure_record_id
+    effect_requirement_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        declared_effect_id
+    execution_subject_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        subject_kind
+        subject_id
+        execution_id
+    accounting_failure_kind
+    detected_sequence_index?
+    backend_detail?
+```
+
+Each accounting-failure row resolves exactly one applicable declaration and one concrete execution subject and links them to the structured `failure_records[]` event that reports the conformance/execution failure. `failure_records[].effect_accounting_failure_record_ids[]`, when present, is the duplicate-free exact reciprocal set of accounting-failure rows that cite that failure. One broad failure may be referenced by several rows, but **one row is still required per missing declaration/subject pair**; the failure ID alone never discharges another declaration. A mismatched declaration, another retry/iteration, an owner-path guess, or a generic backend failure cannot satisfy this join.
+
+This prevents separate runtime invocations of one Semantic CARD or lower operation from collapsing into one ambiguous attempt/non-attempt/accounting-failure fact. Conditional CARD fields are lineage projections, not the canonical runtime subject identity.
 
 Explicit frozen skips require both `governing_skip_rule_id` and `skip_verification_evidence_id`, resolving to an applicable `EFFECT_SKIP` rule and passing evidence bound to this exact non-attempt record, declaration, execution subject, and active context before the skip is applied. Unknown, missing, stale, inapplicable, or unverifiable skip evidence forces conformance failure, not successful omission. Explicit execution-subject skips carry the same evidence requirements and cannot bypass accounting for their effects.
 
@@ -437,6 +488,14 @@ authorization_sequence_index < effect_begin_sequence_index
 ```
 
 Denied authorization has no effect-begin event. Generic attempt sequence numbering is not authorization-order proof.
+
+For every `COMPLETED`, `ABORTED_CLEAN`, or `PARTIAL` attempt, `effect_end_sequence_index` is mandatory in that same frozen event-order domain and must satisfy:
+
+```text
+effect_begin_sequence_index < effect_end_sequence_index
+```
+
+For `UNKNOWN`, the end index is mandatory whenever definite termination is known and may be absent only when the termination/completion boundary itself cannot be established. `NOT_STARTED` has no begin or end event. A generic attempt sequence number, enclosing CARD/lower-operation outcome, later failure, or publication event cannot substitute for the explicit end boundary; missing or contradictory end evidence for a definitively terminated attempt fails the PR #5 gate.
 
 Candidate mutually exclusive attempt states are:
 
@@ -458,13 +517,13 @@ For **every selected concrete `execution_subject_ref`**, every applicable canoni
 
 1. one or more identified `effect_attempts[]` records for that concrete execution subject when attempts occurred;
 2. exactly one identified legitimate `effect_non_attempt_records[]` record for that concrete execution subject when no attempt occurred; or
-3. structured execution/conformance failure when complete accounting cannot be established or a reachable required effect was omitted.
+3. exactly one identified `effect_accounting_failure_records[]` record for that exact declaration/concrete execution subject, linked to the structured execution/conformance `failure_record_id`, when complete accounting cannot be established or a reachable required effect was omitted.
 
 Legitimate non-attempt reasons include untaken branch, prior fail-stop, subject not reached, or verified explicit frozen skip and must resolve to the applicable typed control/failure cause or governing skip-rule/evidence records.
 
-`BACKEND_OMISSION_DETECTED` or frozen equivalent is **not** a successful non-attempt path. It means a reachable required effect was omitted and must produce structured execution/conformance failure.
+`BACKEND_OMISSION_DETECTED` or frozen equivalent is **not** a successful non-attempt path. It means a reachable required effect was omitted and must produce the declaration/subject-specific accounting-failure record plus structured execution/conformance failure.
 
-A declaration with neither attempt nor legitimate non-attempt accounting is always incomplete provenance. No backend, profile, optimization mode, deployment setting, entry representation, or audit setting may disable this rule.
+A declaration with neither attempt, legitimate non-attempt, nor exact accounting-failure record is always incomplete provenance. A generic failure not joined to the exact `effect_requirement_ref` and `execution_subject_ref` cannot account for it. No backend, profile, optimization mode, deployment setting, entry representation, or audit setting may disable this rule.
 
 ### Reference failure contract
 
@@ -480,7 +539,7 @@ Before PR #7 may execute a program, PR #5 must also freeze the execution-failure
 - protected machinery authorization succeeds before protected machinery use begins;
 - effects already observable before a later failure are not retroactively erased;
 - arithmetic-domain errors such as division/modulo by zero produce structured failure;
-- failure traces preserve every applicable selected DECK/CARD execution outcome when Semantic structure exists, every lower-operation execution outcome when entry is lower, typed failure scope and exact failure-policy bindings, per-effect accounting, complete backend-selection/authorization/use history, and already-observable outputs/effects.
+- failure traces preserve every applicable selected DECK/CARD execution outcome when Semantic structure exists, every lower-operation execution outcome when entry is lower, typed failure scope and exact failure-policy bindings, declaration-specific effect accounting including accounting failures, complete backend-selection/authorization/use history, and already-observable outputs/effects.
 
 ### Gate condition
 
@@ -490,15 +549,15 @@ No executable QSOL path may emit a research result without enough provenance to 
 - nonempty representation-qualified concrete producer execution subject(s);
 - selected DECK/CARD execution(s) when verified Semantic execution lineage exists, without fabricating them for lower entry;
 - exact immutable material inputs;
-- semantic class plus the exact applicable representation-qualified `epistemic_class_binding_ids[]`, and mandatory compatible output-bound evidence status for every evidence-bearing class;
+- semantic class plus the exact applicable representation-qualified `epistemic_class_binding_ids[]`, derived before interpreting the output label, and mandatory compatible output-bound evidence status for every evidence-bearing class;
 - exact generated target and its production selection decision where applicable;
 - exact direct producer invocation, immutable non-generated build dependencies, and ordered transitive material toolchain ancestry where generated target bytes are involved;
-- resolvable backend-selection/determinism/numeric/randomness/failure-behavior record IDs;
+- the duplicate-free exact producer-derived backend-selection scope set and complete determinism/numeric/randomness/failure-behavior scope sets;
 - protected-machinery authorization/use ordering and concrete execution-subject attribution where applicable;
 - cache-reuse path, exact current execution subjects, reciprocal execution-ledger joins, and verified substitution rule/evidence where used;
 - resolved extension set;
 - concrete material external-tool identity, or explicit identity unavailability with a correspondingly weakened claim;
-- concrete effect declaration, authorization, attempt/non-attempt history, with verified skip authority where used;
+- concrete effect declaration, authorization, attempt/non-attempt/accounting-failure history, with verified skip authority where used;
 - exact external-entropy acquisition attempt(s) where applicable;
 - applicable pre-execution transition authority and context-bound verification evidence;
 - execution/failure context that produced or prevented the result.
@@ -510,7 +569,12 @@ These are documentation-phase acceptance cases, not claims of implemented runtim
 | Case | Required result |
 | --- | --- |
 | Direct Core protected effect | Declaration resolves in the hash-bound Core IR; authorization/attempt use the same Core `execution_subject_ref` and `operation_execution_id`; Semantic CARD fields are absent unless independently verified lineage exists. |
-| Direct Core output | Nonempty `producer_execution_refs[]` resolves to the actual Core operation execution; fabricated CARD producers fail. A classified output additionally requires the independently derived exact `epistemic_class_binding_ids[]`; without an applicable lower binding it is `UNCLASSIFIED`. |
+| Direct Core output | Nonempty `producer_execution_refs[]` resolves to the actual Core operation execution; fabricated CARD producers fail. The complete applicable class-binding set is derived before reading the label; a classified output requires exact `epistemic_class_binding_ids[]`, and `UNCLASSIFIED` is legal only when the derived set is empty. |
+| Final backend implementation identity | Every final/executable selection decision records a content-bound immutable `selected_backend_implementation_identity` adequate to distinguish the actual implementation, including reference/interpreted/accelerator execution with no generated artifact; a version alone counts only under a frozen unique-immutable version rule. |
+| Output backend and execution-contract scopes | `backend_selection_scope_ids[]`, `result_determinism_scope_ids[]`, `numeric_scope_ids[]`, `randomness_scope_ids[]`, and `failure_behavior_binding_ids[]` each equal their independently derived complete duplicate-free producer-applicable sets; missing stricter scopes and unrelated extras fail. |
+| Output named result binding | When a producer/entered/lower representation gives the output a named binding, qualified `result_binding_ref` is mandatory and resolves through the complete cardinality-aware map chain; omission is legal only when no result-binding identity exists. |
+| Effect boundary termination | `COMPLETED`, `ABORTED_CLEAN`, and `PARTIAL` attempts have same-domain end indices after begin; known-terminated `UNKNOWN` does too. Missing/contradictory end evidence fails. |
+| Effect-accounting failure | If one of several applicable effects for one execution subject cannot be accounted for or is omitted, an identified `effect_accounting_failure_record` names that exact declaration/subject and its structured failure. A broad failure with no declaration/subject join cannot discharge the missing effect, and separate missing effects require separate accounting-failure rows. |
 | Class-preserving PROOF/VALIDATION/TEST output | `evidence_status`, `evidence_rule_id`, and `evidence_validation_id` are mandatory and resolve to passing output-bound class-specific evidence before publication; inherited class plus operational success alone fails. |
 | Direct Core input consumer | `consumer_execution_refs[]` names the actual Core operation execution even if it fails or emits no output; invented `consumer_card_execution_ids[]` fail. |
 | Build-only material input | When a prebuilt object/library/header/startup file/sysroot is consumed only by a toolchain invocation, `consumer_execution_refs[]` is explicitly empty and the exact consuming invocation references the input through `toolchain_invocations[].input_ids[]`; fabricating a runtime CARD/Core/lower-operation consumer fails. |

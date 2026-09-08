@@ -1161,6 +1161,7 @@ effect_requirements[]
 effect_authorization_records[]
 effect_attempts[]
 effect_non_attempt_records[]
+effect_accounting_failure_records[]
 cache_reuse_records[]
 external_tool_versions[]
 generated_artifacts[]
@@ -1291,6 +1292,7 @@ failure_records[]:
     result_determinism_scope_ids[]
     numeric_scope_ids[]
     randomness_scope_ids[]
+    effect_accounting_failure_record_ids[]?
     failure_class
     failure_stage
     failure_card_id?
@@ -1306,6 +1308,8 @@ failure_records[]:
 `failure_behavior_binding_ids[]` is required and resolves to the exact `failure_behavior_bindings[]` records governing this failure and its propagation or handling. It includes the applicable frozen default fail-stop binding, not just explicit recovery policies. When several policies or transitions concern one computation, the failure references those actually active at that event; it must not infer policy from the resulting path or a generic scope ID. A rejected requested policy is not an effective handling policy. Pre-CARD/lower-entry rejection records retain the applicable setup/rejection-handling binding without inventing a CARD culprit. Missing or incompatible governing bindings make the failure trace incomplete.
 
 Each failure record also carries the complete applicable `result_determinism_scope_ids[]`, `numeric_scope_ids[]`, and `randomness_scope_ids[]`. Derive those sets independently from the typed failing scope, the concrete execution subject where applicable, and the validated lowering/contract mappings, then require the recorded arrays to equal the complete applicable ledger sets. An empty array is valid only when no execution-contract scope in that family governs the failure. A producer may not omit a stricter parent scope, a material numeric mode, or the RNG contract merely because no output was published. Every referenced scope ID resolves to the retained type-specific execution-contract ledger.
+
+`effect_accounting_failure_record_ids[]`, when present, is the duplicate-free exact reciprocal set of identified `effect_accounting_failure_records[]` whose `failure_record_id` equals this failure. It is conditionally mandatory whenever this failure is used as the structured failure outcome for one or more effect declarations. The failure record itself does not establish which declaration or execution subject was unaccounted; those joins remain explicit in the accounting-failure ledger. A single failure may cover several missing declarations only by listing one distinct accounting-failure record per exact declaration/subject pair.
 
 `failure_card_id` remains the canonical source-CARD identity **when a CARD's unhandled failure caused the record**. `failure_card_execution_id` identifies the corresponding concrete runtime CARD execution. For a CARD-caused failure, both are required and must resolve consistently through `card_executions[]`.
 
@@ -1526,6 +1530,41 @@ An explicit frozen skip requires both `governing_skip_rule_id` and `skip_verific
 
 `BACKEND_OMISSION_DETECTED` or frozen equivalent means a reachable required effect was omitted. It forces structured execution/conformance failure and cannot coexist with successful enclosing execution.
 
+## Effect accounting failure records
+
+A structured failure used to satisfy declared-effect accounting is itself an identified declaration/subject-specific provenance record. A broad failure event never implicitly accounts for every missing effect on the same CARD, operation, DECK, or run.
+
+```text
+effect_accounting_failure_records[]:
+    effect_accounting_failure_record_id
+    failure_record_id
+    effect_requirement_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        declared_effect_id
+    execution_subject_ref:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        subject_kind
+        subject_id
+        execution_id
+    accounting_failure_kind
+    detected_sequence_index?
+    backend_detail?
+```
+
+`effect_requirement_ref` resolves the exact applicable declaration in the hash-bound representation using the same owner-qualified contract as authorization, attempt, and non-attempt records. `execution_subject_ref` resolves the exact concrete execution invocation for which that declaration could not be completely accounted. `failure_record_id` resolves to the structured execution/conformance failure reporting that accounting violation. Unknown, ambiguous, wrong-owner, wrong-representation, or wrong-invocation joins fail closed.
+
+For each accounting-failure row, the referenced `failure_records[]` entry contains this stable `effect_accounting_failure_record_id` in its conditional `effect_accounting_failure_record_ids[]` set. Conversely, every ID listed by a failure resolves to a row whose `failure_record_id` points back to that failure. The relation is duplicate-free and exact in both directions. One failure may aggregate several accounting violations only by carrying one distinct accounting-failure row per exact `(effect_requirement_ref, execution_subject_ref)` pair; neither the common failing scope nor one generic failure ID can discharge another declaration.
+
+Candidate `accounting_failure_kind` values include `BACKEND_OMISSION_DETECTED`, `ACCOUNTING_INCOMPLETE`, or a frozen equivalent that denotes why neither a legitimate attempt nor legitimate non-attempt could establish complete accounting. A reachable required effect omitted by the backend uses this ledger and forces structured execution/conformance failure. An accounting-failure row is not a successful non-attempt and cannot be cited to make enclosing execution successful.
+
 ### Unconditional declaration accounting
 
 Declaration completeness is not an optional audit mode.
@@ -1534,9 +1573,9 @@ For every selected concrete `execution_subject_ref`, every applicable effect dec
 
 1. one or more identified `effect_attempts[]` records for that execution subject when execution/retry semantics produce attempts;
 2. exactly one identified legitimate `effect_non_attempt_records[]` record for that execution subject when no attempt occurred; or
-3. a structured execution/conformance failure if complete accounting itself cannot be established or a reachable required effect was omitted.
+3. exactly one identified `effect_accounting_failure_records[]` row for that exact declaration/execution subject, linked to the structured execution/conformance `failure_record_id`, if complete accounting itself cannot be established or a reachable required effect was omitted.
 
-A declared effect with neither an attempt nor a legitimate non-attempt record is always incomplete provenance and fails closed. Profiles, backends, optimization modes, deployment settings, entry representation, or audit settings may not disable this requirement.
+A declared effect with neither an attempt, legitimate non-attempt record, nor exact accounting-failure record is always incomplete provenance and fails closed. A generic structured failure that lacks the exact qualified declaration/subject join does not satisfy outcome 3. Profiles, backends, optimization modes, deployment settings, entry representation, or audit settings may not disable this requirement.
 
 ## External-tool provenance
 
@@ -1753,6 +1792,7 @@ effect_requirements[]
 effect_authorization_records[]
 effect_attempts[]
 effect_non_attempt_records[]
+effect_accounting_failure_records[]
 machinery_authorization_records[]
 machinery_use_records[]
 inputs[]
@@ -1762,7 +1802,7 @@ validation_evidence[]
 observable_output_ids[]
 ```
 
-A failure trace includes the backend-selection scope and decision ledgers referenced by its machinery authorization/use records, including denied candidates and fallback predecessors, not just the final target. It also retains `result_determinism_scopes[]`, `numeric_execution_scopes[]`, and `randomness_execution_scopes[]` needed by each failure record's exact scope-ID attribution, even when execution fails before producing an output. Every `failure_behavior_binding_ids[]` reference resolves to the retained governing policy bindings. A standalone failure manifest must preserve the complete transitive closure of its references, including applicable execution-contract scopes, rules, evidence, requirements, consumed inputs, cache subjects, and observable outputs, either inline or through retrievable content-bound trace records. An unresolvable ID, selectively omitted applicable contract scope, or unbound mutable external trace link is incomplete provenance. Consumed input and cache-to-invocation relations remain required even when `observable_output_ids[]` is empty.
+A failure trace includes the backend-selection scope and decision ledgers referenced by its machinery authorization/use records, including denied candidates and fallback predecessors, not just the final target. It also retains `result_determinism_scopes[]`, `numeric_execution_scopes[]`, and `randomness_execution_scopes[]` needed by each failure record's exact scope-ID attribution, even when execution fails before producing an output. Every `failure_behavior_binding_ids[]` reference resolves to the retained governing policy bindings. Effect-accounting failures retain their exact declaration/execution-subject rows and reciprocal failure-record links, so one broad failure cannot silently satisfy several missing declarations. A standalone failure manifest must preserve the complete transitive closure of its references, including applicable execution-contract scopes, rules, evidence, requirements, consumed inputs, cache subjects, and observable outputs, either inline or through retrievable content-bound trace records. An unresolvable ID, selectively omitted applicable contract scope, unjoined effect-accounting failure, or unbound mutable external trace link is incomplete provenance. Consumed input and cache-to-invocation relations remain required even when `observable_output_ids[]` is empty.
 
 The primary failure resolves through `failure_records[]` to an always-present typed failing scope. `failure_card_id` is canonical only for CARD-caused failures and is absent for legitimate pre-CARD or lower-operation failures without Semantic lineage.
 
@@ -1824,7 +1864,8 @@ At minimum, a future validator should reject or fail closed when:
 - a non-attempt record has no stable identity;
 - an explicit skip lacks a resolvable frozen skip rule and passing applicability evidence for that invocation;
 - a not-reached reason has no validated typed control/failure/verified-skip cause for the exact invocation;
-- any applicable declared effect lacks both attempt and legitimate non-attempt accounting for a selected concrete execution subject;
+- any applicable declared effect lacks attempt accounting, legitimate non-attempt accounting, or an exact declaration/subject-specific `effect_accounting_failure_record` linked to structured failure for a selected concrete execution subject;
+- a structured effect-accounting failure lacks a unique qualified `effect_requirement_ref` plus matching concrete `execution_subject_ref`, or a generic failure is reused to discharge several missing declarations without separate reciprocal accounting-failure rows;
 - an effect has a begun completion state but omits `effect_begin_sequence_index`, the linked GRANTED authorization's `authorization_sequence_index`, or the required same-domain authorization-before-begin inequality;
 - a `COMPLETED`, `ABORTED_CLEAN`, or `PARTIAL` effect omits `effect_end_sequence_index` or fails the same-domain begin-before-end inequality, or an `UNKNOWN` effect with a known definite termination omits its end event;
 - a `NOT_STARTED` effect attempt claims an acquired input, observable output, material external tool, or is reciprocally cited by an output;
@@ -1833,7 +1874,7 @@ At minimum, a future validator should reject or fail closed when:
 - a reachable required effect is omitted;
 - an effect non-attempt record points to an untyped or unresolved cause;
 - a failure lacks a typed failing-scope identity;
-- a failure trace omits referenced backend-selection scopes, decisions, or other records needed to resolve its provenance;
+- a failure trace omits referenced backend-selection scopes, decisions, effect-accounting failure rows, or other records needed to resolve its provenance;
 - a pre-CARD/lower-operation failure fabricates `failure_card_id`, or a CARD-caused failure omits the matching canonical/concrete CARD identities;
 - cold execution and cache reuse become indistinguishable;
 - a runtime cache record lacks nonempty representation-qualified current `execution_subject_refs[]`, disagrees with reciprocal CARD/lower-operation execution links, fabricates Semantic CARD subjects for direct Core, or borrows another invocation's evidence/effect accounting;
@@ -1868,6 +1909,7 @@ These are documentation acceptance cases for the applicable roadmap gates, not a
 | Direct Core output | A nonempty `producer_execution_refs[]` entry resolves to the actual Core `operation_execution_id`; complete applicable contract scopes are derived from that Core producer and retained mappings; Semantic producer arrays are absent unless verified lineage exists. | Empty producer refs; fabricated CARD producers; treating absent upstream Semantic history as an error; deriving scopes only from nonexistent CARD executions. |
 | Output backend-scope attribution | `backend_selection_scope_ids[]` is the duplicate-free exact set independently derived from all concrete producer execution refs, their governed scopes, final executable decisions, and actual interpreted/reference/backend execution relation, including producers with no generated artifact or protected machinery use. | Omit a producer's actual backend scope; add an unrelated scope; infer only from artifact/use ledgers; accept an interpreted/reference output under an unrelated backend history. |
 | Final backend implementation identity | Every final/executable selection decision records a content-bound immutable `selected_backend_implementation_identity` that uniquely distinguishes the implementation actually executing the governed work; an immutable uniquely identifying version may satisfy this only when the frozen backend contract proves that property. This applies to reference/interpreted/accelerator backends even when no generated artifact/toolchain record exists. | Backend name only; mutable version/tag/channel; device or driver family label; different backend releases/builds sharing the same recorded identity; omission because execution was interpreted/reference rather than generated. |
+| Effect-accounting failure | Each missing/unaccountable applicable effect has its own identified `effect_accounting_failure_record` naming the exact qualified declaration, concrete execution subject, and structured failure; reciprocal failure IDs agree exactly. | Broad failure only; one failure implicitly covering several missing effects without per-declaration rows; wrong retry/iteration; ambiguous owner path; accounting-failure row attached to successful execution. |
 | Lower-operation non-reach | The lower operation is represented by its exact `operation_execution_id`; an untaken status resolves to the controlling decision, a fail-stop/blocked status resolves to the blocking failure, and an explicit skip has accepted rule plus passing pre-application evidence bound to this OPERATION_EXECUTION. `failure_record_id` is absent unless the operation itself failed. | Cause-free NOT_REACHED; blocking failure placed in `failure_record_id`; control decision from another invocation; skip rule without evidence; fabricated CARD cause/lineage. |
 | Qualifier consumption | The exact owner-qualified source qualifier/value resolves in Semantic IR; the decision identifies every material Core scope/fact; an accepted `QUALIFIER_LOWERING` rule and passing subject-bound evidence validate that exact effect before application; extension-owned interpretation resolves its exact extension contract. | Opaque `qualifier_lowering_decisions[]` entry; dropped/defaulted qualifier; wrong value/owner/Core fact; rule without evidence; evidence for another qualifier; validation after lower fact application. |
 | Type/unit erasure | Every normalized/erased source type or unit resolves through `type_unit_lowering_decisions[]`; the accepted `TYPE_UNIT_LOWERING` rule and passing evidence bind the exact source facts, conversion/premises, Core facts/ops, and active contracts before erasure. | “Validated premise” label only; wrong unit/type; no lower fact relation; post-erasure evidence; IR hash used as proof; silent metadata loss. |
