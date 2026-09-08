@@ -162,6 +162,8 @@ Conceptually, effect nodes/regions must retain enough information to preserve:
 
 ```text
 declared_effect_ref:
+    representation_kind
+    representation_identity
     owner_scope_path[]:
         scope_kind
         scope_id
@@ -172,7 +174,7 @@ source/failure order
 runtime effect-attempt provenance hook
 ```
 
-`declared_effect_ref` is the canonical owner-qualified semantic effect identity that survives both mandatory lowerings. Its complete ordered `owner_scope_path[]` identifies the JOB/DECK/CARD containment path that owns the local `declared_effect_id`; the terminal path element is the declaring CARD. A local effect ID or `(card_id, declared_effect_id)` pair is insufficient because sibling DECKs may reuse both local IDs. Core→Vector/Dataflow lowering must preserve this complete composite identity directly or under a frozen provenance-visible mapping whose lower record can reconstruct the exact same owner-qualified declaration. A later `effect_attempt_id` identifies a concrete runtime attempt. Declaration and attempt identities remain distinct so retries, duplicate attempts, or same-kind effects from one CARD can be audited. Missing, truncated, reordered, or owner-mismatched effect paths fail conformance rather than being guessed from nearby CARD IDs.
+`declared_effect_ref` is the canonical representation-qualified effect-declaration identity that survives the mandatory lowering path. `representation_identity` is the content-bound identity of the representation that actually owns the declaration, such as `semantic_ir_hash` for a retained Semantic declaration or `core_ir_hash` for direct QSOL-CORE entry. Its complete ordered `owner_scope_path[]` is interpreted relative to that named representation. For Semantic lineage, the path identifies the actual JOB/DECK/CARD containment and terminates at the declaring CARD. For a Core-owned effect, the path is the complete Core-relative containment path through the real declaration owner, such as function/block/operation or another frozen Core scope, and no Semantic JOB/DECK/CARD ancestry is fabricated. A local effect ID or `(card_id, declared_effect_id)` pair is insufficient. Core→Vector/Dataflow lowering must preserve this complete composite identity directly or under a frozen provenance-visible mapping whose lower record can reconstruct the same representation-qualified declaration. A later `effect_attempt_id` identifies a concrete runtime attempt. Declaration and attempt identities remain distinct so retries, duplicate attempts, or same-kind effects from one execution subject can be audited. Missing, truncated, reordered, wrong-representation, or owner-mismatched effect paths fail conformance rather than being guessed from nearby CARD or operation IDs.
 
 A file write, process launch, network action, clock access, AI call, or other effect must not disappear merely because the surrounding numeric work becomes a vector graph.
 
@@ -186,6 +188,8 @@ A lower machinery-requirement record must preserve or deterministically map, whe
 
 ```text
 machinery_requirement_ref:
+    representation_kind
+    representation_identity
     owner_scope_path[]:
         scope_kind
         scope_id
@@ -195,7 +199,7 @@ target_selector_or_class
 required_capabilities[]
 ```
 
-`machinery_requirement_ref` is the lower requirement's canonical owner-qualified identity. Its complete ordered `owner_scope_path[]` is interpreted relative to the exact Vector/Dataflow representation and terminates at the lower scope that owns the local `machinery_requirement_id`. Every ancestor needed to distinguish reused local scope IDs participates in identity. `source_card_ids[]` is summary provenance only and cannot replace this composite reference. Missing, truncated, reordered, ambiguous, or owner-mismatched paths fail conformance.
+`machinery_requirement_ref` is the lower requirement's canonical representation-qualified identity. `representation_identity` content-binds the exact Vector/Dataflow representation that owns the lower requirement. Its complete ordered `owner_scope_path[]` is interpreted relative to that exact representation and terminates at the lower scope that owns the local `machinery_requirement_id`. Every ancestor needed to distinguish reused local scope IDs participates in identity. `source_card_ids[]` is summary provenance only and cannot replace this composite reference. Missing, truncated, reordered, ambiguous, wrong-representation, or owner-mismatched paths fail conformance.
 
 A `GPU` or other accelerator requirement does **not** create an external effect node. It remains a machinery-authorization requirement that MORPH evaluates after target resolution and before protected machinery use.
 
@@ -437,9 +441,9 @@ This typed-endpoint rule applies to:
 - `core_to_vector_randomness_mapping_decisions[]`;
 - `failure_behavior_mapping_decisions[]`.
 
-For result-determinism, randomness, **or failure-behavior** mappings, whenever requested and effective semantics differ, `transition_decision_id`, `transition_authorized_by`, and `transition_evidence_id` are mandatory. The decision ID identifies the exact Core→Vector/Dataflow semantic-transition decision. The authority must resolve to the accepted frozen `CONTRACT_TRANSITION` rule and the evidence must resolve to passing validation whose singular subject is that exact lowering transition decision, binding the requested/effective pair, complete owner-qualified Core/lower scope endpoints, and active context. Validation must precede activation of the changed lower contract in the shared event-order domain. Naming a rule without its passing applicability evidence is not sufficient; the optional notation permits absence only when no semantic transition occurred.
+For `core_to_vector_result_determinism_mapping_decisions[]`, `core_to_vector_numeric_contract_mapping_decisions[]`, `core_to_vector_randomness_mapping_decisions[]`, and `failure_behavior_mapping_decisions[]`, whenever requested/source and effective lower semantics differ, `transition_decision_id`, `transition_authorized_by`, and `transition_evidence_id` are mandatory. A semantics-changing numeric decision additionally records exact content-bound `requested_numeric_contract_ref` and `effective_numeric_contract_ref` values containing `numeric_contract_id` and `numeric_contract_hash` on each side. The decision ID identifies the exact Core→Vector/Dataflow semantic-transition decision. The authority must resolve to the accepted frozen `CONTRACT_TRANSITION` rule and the evidence must resolve to passing validation whose singular subject is that exact lowering transition decision, binding the requested/effective pair, complete owner-qualified Core/lower scope endpoints, and active context. Numeric evidence additionally binds both requested/effective numeric contract IDs/hashes and the exact authorized semantic difference, including newly permitted tolerance/fast-math, reassociation/FMA, precision, rounding, or denormal behavior where applicable. Validation must precede activation of the changed lower contract in the shared event-order domain. A generic numeric mapping rule, backend flag, IR hash, or rule name without its passing applicability evidence is not sufficient; the optional notation permits absence only when no semantic transition occurred.
 
-A resulting result-determinism scope, randomness scope, or failure-behavior binding receives its own subject-bound transition evidence rather than reusing the lowering decision's evidence ID. That target evidence preserves the same applicable transition authority and includes the lowering decision's `transition_evidence_id` in `related_evidence_ids[]`. One-to-many mappings therefore create distinct target-scope evidence records that may reference the same lowering-decision evidence; a fused target cites every applicable lowering evidence record. This is the same evidence-lineage contract used at Semantic→Core and defined canonically in `TRACE-AND-PROVENANCE.md`.
+A resulting result-determinism scope, randomness scope, or failure-behavior binding receives its own subject-bound transition evidence rather than reusing the lowering decision's evidence ID. Numeric execution scopes retain the effective content-bound numeric contract and material numeric mode while remaining linked through the owner-qualified numeric mapping decision to its lowering transition authority/evidence. The other target evidence preserves the same applicable transition authority and includes the lowering decision's `transition_evidence_id` in `related_evidence_ids[]`. One-to-many mappings therefore create distinct target-scope identities while preserving the authorized transition path; a fused target cites every applicable lowering evidence record. This is the same evidence-lineage contract used at Semantic→Core and defined canonically in `TRACE-AND-PROVENANCE.md`.
 
 `machinery_requirement_mapping_decisions[]` additionally identifies the stable machinery-requirement records on both sides of the lowering boundary rather than relying on a shared scope or source CARDs:
 
@@ -483,7 +487,7 @@ Representative tests should include:
 - scalar-only QSOL-CORE programs;
 - producer/consumer result-binding preservation plus rename/split/fusion mapping cardinalities;
 - branches and calls;
-- multiple same-kind declared effects with distinct `declared_effect_id` values;
+- multiple same-kind declared effects with distinct `declared_effect_id` values, including direct-Core declarations whose representation-qualified owner path has no Semantic CARD lineage;
 - effectful operations with single and multiple capability requirements;
 - protected machinery requirements at CARD/DECK/JOB scopes, including GPU-target authorization requirements carried intact to MORPH;
 - execution-relevant qualifiers and explicit failure behavior;
@@ -491,6 +495,7 @@ Representative tests should include:
 - mixed scalar/vector regions;
 - multiple scoped numeric contracts and modes;
 - result-determinism/numeric/randomness contract-scope splits and fusions with **typed** Core and Vector/Dataflow mapping endpoints;
+- semantic-changing numeric mappings with exact requested/effective numeric contract identities, pre-application `CONTRACT_TRANSITION` authority, and subject-bound evidence;
 - extension-requirement scope preservation plus split/fusion/remap cases with typed endpoint mappings;
 - machinery-requirement identity preservation/split/fusion cases where one Core scope owns multiple requirements with different capability sets;
 - machinery and failure-behavior mapping cases with overlapping textual scope IDs in different namespaces;
