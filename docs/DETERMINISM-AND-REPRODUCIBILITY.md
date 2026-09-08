@@ -236,15 +236,18 @@ A denied protected target followed by an authorized fallback remains two ordered
 
 ## Protected machinery requirements, authorization, and use
 
-Canonical requirements remain present independently of runtime authorization:
+Canonical requirements remain present independently of runtime authorization and are representation-qualified:
 
 ```text
 machinery_requirements[]:
-    machinery_requirement_id
+    representation_kind
+    representation_identity
     owner_scope_path[]:
         scope_kind
         scope_id
-    source_card_ids[]
+    machinery_requirement_id
+    source_card_ids[]?
+    source_operation_ids[]?
     target_selector_or_class
     required_capabilities[]
 ```
@@ -256,8 +259,10 @@ machinery_authorization_records[]:
     machinery_authorization_record_id
     backend_selection_scope_id
     backend_selection_decision_id
-    source_card_ids[]
+    source_card_ids[]?
     machinery_requirement_refs[]:
+        representation_kind
+        representation_identity
         owner_scope_path[]:
             scope_kind
             scope_id
@@ -270,6 +275,8 @@ machinery_authorization_records[]:
     authorization_status
     authorization_sequence_index?
 ```
+
+Every machinery declaration and authorization reference resolves by the complete tuple `(representation_kind, representation_identity, owner_scope_path[], machinery_requirement_id)` against the named hash-bound representation. For Semantic IR, the representation identity is the Semantic IR content identity and the path uses the actual JOB/DECK/CARD containment through the requirement owner. For direct `QSOL_CORE`, the representation identity is `core_ir_hash` and the path is the complete Core-relative containment path through the real requirement-owning function/block/operation or other frozen Core scope; it does not fabricate a Semantic JOB. `source_card_ids[]` is conditional verified lineage only. Reused owner paths or local requirement IDs in different retained representations remain distinct because the representation identity is part of the authorization key. Missing, ambiguous, wrong-representation, owner-mismatched, or capability-incomplete requirement resolution fails closed.
 
 Protected machinery use is also independently identified:
 
@@ -901,7 +908,7 @@ control_decisions[]
 failure_records[]
 primary_failure_record_id?
 execution_status
-job_status
+job_status?
 failure_behavior_bindings[]
 rule_records[]
 validation_evidence[]
@@ -960,7 +967,7 @@ toolchain_invocations[]
 
 For a Semantic-IR entry that lowers to Core, `semantic_ir_hash`, the Semantic→Core specification/implementation identities, `core_ir_hash`, and every applicable first-lowering map/decision record are mandatory. For a legitimate `QSOL_CORE` entry, `core_ir_hash` identifies the input Core snapshot and the Semantic-IR/first-lowering fields are absent; the run must not fabricate `semantic_ir_hash`, a lowering implementation, or mapping history. Likewise, a direct PR #7 Core reference-machine execution that does not traverse Core→Vector/Dataflow or MORPH leaves those later layer fields absent. Entry at any other frozen representation follows the same rule: preserve actual downstream traversal and do not invent upstream history.
 
-`source_hash`, `job_id`, `deck_executions[]`, `card_ids[]`, and `card_executions[]` are present only when that source/semantic lineage or execution structure exists for the entered representation or is explicitly retained as verifiable provenance. `operation_executions[]` carries concrete lower-operation execution for direct Core or another lower-representation entry when applicable. Their absence/presence must follow actual execution structure; no lower-entry run may fabricate Semantic CARD identities. Conversely, once a present downstream record references semantic, lowering, Core, Vector/Dataflow, or MORPH provenance, the referenced layer and its complete transitive validation closure become mandatory.
+`source_hash`, `job_id`, `deck_executions[]`, `card_ids[]`, `card_executions[]`, and `job_status` are present only when that source/semantic JOB lineage or execution structure exists for the entered representation or is explicitly retained as verifiable provenance. `operation_executions[]` carries concrete lower-operation execution for direct Core or another lower-representation entry when applicable. Their absence/presence must follow actual execution structure; no lower-entry run may fabricate Semantic JOB/CARD identities or a JOB-level outcome. Conversely, once a present downstream record references semantic, lowering, Core, Vector/Dataflow, or MORPH provenance, the referenced layer and its complete transitive validation closure become mandatory.
 
 `control_decisions[]` and `failure_records[]` provide typed resolvable causes for untaken or blocked execution subjects and effect non-attempts. A failure record always identifies its typed failing scope, exact `failure_behavior_binding_ids[]`, and complete applicable result-determinism/numeric/randomness scope IDs; CARD identity is present only when a CARD execution actually caused that failure, while direct lower-operation failure uses its operation execution identity.
 
