@@ -66,8 +66,8 @@ When proposing changes:
 26. preserve the explicit Semantic IR → QSOL-CORE lowering boundary; do not let a backend reinterpret rich semantic CARDs privately;
 27. preserve execution-relevant qualifiers through Semantic→Core lowering unless a frozen rule explicitly consumes them and records the resulting decision;
 28. preserve `machinery_requirements[]` and explicit failure behavior through Semantic→Core lowering or record a frozen provenance-visible mapping;
-29. preserve the complete QSOL-CORE control/effect/machinery/contract surface through the mandatory Vector/Dataflow IR;
-30. record both mandatory lowering identities/hashes and cardinality-aware result-binding maps in provenance;
+29. preserve the complete QSOL-CORE control/effect/machinery/contract surface **and representation-qualified `epistemic_class_bindings[]`** through the mandatory Vector/Dataflow IR; every lower class binding derived from Core retains `source_epistemic_class_binding_ids[]`, and transformed subjects require the applicable frozen `mapping_rule_id` rather than a copied class label;
+30. record both mandatory lowering identities/hashes, cardinality-aware result-binding maps, and Core→Vector/Dataflow epistemic-class binding lineage in provenance;
 31. record extension, determinism, numeric, randomness, machinery-requirement, and failure-behavior scope mappings through the applicable lowering whenever lower scope identities change; first-lowering source/Core scope references use complete ordered containment paths rather than kind plus local ID, and at both machinery boundaries preserve owner-qualified source/lower machinery-requirement references that pair each local requirement ID with its complete representation-relative owner path;
 32. record result-determinism provenance at the JOB/DECK/CARD/region/kernel or other frozen scope where it is valid; do not invent a global pair unless a frozen normalization proves it valid;
 33. record scoped numeric contract/mode provenance and never treat a semantics-changing numeric contract as a generic lowering map;
@@ -76,7 +76,7 @@ When proposing changes:
 36. never overwrite a denied target with a fallback target; preserve predecessor decision, frozen fallback rule, authorization outcome, and final-selection decision;
 37. bind protected-machinery authorization records to the concrete backend-selection decision/scope they govern; every machinery declaration/reference is representation-qualified by `representation_kind`, content-bound `representation_identity`, complete representation-relative `owner_scope_path[]`, and local requirement ID. Semantic machinery paths use actual JOB/DECK/CARD containment; direct Core paths use actual Core-relative containment and never fabricate Semantic ancestors. Every protected use references its scope's `final_selection_decision_id`, which must be final/executable; denied, rejected, superseded, or merely considered predecessor decisions are never treated as executed machinery. Preserve same-domain authorization-before-use ordering through identified machinery-use records with nonempty representation-qualified `execution_subject_refs[]` for execution-governed work, including actual Core `operation_execution_id` values, while retaining CARD execution arrays only as verified Semantic projections; genuine RUN/DECK pre-execution setup uses its typed initiating scope instead;
 38. distinguish a representation-qualified declared effect from runtime `effect_attempt_id` and trace both; direct Core entry must retain Core operation/declaration identity rather than fabricating Semantic CARD lineage;
-39. bind each effect attempt to its contextual `effect_authorization_record_id` and canonical representation-qualified `execution_subject_ref`; every attempt whose completion state proves it began (`COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN`) requires both `effect_begin_sequence_index` and the linked GRANTED authorization's `authorization_sequence_index` in the same event-order domain with authorization strictly before begin; `card_id` / `card_execution_id` are required lineage projections only when verified Semantic CARD lineage exists;
+39. bind each effect attempt to its contextual `effect_authorization_record_id` and canonical representation-qualified `execution_subject_ref`; every attempt whose completion state proves it began (`COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN`) requires both `effect_begin_sequence_index` and the linked GRANTED authorization's `authorization_sequence_index` in the same event-order domain with authorization strictly before begin; every definitively terminated `COMPLETED`, `ABORTED_CLEAN`, or `PARTIAL` attempt also requires `effect_end_sequence_index` in that domain with begin strictly before end, while `UNKNOWN` may omit end only when termination/completion genuinely cannot be established; `card_id` / `card_execution_id` are required lineage projections only when verified Semantic CARD lineage exists;
 40. account **unconditionally** for every applicable declared effect for every selected concrete execution subject with attempt(s), exactly one legitimate identified non-attempt, or structured failure;
 41. treat a detected omission of a reachable required effect as structured execution/conformance failure, never as a successful non-attempt;
 42. define effect-attempt completion independently from the enclosing CARD or lower-operation outcome;
@@ -88,7 +88,7 @@ When proposing changes:
 48. bind material external-tool identities to concrete effect attempts and/or outputs, not merely to a broad source CARD; explicit attempt/output subject arrays and reciprocal links are mandatory for material participation, and immutable/versioned material identity or an explicit identity-unavailable status must govern replay/evidence claims;
 49. runtime cache provenance uses nonempty representation-qualified current `execution_subject_refs[]` for CARD or lower-operation invocations, including the exact direct-Core `operation_execution_id`; CARD identity/execution arrays are conditional verified Semantic projections only, and CARD/operation execution ledgers reciprocally carry their applicable cache-reuse record IDs. Do not satisfy an effectful execution subject from cached prior output if that skips a declared effect or its authorization/ordering/failure/provenance boundary;
 50. bind every material runtime input to a stable `input_id` plus exact canonical value/content/artifact identity actually consumed and concrete representation-qualified `consumer_execution_refs[]`; CARD consumer IDs are conditional Semantic projections only;
-51. bind each output to nonempty representation-qualified `producer_execution_refs[]`, exact materially contributing `input_ids[]`, applicable failure-behavior bindings, and exact generated artifact IDs when generated code is involved; retain `producer_card_ids[]` / `producer_card_execution_ids[]` only when verified Semantic lineage exists and never fabricate them for direct Core entry;
+51. bind each output to nonempty representation-qualified `producer_execution_refs[]`, exact `epistemic_class_binding_ids[]`, exact materially contributing `input_ids[]`, the complete producer-derived `backend_selection_scope_ids[]`, applicable failure-behavior bindings, and exact generated artifact IDs when generated code is involved; retain `producer_card_ids[]` / `producer_card_execution_ids[]` only when verified Semantic lineage exists and never fabricate them for direct Core entry;
 52. bind optimized generated artifacts to the exact optimization-record IDs and optimized-IR identity that produced them, with reciprocal generated-artifact IDs on optimization records;
 53. give each failure-behavior provenance record a stable `failure_behavior_binding_id` and make output and failure references resolve to the exact applicable records rather than a generic computation `scope_id`;
 54. bind every generated artifact to its exact production `backend_selection_decision_id`, one truthful `direct_producer_toolchain_invocation_id`, and ordered `toolchain_invocation_chain_ids[]`; every command-line-driven material toolchain invocation also preserves its exact ordered duplicate-preserving typed `argument_vector[]` so positional flags, libraries, separators, and input/output occurrences cannot be reconstructed from unordered summary arrays. Direct invocation input/output artifact edges must remain truthful and transitive ancestors must not be mislabeled as direct producers;
@@ -116,6 +116,7 @@ result binding
 cardinality-aware result binding map
 identified input
 identified output
+epistemic class binding
 evidence status
 backend-selection scope
 backend-selection scope ID
@@ -205,6 +206,7 @@ Because every backend path traverses this IR, it must represent or preserve the 
 - scalar and vector data operations;
 - control flow;
 - calls/returns and call state;
+- representation-qualified `epistemic_class_bindings[]`, including `source_epistemic_class_binding_ids[]` and an accepted frozen `mapping_rule_id` whenever the bound subject is renamed, split, fused, relocated, changes owner path/kind, or otherwise is not deterministically identity-reconstructible;
 - explicit effects with declared effect identity;
 - complete per-effect required-capability sets;
 - protected-machinery requirements/metadata;
@@ -225,6 +227,7 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 result_binding_map[]
+epistemic_class_bindings[]
 extension_requirement_mapping_decisions[]
 machinery_requirement_mapping_decisions[]
 core_to_vector_result_determinism_mapping_decisions[]
@@ -232,6 +235,8 @@ core_to_vector_numeric_contract_mapping_decisions[]
 core_to_vector_randomness_mapping_decisions[]
 failure_behavior_mapping_decisions[]
 ```
+
+Every retained lower `epistemic_class_bindings[]` entry resolves to the exact Vector/Dataflow representation/subject and carries the complete applicable `source_epistemic_class_binding_ids[]`. When the bound subject is transformed rather than identity-preserved under a frozen reconstruction rule, `mapping_rule_id` is mandatory and must validate that exact source-binding set → lower-subject relation. A copied `semantic_class`, source CARD summary, or local-ID match is not class provenance.
 
 For `machinery_requirement_mapping_decisions[]`, typed scope mappings alone are not enough when one Core scope owns several machinery requirements or sibling scopes reuse a local requirement ID. Preserve `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, with every entry pairing its local `machinery_requirement_id` to the complete representation-relative `owner_scope_path[]`, so each target selector/capability set reaches the correct lower region without positional inference.
 
@@ -375,6 +380,7 @@ result_binding_ref?:
 artifact_hash
 artifact_location?
 semantic_class
+epistemic_class_binding_ids[]
 status
 producer_execution_refs[]:
     representation_kind
@@ -405,20 +411,24 @@ evidence_status?
 
 `producer_execution_refs[]` is nonempty and identifies the concrete runtime producer subjects in the representation that actually executed. For Semantic CARD execution it resolves to `card_executions[]`; for direct QSOL-CORE or another frozen lower entry it resolves to the matching `operation_executions[]` record and its representation/content identity. `producer_card_ids[]` and `producer_card_execution_ids[]` are conditional retained Semantic-lineage projections: when present, they must agree exactly with the producer refs and verified lineage; when no Semantic lineage exists they are absent rather than fabricated.
 
+`epistemic_class_binding_ids[]` is always explicit and is validated as a duplicate-free exact set derived independently from the concrete producers, entered representation, and every traversed class-binding preservation/mapping relation. A classified output must be justified by that set. Legitimate lower-entry output with no applicable class binding is `UNCLASSIFIED` with an empty set and no evidence claim; operational success cannot synthesize research class.
+
 `input_ids[]` contains the exact immutable input records that materially contributed to this output under the frozen provenance-dependency rule. It is not the whole execution-wide input inventory by default.
 
 `failure_behavior_binding_ids[]` resolves to the exact failure-policy provenance records that governed the producer path. A generic computation `scope_id` is not a substitute for the stable binding-record key.
 
-`evidence_status`, when present, is class-discriminated:
+`evidence_status` is conditionally present by semantic class, but whenever the output is evidence-bearing it is mandatory and class-discriminated:
 
 ```text
 evidence_class
 status
-evidence_rule_id?
-evidence_validation_id?
+evidence_rule_id
+evidence_validation_id
 ```
 
-Reject incompatible semantic/evidence-class combinations. Generic output status is not an epistemic promotion mechanism. Any non-class-preserving transition requires both `evidence_rule_id` resolving to accepted content-bound `EPISTEMIC_TRANSITION` authority and `evidence_validation_id` resolving to passing validation evidence for this exact output, artifact hash, original source classes, concrete producers, contributing evidence/inputs, target evidence class, and claim-publication event. Missing, stale, unknown, context-mismatched, unverifiable, or late rule/evidence fails closed.
+Every TEST, VALIDATION, PROOF, or frozen evidence-bearing class requires both IDs even when the class is preserved. For a class-preserving output, `evidence_rule_id` resolves to accepted content-bound `EVIDENCE_STATUS` authority and `evidence_validation_id` resolves to passing OUTPUT-bound substantive evidence for this exact artifact, class bindings, concrete producers, material inputs/tools/evidence identities, and publication event before publication. For a non-class-preserving transition, the rule resolves to `EPISTEMIC_TRANSITION` authority and the validation additionally proves the exact source-class-to-target-class transition. Reject incompatible semantic/evidence-class combinations, missing rule/evidence, another output's evidence, or post-publication validation. Generic output status is never an epistemic promotion or preservation mechanism.
+
+`backend_selection_scope_ids[]` is a duplicate-free exact-set attribution. Derive the complete applicable scope set independently from `producer_execution_refs[]`, their representation-qualified governed scopes, the final executable selection decisions, and the actual interpreted/reference/backend execution relation for those producers; then require recorded equality. An unrelated scope or omitted producer scope fails validation even when no generated artifact or machinery-use record exists to expose the mismatch.
 
 When an effect materially produces or exposes an output, link the output to concrete attempt IDs and link those attempts back to the output. Every output carries explicit `external_tool_ids[]`: use an empty array only when no material external tool contributed. When an external tool materially supplies evidence/data, the nonempty output array and the tool's concrete subject links must agree reciprocally; broad source-CARD attribution or omission of the array is not evidence of no tool participation.
 
@@ -506,7 +516,7 @@ The `effect_requirement_ref` and `execution_subject_ref` are canonical. A Semant
 
 `external_tool_ids[]` is explicit on every attempt. Use an empty array only when no material external model, prover, process, service, or other tool participated in that concrete attempt. Every listed tool resolves to `external_tool_versions[]` and reciprocally lists the attempt in its `effect_attempt_ids[]`; omission is incomplete provenance, not an assertion of no tool participation. A `NOT_STARTED` attempt necessarily has an empty tool array.
 
-Every contextual effect authorization record must identify the same `effect_requirement_ref` and canonical `execution_subject_ref`, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and `authorization_sequence_index?`. When verified Semantic CARD lineage exists, its conditional CARD fields agree exactly with that subject; direct Core operation execution omits them. All required capabilities must be granted before effect begin. For every attempt whose completion state is `COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN`, `effect_begin_sequence_index` is mandatory and its linked GRANTED authorization must carry `authorization_sequence_index`; both are in one frozen monotonic event-order domain and must satisfy `authorization_sequence_index < effect_begin_sequence_index`. `NOT_STARTED` has no begin event. Generic attempt `sequence_index` is not a substitute.
+Every contextual effect authorization record must identify the same `effect_requirement_ref` and canonical `execution_subject_ref`, complete required/granted/denied capability sets, policy identity/version, authorization outcome, and `authorization_sequence_index?`. When verified Semantic CARD lineage exists, its conditional CARD fields agree exactly with that subject; direct Core operation execution omits them. All required capabilities must be granted before effect begin. For every attempt whose completion state is `COMPLETED`, `ABORTED_CLEAN`, `PARTIAL`, or `UNKNOWN`, `effect_begin_sequence_index` is mandatory and its linked GRANTED authorization must carry `authorization_sequence_index`; both are in one frozen monotonic event-order domain and must satisfy `authorization_sequence_index < effect_begin_sequence_index`. For `COMPLETED`, `ABORTED_CLEAN`, and `PARTIAL`, `effect_end_sequence_index` is mandatory in that same domain and must satisfy `effect_begin_sequence_index < effect_end_sequence_index`; `UNKNOWN` may omit end only when the attempt's termination/completion boundary cannot be established and records it whenever a definite termination event is known. `NOT_STARTED` has no begin/end event. Generic attempt `sequence_index` is neither authorization-order nor effect-boundary-order proof.
 
 If a declared effect has no attempt for a concrete execution subject, record an identified legitimate non-attempt carrying the same `effect_requirement_ref` and `execution_subject_ref`, with conditional CARD fields only when Semantic lineage exists:
 
@@ -654,6 +664,7 @@ For every substantive change, ask:
 - Did semantic/evidence class detach from its CARD/output or become internally contradictory?
 - Did a result binding disappear or become impossible to map through a split/fusion?
 - Did either lowering lose a cardinality-aware result-binding map?
+- Did Core→Vector/Dataflow lose a representation-qualified epistemic class binding, its `source_epistemic_class_binding_ids[]`, or the frozen mapping rule required for a transformed bound subject?
 - Did either lowering lose extension-, machinery-requirement, or failure-behavior mapping provenance?
 - Did a machinery-requirement mapping at either boundary lose the stable source/lower requirement IDs and become ambiguous among several requirements sharing one scope?
 - Did Core→Vector/Dataflow lose determinism/numeric/randomness scope mappings?
@@ -667,6 +678,7 @@ For every substantive change, ask:
 - Did a direct QSOL-CORE or other lower-entry effect/output/input/machinery/cache use fabricate Semantic CARD identities instead of using its representation-qualified operation/execution subject?
 - Did a lower-operation untaken/fail-stop/not-reached/explicit-skip status lose its required typed control/failure/skip-rule cause, or overload `failure_record_id` as a blocking cause?
 - Did a begun effect omit `effect_begin_sequence_index`, omit the linked GRANTED authorization's `authorization_sequence_index`, or fail the same-domain authorization-before-begin inequality?
+- Did a definitively terminated `COMPLETED`, `ABORTED_CLEAN`, or `PARTIAL` effect omit `effect_end_sequence_index`, or fail the same-domain begin-before-end inequality?
 - Did a runtime attempt lose its representation-qualified declared-effect link?
 - Did a legitimate non-attempt lose its stable record ID, concrete execution subject, or typed resolvable execution-path cause?
 - Did an explicit skip lack a resolvable permitted frozen rule and passing applicability evidence for its exact invocation?
@@ -682,7 +694,8 @@ For every substantive change, ask:
 - Did a first-lowering semantic transition omit stable `transition_decision_id`, reuse lowering evidence as target-scope evidence, or fail to connect distinct target evidence through `related_evidence_ids[]` where applicable?
 - Did a failure-behavior binding lose its stable record ID or an output/failure lose the exact governing binding IDs?
 - Did a failure manifest omit referenced selection scopes, decisions, policy bindings, execution-contract scopes, rules, evidence, or other records needed for complete reference closure?
-- Did an output lose its representation-qualified concrete producer execution, material input, backend, RNG, exact generated-artifact, concrete effect-attempt, failure-policy, or external-tool references?
+- Did an output lose its representation-qualified concrete producer execution, exact epistemic-class binding set, material input, exact backend-selection scope set, RNG, exact generated-artifact, concrete effect-attempt, failure-policy, or external-tool references?
+- Did an evidence-bearing TEST/VALIDATION/PROOF output omit `evidence_status`, its accepted class-specific/transition rule, or passing output-bound evidence even when the class is preserved?
 - Did an output gain incompatible TEST/VALIDATION/PROOF status?
 - Did a material input retain only a mutable locator or lose its representation-qualified concrete consumer execution?
 - Did a material external tool retain only a mutable name/endpoint without an explicit identity-unavailable downgrade?
@@ -698,7 +711,7 @@ For every substantive change, ask:
 - Did cache reuse lose the exact current `execution_subject_refs[]`, fail the reciprocal CARD/lower-operation execution join, or skip effect authorization, ordering, failure, or attempt provenance?
 - Did `VERIFIED_REUSE` lack its applicable frozen legality rule and passing current-context verification evidence, or did an unverified hit supply a result?
 - Did a backend invent semantics not yet frozen, including Core determinism/randomness/RNG semantics?
-- Did Vector/Dataflow IR drop or bypass control, calls, effects, machinery requirements, capabilities, contracts, or scalar semantics?
+- Did Vector/Dataflow IR drop or bypass control, calls, effects, epistemic bindings, machinery requirements, capabilities, contracts, or scalar semantics?
 - Could one known-completed attempt also be `UNKNOWN`?
 - Was a cleanly aborted begun effect mislabeled?
 - Did QX-POSIX or QX-CUDA implementation precede its normative contract?
