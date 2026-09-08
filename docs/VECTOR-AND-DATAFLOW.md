@@ -43,7 +43,7 @@ It must preserve, where applicable:
 - protected-machinery requirements, including stable `machinery_requirement_id`, owning source scope, target selector/class, and complete required-capability sets;
 - execution-relevant qualifiers not already consumed under a frozen lowering rule;
 - explicit failure behavior not already lowered into core control semantics;
-- source/effect/failure ordering constraints;
+- source/effect/failure ordering constraints and the owner-qualified mapping of every sequencing edge whose endpoints change at this boundary;
 - result-determinism, scoped numeric, and randomness contracts;
 - extension/profile identity **and owning scope** required by execution;
 - failure and totality classification;
@@ -135,6 +135,8 @@ This representation makes transformation opportunities explicit.
 Source order remains semantically relevant for observable effects and for potentially failing operations under fail-stop execution. Only operations proven **pure and total** under the active contract may be freely scheduled from data dependencies.
 
 A Vector/Dataflow lowering must preserve all result/dependency identity, control, call, effect-order, failure-order, effect-capability, machinery-requirement, qualifier, failure-behavior, extension-ownership, and contract constraints carried by QSOL-CORE and its preserved semantic metadata.
+
+When a Core sequencing endpoint is renamed, split, fused, relocated, or represented by a different lower endpoint kind, the lowering must also preserve the directed edge relation through `sequencing_constraint_mapping_decisions[]`; merely retaining an edge label in the new containing representation does not prove that the same predecessor/successor relation survived.
 
 ## Control flow and calls
 
@@ -390,6 +392,7 @@ vector_dataflow_spec_version
 vector_dataflow_implementation_version
 vector_dataflow_ir_hash
 result_binding_map[]
+sequencing_constraint_mapping_decisions[]
 extension_requirement_mapping_decisions[]
 machinery_requirement_mapping_decisions[]
 core_to_vector_result_determinism_mapping_decisions[]
@@ -400,6 +403,41 @@ vector_dataflow_lowering_diagnostics[]
 ```
 
 `result_binding_map[]` must use a frozen cardinality-aware representation that can express preserved/renamed identities, one-to-many splits, many-to-one fusion, and any permitted many-to-many mapping without positional inference.
+
+### Sequencing edge mappings
+
+The ordering relation is mapped as a directed, owner-qualified edge relation whenever it is not losslessly reconstructible by identity:
+
+```text
+sequencing_constraint_mapping_decisions[]:
+    sequencing_mapping_id
+    source_edge_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        constraint_kind
+        predecessor_endpoint_ref
+        successor_endpoint_ref
+        edge_hash
+    lower_edge_refs[]:
+        representation_kind
+        representation_identity
+        owner_scope_path[]:
+            scope_kind
+            scope_id
+        constraint_kind
+        predecessor_endpoint_ref
+        successor_endpoint_ref
+        edge_hash
+    mapping_rule_id?
+    validation_evidence_id?
+```
+
+Every predecessor/successor endpoint uses the shared typed sequencing-endpoint contract: endpoint kind, complete representation-relative owner path, and stable local ID. `edge_hash` content-binds the tagged constraint, endpoint identities, and direction. If the Core edge and its endpoints survive unchanged under a frozen deterministic source-qualified reconstruction rule, the explicit mapping record may be omitted. Otherwise every rename, split, fusion, relocation, retargeting, endpoint-kind change, direction change, or lower encoding change requires an explicit mapping, accepted `SEQUENCING_LOWERING` rule, and passing subject-bound `validation_evidence_id` before the lower edge becomes operative.
+
+Every source edge must be accounted for by the exact resulting lower edge set under that rule. Lowering may not preserve only an effect/failure-order label while silently changing one endpoint, reverse predecessor/successor direction, or drop a non-effect sequencing kind. IR hashes and result/scope mappings do not substitute for this edge-level relation.
 
 ### Typed mapping endpoints
 
@@ -476,7 +514,7 @@ The three `core_to_vector_*_mapping_decisions[]` families bind Core result-deter
 
 The applicable mapping family may be omitted only when a frozen deterministic identity-scope reconstruction rule proves that family's mapping is lossless. IR hashes alone do not establish scope correspondence.
 
-MORPH must receive a specific identifiable Vector/Dataflow IR together with every still-applicable execution contract, extension requirement, and machinery requirement. It must not be possible for a changed lower graph, profile ownership, or authorization requirement to hide behind the same Semantic IR/Core IR/MORPH identities.
+MORPH must receive a specific identifiable Vector/Dataflow IR together with every still-applicable execution contract, extension requirement, machinery requirement, and sequencing relation. It must not be possible for a changed lower graph, ordering edge, profile ownership, or authorization requirement to hide behind the same Semantic IR/Core IR/MORPH identities.
 
 ## Conformance requirement
 
@@ -494,6 +532,7 @@ Representative tests should include:
 - failing pure operations ordered around effects;
 - mixed scalar/vector regions;
 - multiple scoped numeric contracts and modes;
+- owner-qualified sequencing-edge preservation plus endpoint rename/split/fusion/relocation mappings, including rejection of direction reversal or dropped non-effect sequencing kinds;
 - result-determinism/numeric/randomness contract-scope splits and fusions with **typed** Core and Vector/Dataflow mapping endpoints;
 - semantic-changing numeric mappings with exact requested/effective numeric contract identities, pre-application `CONTRACT_TRANSITION` authority, and subject-bound evidence;
 - extension-requirement scope preservation plus split/fusion/remap cases with typed endpoint mappings;
@@ -502,7 +541,7 @@ Representative tests should include:
 - determinism/randomness contract preservation;
 - semantic-changing failure-policy mapping with pre-application transition authority/evidence and distinct target-binding evidence lineage;
 - declared-effect/runtime-attempt provenance identity and completion states;
-- unsupported constructs or machinery requirements failing closed rather than bypassing the IR.
+- unsupported constructs, sequencing mappings, or machinery requirements failing closed rather than bypassing the IR.
 
 ## Performance principle
 
