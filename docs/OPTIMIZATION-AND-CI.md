@@ -1,0 +1,245 @@
+# Optimization and CI Evidence Model
+
+QSOL-MORPH treats optimization as a semantics-preserving activity, not a synonym for speed.
+
+This document adapts optimization principles already formalized in QSOL's OPT work for use in the future QSOL-MORPH compiler and CI architecture.
+
+## Primary rule
+
+> A faster semantics-breaking change is not an optimization.
+
+Speed is subordinate to correctness, determinism requirements, validation boundaries, provenance, and public semantic contracts.
+
+Under fail-stop semantics, failure is observable behavior. A pure operation is not automatically safe to delete or move merely because it has no external effect: a potentially failing operation can change which later effects execute and which earlier effects remain committed.
+
+Only operations proven **pure and total** under the active contract may be freely dependency-reordered or removed solely because their result is unused. A potentially failing pure operation such as division or modulo by zero remains ordering-relevant relative to observable effects. Dead-result elimination of such an operation is legal only under a separately frozen rule that preserves the original failure at the same observable point and preserves all affected provenance.
+
+## Admissible optimization
+
+A candidate optimization is admissible only when the required contract is preserved.
+
+Candidate preserved dimensions include:
+
+```text
+semantics
+named invariants
+result-determinism contract
+randomness/reproducibility contract
+validation behavior
+provenance/evidence boundaries
+public API / serialized contract
+resource assumptions
+```
+
+A backend-specific optimization may add an implementation strategy. It may not silently alter one of these dimensions.
+
+For scheduling and dead-result transformations, “semantics preserved” includes fail-stop failure observability. Dependency-only scheduling and ordinary dead-result elimination therefore require proof of both purity and totality, not purity alone.
+
+## Reference equivalence
+
+Where practical, optimized implementations should be checked against a reference implementation.
+
+For early QSOL-MORPH this makes the conservative C backend especially valuable:
+
+```text
+semantic program
+   ├── reference C path
+   └── optimized backend path
+```
+
+The optimized path should demonstrate the equivalence required by the active semantic/numeric contract.
+
+## Deterministic parallelism
+
+Parallel execution is acceptable when the required result contract is preserved.
+
+A useful CI pattern is:
+
+```text
+scalar/reference result
+        ==
+deterministic parallel result
+```
+
+when exact equivalence is required and a suitable witness/test exists.
+
+For tolerance-bounded numeric profiles, the comparison must use the declared numeric contract rather than silently substituting byte equality or vague closeness.
+
+## Approximation boundary
+
+Approximation is not ordinary optimization when it changes results beyond exact semantics.
+
+An approximation requires an explicit contract containing enough information to judge it, potentially including:
+
+```text
+reference
+error metric
+tolerance/domain
+validation dataset
+failure policy
+```
+
+Without an error contract, CI should not promote an approximation as a semantics-preserving optimization.
+
+## Cache boundary
+
+Verified cache reuse does not prove cold reconstruction.
+
+CI should distinguish:
+
+- cache hit correctness;
+- cache key correctness;
+- cold build/reconstruction correctness.
+
+A pipeline that always reuses a valid cache may still hide a broken clean-build path.
+
+Periodic or gated cold-path validation should exist for claims that depend on reconstructability.
+
+### Verified-reuse evidence
+
+For `cache_reuse_records[].classification = VERIFIED_REUSE`, both `legality_rule_id` and `verification_evidence_id` are mandatory. They resolve to a `rule_records[]` entry of kind `CACHE_SUBSTITUTION` and passing `validation_evidence[]` for the exact reuse record, reused computation/artifact, checked material cache identity, and current inputs/contracts/context. Validate applicability before substitution, with the shared event-order requirement `validation_sequence_index < application_sequence_index`.
+
+The complete [rule and evidence schemas](TRACE-AND-PROVENANCE.md#referenced-rules-and-validation-evidence) and [cache validation contract](TRACE-AND-PROVENANCE.md#cache-reuse-provenance) apply here without weakening. Rules bind the accepted authority and its version/content identity; evidence binds its typed subject, evaluated context, verifier identity, and verifiable content. A classification label, matching hash, unknown ID, stale evidence, or post-substitution check is not sufficient verification.
+
+`UNVERIFIED_HIT` is diagnostic and cannot satisfy a CARD or supply a verified-reuse output. It must be successfully verified before reuse, cause cold execution, or fail closed. Optional rule/evidence fields for other classifications never waive the requirements for `VERIFIED_REUSE`.
+
+### Effectful cache/replay legality
+
+Ordinary cached result/value substitution is **effect-free by default**.
+
+An effectful CARD must not be satisfied merely by returning a previously cached value when doing so would skip any declared external effect or alter:
+
+- the effect's stable declared identity;
+- capability authorization before the effect begins;
+- source/effect/failure ordering;
+- CARD/DECK/JOB fail-stop behavior;
+- per-attempt identity and completion-state provenance;
+- output-to-effect-attempt attribution;
+- externally observable artifacts or state;
+- randomness or external-input replay semantics.
+
+Effectful reuse is legal only under a separately frozen cache/replay semantic that explicitly defines whether and how the effect executes again and preserves every affected authorization, ordering, failure, and provenance boundary. The verified-reuse record must reference that specifically applicable rule; a generic cache substitution rule is insufficient. Absent such a rule, the implementation executes the effect normally or fails closed rather than substituting a cached result.
+
+A valid cache key and a previously correct cached value are therefore necessary but not sufficient evidence that semantic substitution is legal.
+
+## Combined resource model
+
+Two independently valid optimizations may be invalid when composed if their combined resource demands conflict.
+
+Examples:
+
+- GPU shared-memory pressure;
+- register pressure;
+- RAM limits;
+- disk/cache capacity;
+- CI timeout budgets;
+- concurrency limits.
+
+Composition checks should consider the combined resource model rather than assuming local validity composes automatically.
+
+## Benchmark evidence
+
+Historical timings are observations, not portable performance targets.
+
+A CI or documentation claim that an optimization is faster on a target environment should bind:
+
+```text
+target context
+measurement
+correctness validation
+provenance
+workload identity
+```
+
+No evidence label by itself turns an old benchmark number into a transferable target claim.
+
+## CI optimization strategy
+
+The future QSOL-MORPH CI should optimize cost without weakening evidence.
+
+Candidate techniques:
+
+### Path-scoped checks
+
+Run expensive suites only when their governed surface changes, while retaining at least one integration path capable of detecting cross-boundary breakage.
+
+### Content-addressed caches
+
+Cache toolchains, generated IR, test fixtures, and build products only with keys derived from every material content-producing input for that artifact.
+
+Depending on the cached object, material key inputs may include:
+
+```text
+canonical source / Semantic-IR identity
+QSOL specification/schema version
+QSOL-MORPH/compiler version
+backend identity and version
+target architecture / ABI
+compiler and linker flags
+numeric contract
+result-determinism contract
+randomness/reproducibility configuration
+active extension/profile versions
+generated-code options
+relevant toolchain/library versions
+immutable identities of material prebuilt objects/libraries/headers/sysroots
+```
+
+A semantic source hash by itself is not a safe key for generated target artifacts. If changing an input can change the bytes, semantics, ABI, or required execution contract of the cached artifact, that input must either participate in the cache key or be validated as part of cache acceptance.
+
+Cache metadata should be inspectable enough to explain why a hit was considered compatible. Material non-generated build dependencies resolve through `toolchain_invocations[].input_ids[]` to immutable `inputs[]` records; their paths or library names alone cannot establish cache compatibility or reproducible artifact provenance.
+
+### Reference/optimized split
+
+Keep a small trusted reference lane and compare faster/parallel lanes against it.
+
+### Deterministic sharding
+
+Partition test vectors deterministically so failures are reproducible and shard assignment is inspectable.
+
+### Frozen fixtures
+
+Use hash-bound semantic fixtures for compatibility and regression testing.
+
+### Exact-head validation
+
+When a PR is being reviewed, final evidence should correspond to the current PR head rather than an obsolete commit.
+
+### Pinned toolchains
+
+Critical compiler/formalization lanes should pin toolchain identity and verify downloaded artifacts where practical.
+
+### Explicit trust boundaries
+
+CI should state which claims come from:
+
+- source/static analysis;
+- generated artifacts;
+- execution tests;
+- external toolchains;
+- formal proofs;
+- repository history/provenance.
+
+No one layer should claim to prove another layer's external facts.
+
+## Lean/formalization CI
+
+If QSOL-MORPH later formalizes frozen contracts, the formal CI should borrow the strongest applicable patterns from OPT:
+
+- dependency-minimal formal packages where practical;
+- pinned compiler/toolchain versions;
+- source placeholder rejection;
+- audit-root completeness checks;
+- declaration-level axiom audits;
+- frozen release/artifact binding outside the proof language;
+- explicit separation between what Lean proves and what Git/CI establishes.
+
+Formal proof does not prove benchmark timing, external measurement authenticity, or Git immutability merely because those values are mentioned in a theorem context.
+
+## Fail closed
+
+If CI cannot establish the evidence required by a release claim, the claim should fail rather than be silently weakened.
+
+## Principle
+
+> Optimize the pipeline, not the evidence away.
