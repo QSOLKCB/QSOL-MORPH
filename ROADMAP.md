@@ -250,6 +250,7 @@ result_binding_ref?:
 artifact_hash
 artifact_location?
 semantic_class
+epistemic_class_binding_ids[]
 status
 evidence_status?
 producer_execution_refs[]
@@ -274,6 +275,8 @@ cache_reuse_record_ids[]?
 
 `producer_card_ids[]` and `producer_card_execution_ids[]` are conditional retained-lineage projections. When verified Semantic lineage exists they agree exactly with the Semantic CARD-backed subset of `producer_execution_refs[]` and resolve through `card_executions[]`. On a legitimate direct Core run without Semantic lineage they are absent rather than fabricated or used as empty stand-ins for the actual Core producer.
 
+`epistemic_class_binding_ids[]` is always explicit. For an output whose `semantic_class` makes a research/evidence claim, independently derive every applicable representation-qualified class binding from `producer_execution_refs[]`, the entered representation, and every traversed class-preservation mapping, and require exact duplicate-free set equality with the recorded IDs. The resolved bindings must justify the exact claimed class; copying a source class or writing a local output label is not a substitute for this ledger join. If legitimate lower entry has no applicable binding, the output is `UNCLASSIFIED` (or the frozen no-claim equivalent), the binding array is empty, and `evidence_status` is absent rather than fabricating Semantic lineage.
+
 `input_ids[]` identifies the exact immutable inputs materially contributing to that output. Execution-wide input availability is not a substitute for per-output attribution.
 
 `external_tool_ids[]` is mandatory on every output. Use an explicit empty array only when no material external tool supplied or materially affected that output. Every listed tool must resolve to `external_tool_versions[]` and reciprocally list the output in its `output_ids[]`; when a material model, prover, process, service, or other external tool contributed, omission of that tool or of the array is incomplete provenance and fails the PR #5 gate. Producer execution identity alone cannot substitute for this concrete output/tool join.
@@ -282,20 +285,26 @@ cache_reuse_record_ids[]?
 
 `failure_behavior_binding_ids[]` resolves to stable `failure_behavior_binding_id` records. A generic computation scope ID is not sufficient to identify which requested/effective failure policy governed the producer path.
 
-When present, `evidence_status` is class-discriminated and must be compatible with `semantic_class`. Generic output status cannot silently promote TEST, VALIDATION, or PROOF class. For every non-class-preserving epistemic transition, both `evidence_rule_id` and `evidence_validation_id` are mandatory: the rule must resolve to accepted content-bound `EPISTEMIC_TRANSITION` authority, and the validation ID must resolve to passing subject-bound evidence for this exact output, artifact hash, concrete producers, contributing evidence/inputs, requested evidence class/status, and claim-publication context. That evidence must be validated before the stronger or different claim is published; missing, stale, wrong-kind, failed, context-mismatched, unverifiable, or late evidence rejects the transition.
+For every evidence-bearing `semantic_class` (`TEST`, `VALIDATION`, `PROOF`, or a frozen equivalent requiring evidence verification), `evidence_status` is mandatory and both `evidence_rule_id` and `evidence_validation_id` are mandatory. Generic output status is only an execution/artifact state and can never stand in for research evidence.
+
+For a class-preserving evidence-bearing output, `evidence_rule_id` must resolve to an accepted versioned/content-bound `EVIDENCE_STATUS` rule for that class, and `evidence_validation_id` must resolve to passing subject-bound `validation_evidence[]` for this exact output. Its evaluated context binds the artifact hash, exact `epistemic_class_binding_ids[]`, concrete producer executions, material inputs/tools/evidence identities, requested evidence status, applicable proposition/test/validation/proof subject, and publication event. The class-specific substantive evidence must be retrievable, hash-verifiable, checked by the accepted verifier, and validated before publication; preserving `PROOF` from an upstream binding plus reporting operational success is not sufficient.
+
+For every non-class-preserving epistemic transition, both IDs remain mandatory: `evidence_rule_id` must resolve to accepted content-bound `EPISTEMIC_TRANSITION` authority, and `evidence_validation_id` must resolve to passing subject-bound evidence for this exact output, artifact hash, source binding/class-to-target-class transition, concrete producers, contributing evidence/inputs, requested evidence class/status, and claim-publication context. That evidence must be validated before the stronger or different claim is published; missing, stale, wrong-kind, failed, context-mismatched, unverifiable, or late evidence rejects the transition.
 
 ### Generated artifacts, optimization, tools, and cache reuse
 
 Require:
 
 - identified `generated_artifacts[]` linked to backend unit, backend-selection scope, and mandatory exact production `backend_selection_decision_id`, with optimization links, one `direct_producer_toolchain_invocation_id`, and ordered `toolchain_invocation_chain_ids[]` where generated bytes are involved;
-- identified `toolchain_invocations[]` carrying stable invocation ID/order, invocation kind, immutable/versioned material tool identity, target/ABI context, exact flags/configuration, explicit `input_ir_hashes[]`, immutable general `input_ids[]` for material non-generated dependencies, direct generated-artifact inputs/outputs, backend unit, and backend-selection scope where applicable;
+- identified `toolchain_invocations[]` carrying stable invocation ID/order, invocation kind, immutable/versioned material tool identity, target/ABI context, exact flags/configuration, exact ordered duplicate-preserving typed `argument_vector[]`, explicit `input_ir_hashes[]`, immutable general `input_ids[]` for material non-generated dependencies, direct generated-artifact inputs/outputs, backend unit, and backend-selection scope where applicable;
 - identified `optimization_provenance[]` recording reference/optimized IR identity, actual transformation sequence, legality evidence, target context, and reciprocal generated-artifact links;
 - identified `external_tool_versions[]` with stable links to applicable effect attempts and/or outputs plus immutable/versioned material identity, or an explicit identity-unavailable status that weakens replay/evidence claims;
-- identified `cache_reuse_records[]` distinguishing cold execution, verified reuse, unverified hit, or frozen equivalent, with material cache identity, legality rule, reused computation/artifact identity, and verification evidence;
+- identified `cache_reuse_records[]` distinguishing cold execution, verified reuse, unverified hit, or frozen equivalent, with nonempty representation-qualified current `execution_subject_refs[]`, material cache identity, legality rule, reused computation/artifact identity, verification evidence, and reciprocal cache-reuse record IDs on the applicable CARD/operation execution ledgers;
 - per-output cache-reuse links where applicable.
 
 A generated artifact's production decision must resolve in its recorded selection scope and match its target context. A rejected candidate's artifact must not be attributed to the final fallback decision merely because the two share one scope. Artifact existence does not authorize machinery use.
+
+Toolchain `argument_vector[]` preserves the exact ordered, duplicate-preserving command-line occurrences with typed literal/input/output/generated-artifact references. Positional flags, repeated libraries or inputs, grouping delimiters, and options such as whole-archive placement must not be reconstructed from unordered summary arrays or deduplicated inventories.
 
 Toolchain `input_ids[]` bind the immutable bytes of prebuilt objects, libraries, headers, startup files, sysroots, and implicit dependencies not generated in this run. Mutable locators or flags alone are insufficient. The array is empty only when no such material inputs were consumed; composite inputs content-bind the complete material dependency set under a frozen representation. Missing material dependency identity invalidates complete/reproducible build provenance. These build-input references are the direct consumer relation for build-only inputs and do not require or permit fabricated runtime `consumer_execution_refs[]`.
 
@@ -304,6 +313,8 @@ Toolchain `input_ir_hashes[]` is always explicit: it is nonempty with the exact 
 Toolchain direct edges and ancestry have different meanings. `input_generated_artifact_ids[]` / `output_generated_artifact_ids[]` record what an invocation directly consumed/emitted. A generated artifact's `direct_producer_toolchain_invocation_id` must point to the invocation that directly emitted it. `toolchain_invocation_chain_ids[]` records ordered transitive build ancestry and must not force every ancestor to claim the final artifact as a direct output.
 
 Run-wide compiler/tool version lists are summaries only. They cannot substitute for the exact direct producer plus ordered material toolchain ancestry of one generated artifact.
+
+Every runtime `cache_reuse_records[]` entry must identify the exact current invocation(s) it governs through nonempty representation-qualified `execution_subject_refs[]`, including the concrete direct-Core `operation_execution_id` when Core is the entered representation. `card_ids[]` / `card_execution_ids[]`, when retained by the shared schema, are conditional verified Semantic projections only. The corresponding `card_executions[]` and `operation_executions[]` records reciprocally list their applicable cache-reuse record IDs, so repeated executions of one canonical CARD/operation cannot be conflated and direct Core reuse never requires fabricated CARD ancestry.
 
 For `classification = VERIFIED_REUSE`, require `legality_rule_id` resolving to the applicable `CACHE_SUBSTITUTION` rule and `verification_evidence_id` resolving to passing evidence for the exact reuse record, checked cache identity/artifact, and current inputs/contracts/context before substitution. A label or matching hash alone is insufficient. `UNVERIFIED_HIT` cannot satisfy an execution subject: verify successfully before reuse, execute cold, or fail closed.
 
@@ -479,12 +490,12 @@ No executable QSOL path may emit a research result without enough provenance to 
 - nonempty representation-qualified concrete producer execution subject(s);
 - selected DECK/CARD execution(s) when verified Semantic execution lineage exists, without fabricating them for lower entry;
 - exact immutable material inputs;
-- semantic class and compatible evidence status where such semantic lineage/evidence classification applies;
+- semantic class plus the exact applicable representation-qualified `epistemic_class_binding_ids[]`, and mandatory compatible output-bound evidence status for every evidence-bearing class;
 - exact generated target and its production selection decision where applicable;
 - exact direct producer invocation, immutable non-generated build dependencies, and ordered transitive material toolchain ancestry where generated target bytes are involved;
 - resolvable backend-selection/determinism/numeric/randomness/failure-behavior record IDs;
 - protected-machinery authorization/use ordering and concrete execution-subject attribution where applicable;
-- cache-reuse path and verified substitution rule/evidence where used;
+- cache-reuse path, exact current execution subjects, reciprocal execution-ledger joins, and verified substitution rule/evidence where used;
 - resolved extension set;
 - concrete material external-tool identity, or explicit identity unavailability with a correspondingly weakened claim;
 - concrete effect declaration, authorization, attempt/non-attempt history, with verified skip authority where used;
@@ -499,7 +510,8 @@ These are documentation-phase acceptance cases, not claims of implemented runtim
 | Case | Required result |
 | --- | --- |
 | Direct Core protected effect | Declaration resolves in the hash-bound Core IR; authorization/attempt use the same Core `execution_subject_ref` and `operation_execution_id`; Semantic CARD fields are absent unless independently verified lineage exists. |
-| Direct Core output | Nonempty `producer_execution_refs[]` resolves to the actual Core operation execution; fabricated CARD producers fail. |
+| Direct Core output | Nonempty `producer_execution_refs[]` resolves to the actual Core operation execution; fabricated CARD producers fail. A classified output additionally requires the independently derived exact `epistemic_class_binding_ids[]`; without an applicable lower binding it is `UNCLASSIFIED`. |
+| Class-preserving PROOF/VALIDATION/TEST output | `evidence_status`, `evidence_rule_id`, and `evidence_validation_id` are mandatory and resolve to passing output-bound class-specific evidence before publication; inherited class plus operational success alone fails. |
 | Direct Core input consumer | `consumer_execution_refs[]` names the actual Core operation execution even if it fails or emits no output; invented `consumer_card_execution_ids[]` fail. |
 | Build-only material input | When a prebuilt object/library/header/startup file/sysroot is consumed only by a toolchain invocation, `consumer_execution_refs[]` is explicitly empty and the exact consuming invocation references the input through `toolchain_invocations[].input_ids[]`; fabricating a runtime CARD/Core/lower-operation consumer fails. |
 | Direct Core protected machinery use | `execution_subject_refs[]` names the actual Core operation execution; the pre-execution setup exception cannot replace it. |
@@ -507,11 +519,12 @@ These are documentation-phase acceptance cases, not claims of implemented runtim
 | Protected setup occurs before any operation/CARD execution | The empty execution-subject array has a resolvable typed initiating RUN/DECK_EXECUTION; invented CARD/Core operation attribution fails. |
 | A denied candidate and its fallback both have generated artifacts | Each artifact names its own exact production decision; a scope-only or final-decision guess fails. |
 | A link consumes a prebuilt library or sysroot whose bytes change | Invocation `input_ids[]` identifies the actual immutable dependency set; unchanged paths/flags alone cannot establish identical build provenance. |
+| Two link invocations differ only in repeated-input/library/grouping order | Their exact duplicate-preserving typed `argument_vector[]` differs; unordered input/output/flag summaries cannot claim the invocations are identical. |
 | A requested guarantee is downgraded | Only applicable versioned authority and passing evidence for the exact requested/effective scope, established before application, permit it; unknown, stale, wrong-context, or late evidence fails. |
 | A failure occurs under one of several scoped policies | `failure_behavior_binding_ids[]` selects the actual governing bindings, including defaults; inference from the resulting path fails. |
 | Failure follows denied-target fallback or protected use | All referenced backend-selection and policy ledgers remain resolvable, including predecessor decisions; dangling references fail. |
 | A reachable effect is labeled an explicit frozen skip | The exact execution subject has a resolvable permitted skip rule and passing applicability evidence; an unverifiable label is conformance failure. |
-| A cache entry claims `VERIFIED_REUSE` | The applicable frozen rule and passing current-context verification evidence resolve; absent evidence, unverified substitution, or effectful substitution under a generic cache rule fails. |
+| A cache entry claims `VERIFIED_REUSE` | The applicable frozen rule and passing current-context verification evidence resolve; the exact current `execution_subject_refs[]` and reciprocal CARD/operation execution-ledger join also resolve. Absent evidence, ambiguous current invocation, fabricated CARD lineage, or effectful substitution under a generic cache rule fails. |
 
 The first-lowering machinery requirement-ID cases are additionally frozen in PR #8 and exercised by PR #9.
 
@@ -556,6 +569,7 @@ Specify:
 - mapping of every supported Semantic-IR operation to Core;
 - preservation of stable source identity/provenance;
 - result-binding maps;
+- type/unit preservation plus every permitted normalization/erasure rule, including exact source facts, resulting Core facts, and required pre-erasure validation evidence;
 - extension requirement mapping;
 - identified, verifiable qualifier-lowering decisions for every consumed execution-relevant qualifier, including the exact owner-qualified source qualifier/value, resulting Core scope/fact, frozen lowering rule, and required pre-application validation evidence;
 - identified cardinality-aware machinery-requirement mappings using composite `source_machinery_requirement_refs[]` / `lower_machinery_requirement_refs[]`, where every entry pairs its local `machinery_requirement_id` with the complete ordered representation-relative `owner_scope_path[]`;
@@ -568,7 +582,9 @@ Specify:
 
 Implement PR #8.
 
-Every material lowering decision must be provenance-bearing. Required decision families include extension requirements, qualifiers, machinery requirements, result determinism, numerics, randomness, and failure behavior whenever consumed, grouped, normalized, remapped, or otherwise transformed.
+Every material lowering decision must be provenance-bearing. Required decision families include type/unit facts, extension requirements, qualifiers, machinery requirements, result determinism, numerics, randomness, and failure behavior whenever consumed, grouped, normalized, erased, remapped, or otherwise transformed.
+
+`type_unit_lowering_decisions[]` is mandatory whenever lowering normalizes, erases, combines, or otherwise changes a source type/unit fact rather than preserving it under a frozen deterministic reconstruction rule. Each decision identifies the exact owner-qualified source type/unit facts and resulting Core facts, resolves to the accepted frozen `TYPE_UNIT_LOWERING` rule for that transformation, and carries passing subject-bound pre-erasure validation evidence established before the changed/erased lower fact becomes operative. A bare Core type, implementation convenience, post-lowering success, or IR hash cannot prove that a higher-level unit/type fact was safely discarded.
 
 `qualifier_lowering_decisions[]` must use the identified canonical record defined by `docs/TRACE-AND-PROVENANCE.md`: source qualifier ownership/value, resulting Core scope/facts, applicable frozen `QUALIFIER_LOWERING` rule, and passing subject-bound evidence are verifiable rather than opaque metadata. A qualifier affecting target, adapter, placement, tuning, extension controls, authorization, or behavior may not disappear behind a bare decision label.
 
@@ -585,6 +601,7 @@ The IR must preserve the complete supported QSOL-CORE surface, including:
 - scalar and vector operations;
 - control flow;
 - calls/returns;
+- representation-qualified epistemic class bindings and their retained source-binding lineage;
 - explicit effects and complete effect-capability requirements;
 - protected-machinery requirements;
 - sequencing/failure constraints;
@@ -601,11 +618,13 @@ Require:
 
 - Vector/Dataflow IR identity/hash;
 - cardinality-aware `result_binding_map[]`;
+- representation-qualified `epistemic_class_bindings[]` preserving every applicable Core binding with complete `source_epistemic_class_binding_ids[]`; transformed subjects require the accepted frozen class-preservation/mapping rule rather than a copied output class or positional inference;
+- owner-qualified `sequencing_constraint_mapping_decisions[]` for every Core sequencing edge whose endpoint identity/kind, owner, direction, cardinality, or lower encoding changes, with exact source/lower edge sets plus the applicable frozen `SEQUENCING_LOWERING` rule and passing subject-bound evidence before the lower edge becomes operative;
 - typed Core → Vector/Dataflow scope mappings for extension, machinery, result-determinism, numeric, randomness, and failure-behavior contract families;
 - for `machinery_requirement_mapping_decisions[]`, composite `source_machinery_requirement_refs[]` and `lower_machinery_requirement_refs[]`, each pairing a local `machinery_requirement_id` with its complete representation-relative `owner_scope_path[]` in addition to typed group-level scope mappings, so repeated local IDs across source/lower owners cannot be swapped, detached, or positionally inferred;
 - lowering diagnostics and conformance/rejection fixtures.
 
-Omission of a mapping family is allowed only under a frozen deterministic identity-scope reconstruction rule covering that family.
+Omission of a sequencing/class/scope mapping is allowed only under a frozen deterministic identity-scope/edge reconstruction rule covering that family. Renaming, splitting, fusion, relocation, retargeting, or endpoint-kind changes must not erase or reverse source/effect/failure ordering or detach a research-class binding from its transformed lower subject.
 
 ## PR #12 — Reference MORPH to C
 
@@ -616,10 +635,12 @@ Require:
 - semantics-preserving C emission;
 - stable backend-unit identity;
 - identified `generated_artifacts[]` with artifact ID/kind/hash, backend unit, backend-selection scope and mandatory exact production `backend_selection_decision_id`, source provenance, optimization links where applicable, `direct_producer_toolchain_invocation_id`, and ordered `toolchain_invocation_chain_ids[]`;
-- identified `toolchain_invocations[]` recording the exact material compiler/assembler/linker/code-generation identities, invocation order, target/ABI, deterministic build flags/configuration, explicit exact `input_ir_hashes[]` whenever IR is directly consumed, immutable non-generated dependency `input_ids[]`, direct generated-artifact inputs/outputs, backend unit, and backend-selection scope;
+- identified `toolchain_invocations[]` recording the exact material compiler/assembler/linker/code-generation identities, invocation order, target/ABI, deterministic build flags/configuration, exact ordered duplicate-preserving typed `argument_vector[]`, explicit exact `input_ir_hashes[]` whenever IR is directly consumed, immutable non-generated dependency `input_ids[]`, direct generated-artifact inputs/outputs, backend unit, and backend-selection scope;
 - truthful direct-edge invariants: only the direct producer invocation lists an artifact in `output_generated_artifact_ids[]`, while transitive ancestors remain in the artifact's ordered chain and prebuilt dependencies resolve through `inputs[]`;
 - reference/optimized equivalence evidence where optimization is used;
 - no bypass around the Vector/Dataflow IR.
+
+Each `argument_vector[]` is occurrence-ordered and duplicate-preserving with typed literal/input/output/generated-artifact references. Library order, repeated inputs, grouping delimiters, and option placement that can change symbol resolution or output bytes are therefore part of invocation identity; unordered flags/configuration or input/output inventories cannot substitute for exact argv.
 
 A run-wide compiler/version inventory may remain as a summary, but it is not sufficient artifact provenance when several compilation/link stages or configurations are possible.
 
