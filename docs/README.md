@@ -2,7 +2,7 @@
 
 This directory contains the architectural documentation for QSOL-MORPH.
 
-The historical documentation foundation remains **non-normative**. PR #2 freezes only the [Core Invariants](CORE-INVARIANTS.md) contract and its controlled domain copies; detailed schemas, grammar, and operational contracts remain candidates.
+The historical documentation foundation remains **non-normative**. PR #2 freezes the [Core Invariants](CORE-INVARIANTS.md) contract and its controlled domain copies. PR #3 adds the bounded [Canonical Data Model](CANONICAL-DATA-MODEL.md). Other schemas, grammar, and operational contracts remain candidates.
 
 ## Start here
 
@@ -10,7 +10,7 @@ The historical documentation foundation remains **non-normative**. PR #2 freezes
 2. [Design Principles](DESIGN-PRINCIPLES.md)
 3. [Architecture](ARCHITECTURE.md)
 4. [Human–AI Language Model](LANGUAGE-MODEL.md)
-5. [Candidate Semantic IR](SEMANTIC-IR.md)
+5. [Canonical Data Model](CANONICAL-DATA-MODEL.md) and [Candidate Semantic IR](SEMANTIC-IR.md)
 6. [Semantic-to-QSOL-CORE Lowering](SEMANTIC-TO-CORE-LOWERING.md)
 
 ## Execution model

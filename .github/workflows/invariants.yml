@@ -27,5 +27,9 @@ jobs:
             base="origin/main"
           fi
           python3 tools/check_invariants.py --base-ref "$base"
+      - name: Install pinned canonical-model validator
+        run: python3 -m pip install --disable-pip-version-check -r requirements-model.txt
+      - name: Validate canonical model reference fixtures
+        run: python3 tools/check_model.py tests/fixtures/model/positive/*.json
       - name: Run positive and negative contract tests
         run: python3 -m unittest discover -s tests -v

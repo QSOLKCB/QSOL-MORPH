@@ -107,7 +107,7 @@ Human `.qsl` parsing or lossless text serialization must not be implemented unti
 
 ## Core-invariant checks
 
-The normative cross-cutting statements live in [Core Invariants](docs/CORE-INVARIANTS.md) and `spec/core-invariants.json`. Do not edit controlled document copies independently. Run `python tools/check_invariants.py` and `python -m unittest discover -s tests -v` with Python 3.11 or newer. These checks validate documentation agreement, not executable language conformance. Follow the invariant change-control policy and preserve initial registry history.
+The normative cross-cutting statements live in [Core Invariants](docs/CORE-INVARIANTS.md) and `spec/core-invariants.json`. Do not edit controlled document copies independently. Run `python tools/check_invariants.py` and `python -m unittest discover -s tests -v` with Python 3.11 or newer. The invariant checks validate documentation agreement, not executable language conformance. For PR #3 canonical-model work, install `requirements-model.txt`, read [Canonical Data Model](docs/CANONICAL-DATA-MODEL.md), run `python tools/check_model.py tests/fixtures/model/positive/*.json`, and run the full unit suite. Model validation is distinct from executable and serialization conformance. Follow the invariant change-control policy and preserve initial registry history.
 
 ## Tests
 

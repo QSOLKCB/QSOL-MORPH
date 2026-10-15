@@ -1,0 +1,316 @@
+{
+  "schema_version": "1.0.0",
+  "jobs": [
+    {
+      "id": "study",
+      "machinery_requirements": [],
+      "extension_requirements": [],
+      "result_determinism": "STRICT",
+      "randomness_contract": {
+        "mode": "NONE"
+      },
+      "decks": [
+        {
+          "id": "baseline",
+          "machinery_requirements": [],
+          "extension_requirements": [],
+          "cards": [
+            {
+              "id": "value",
+              "machinery_requirements": [],
+              "extension_requirements": [],
+              "verb": "DECLARE",
+              "noun": "VALUE",
+              "operands": [],
+              "result_bindings": [
+                {
+                  "result_binding_id": "mass",
+                  "type": "DECIMAL",
+                  "unit": "kg",
+                  "semantic_class": "PARAMETER"
+                }
+              ],
+              "qualifiers": [],
+              "semantic_class": "PARAMETER",
+              "effect_requirements": [
+                {
+                  "effect_id": "read",
+                  "effect_kind": "READ_FILE",
+                  "required_capabilities": [
+                    "FILESYSTEM_READ"
+                  ]
+                }
+              ],
+              "dependencies": [],
+              "sequencing_constraints": [],
+              "value": {
+                "type": "DECIMAL",
+                "unit": "kg",
+                "value": "4.2"
+              },
+              "source_location": {
+                "source_id": "example-source-v1",
+                "start": {
+                  "line": 1,
+                  "column": 1
+                },
+                "end": {
+                  "line": 1,
+                  "column": 22
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "analysis",
+          "machinery_requirements": [],
+          "extension_requirements": [],
+          "cards": [
+            {
+              "id": "value",
+              "machinery_requirements": [],
+              "extension_requirements": [],
+              "verb": "DERIVE",
+              "noun": "COPY",
+              "operands": [
+                {
+                  "operand_id": "input",
+                  "type": "DECIMAL",
+                  "unit": "kg",
+                  "producer_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "baseline"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value",
+                    "result_binding_id": "mass"
+                  }
+                }
+              ],
+              "result_bindings": [
+                {
+                  "result_binding_id": "mass",
+                  "type": "DECIMAL",
+                  "unit": "kg",
+                  "semantic_class": "PARAMETER"
+                }
+              ],
+              "qualifiers": [],
+              "semantic_class": "PARAMETER",
+              "effect_requirements": [],
+              "dependencies": [
+                {
+                  "dependency_id": "input",
+                  "producer_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "baseline"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value"
+                  }
+                }
+              ],
+              "sequencing_constraints": [
+                {
+                  "constraint_id": "failure",
+                  "kind": "FAILURE_ORDER",
+                  "predecessor_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "baseline"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value"
+                  }
+                },
+                {
+                  "constraint_id": "source",
+                  "kind": "SOURCE_ORDER",
+                  "predecessor_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "baseline"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "save",
+              "machinery_requirements": [],
+              "extension_requirements": [],
+              "verb": "SAVE",
+              "noun": "MASS",
+              "operands": [
+                {
+                  "operand_id": "input",
+                  "type": "DECIMAL",
+                  "unit": "kg",
+                  "producer_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "analysis"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value",
+                    "result_binding_id": "mass"
+                  }
+                }
+              ],
+              "result_bindings": [],
+              "qualifiers": [],
+              "semantic_class": "PARAMETER",
+              "effect_requirements": [
+                {
+                  "effect_id": "write",
+                  "effect_kind": "WRITE_FILE",
+                  "required_capabilities": [
+                    "FILESYSTEM_WRITE"
+                  ]
+                }
+              ],
+              "dependencies": [
+                {
+                  "dependency_id": "input",
+                  "producer_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "analysis"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value",
+                    "result_binding_id": "mass"
+                  }
+                }
+              ],
+              "sequencing_constraints": [
+                {
+                  "constraint_id": "effect",
+                  "kind": "EFFECT_ORDER",
+                  "predecessor_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "baseline"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value"
+                  }
+                },
+                {
+                  "constraint_id": "failure",
+                  "kind": "FAILURE_ORDER",
+                  "predecessor_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "analysis"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value"
+                  }
+                },
+                {
+                  "constraint_id": "source",
+                  "kind": "SOURCE_ORDER",
+                  "predecessor_ref": {
+                    "owner_scope_path": [
+                      {
+                        "scope_kind": "JOB",
+                        "scope_id": "study"
+                      },
+                      {
+                        "scope_kind": "DECK",
+                        "scope_id": "analysis"
+                      },
+                      {
+                        "scope_kind": "CARD",
+                        "scope_id": "value"
+                      }
+                    ],
+                    "producer_card_id": "value"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

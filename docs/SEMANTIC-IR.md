@@ -2,7 +2,11 @@
 
 This document describes the proposed intermediate representation between human-facing QSOL source and lower computational forms.
 
-Its detailed data-model layouts remain **non-normative pending the canonical-data-model phase**. Only the controlled core-invariant statements at the end of this document are frozen by PR #2.
+This document remains architectural. PR #3 freezes the bounded logical model in
+[Canonical Data Model 1.0.0](CANONICAL-DATA-MODEL.md), which takes precedence over the
+illustrative shapes below within its declared scope. Other detailed/operational
+layouts remain non-normative. The controlled core-invariant statements at the end
+of this document remain frozen by PR #2.
 
 ## Purpose
 

@@ -1,0 +1,2 @@
+# Official PyPI validator; used only for the canonical data-model schema.
+jsonschema==4.26.0
