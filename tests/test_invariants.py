@@ -71,6 +71,25 @@ class RegistryTests(unittest.TestCase):
                 with self.assertRaisesRegex(check.Invalid, case['error']):
                     check.validate(self.root)
 
+    def test_coordinated_history_rewrite_is_rejected(self):
+        self.registry['invariants'][0]['statement'] = 'Backends MUST discard active semantic contracts.'
+        self.save()
+        (self.root / check.BASELINE).write_text(json.dumps(self.registry))
+        self.refresh()
+        with self.assertRaisesRegex(check.Invalid, 'historical baseline content changed'):
+            check.validate(self.root)
+
+    def test_newline_normalization(self):
+        for path in list(check.documentation_paths(self.root)) + [self.root / check.BASELINE]:
+            path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+        check.validate(self.root)
+
+    def test_malformed_numeric_reference(self):
+        path = self.root / check.CORE
+        path.write_text(path.read_text() + '\nQM-INV-0010\n')
+        with self.assertRaisesRegex(check.Invalid, 'dangling invariant reference'):
+            check.validate(self.root)
+
     def test_duplicate_json_key(self):
         path = self.root / check.REGISTRY
         path.write_text(path.read_text().replace('"schema_version": 1', '"schema_version": 1, "schema_version": 1'))

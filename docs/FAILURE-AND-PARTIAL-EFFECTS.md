@@ -651,6 +651,6 @@ For every selected concrete execution subject, each applicable declared effect M
 
 ### QM-INV-018: Per-attempt completion distinctions
 
-Effect completion MUST be classified per concrete attempt independently of its enclosing outcome. Never begun, known completed, begun but cleanly aborted, observably partial, and genuinely unknown states MUST remain distinct. Known completion MUST take precedence over uncertainty about broader consequences. A begun attempt MUST NOT be classified as never started, and no attempt MUST NOT be confused with an identified never-started attempt.
+Effect completion MUST be classified per concrete attempt independently of its enclosing outcome. Never begun, known completed, begun but cleanly aborted, observably partial, and genuinely unknown states MUST remain distinct. Known completion MUST take precedence over uncertainty about broader consequences. A begun attempt MUST NOT be classified as never started, and the absence of an attempt MUST NOT be confused with an identified never-started attempt.
 
 <!-- END QSOL CORE INVARIANTS -->

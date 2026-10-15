@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -10,10 +11,12 @@ import sys
 
 REGISTRY = 'spec/core-invariants.json'
 BASELINE = 'spec/history/core-invariants-1.0.0.json'
+BASELINE_SHA256 = '3a68861b27567a0d6b1bad7d7e4b642358727d4f7dcbe879bca4226f6833f124'
 CORE = 'docs/CORE-INVARIANTS.md'
 BEGIN = '<!-- BEGIN QSOL CORE INVARIANTS -->'
 END = '<!-- END QSOL CORE INVARIANTS -->'
 ID = re.compile(r'QM-INV-[0-9]{3}')
+REFERENCE = re.compile(r'QM-INV-[0-9]+')
 VERSION = re.compile(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)')
 
 
@@ -100,6 +103,8 @@ def documentation_paths(root):
 def validate(root):
     root = root.resolve()
     registry = load_registry(root / REGISTRY)
+    require(hashlib.sha256((root / BASELINE).read_text(encoding='utf-8').encode('utf-8')).hexdigest() == BASELINE_SHA256,
+            'historical baseline content changed')
     baseline = load_registry(root / BASELINE)
     check_compatibility(registry, baseline)
     required = {CORE} | {p for e in registry['invariants'] for p in e['documents']}
@@ -109,7 +114,7 @@ def validate(root):
         require(path.resolve().is_relative_to(root), f'document escapes repository: {path}')
         name = path.relative_to(root).as_posix()
         text = path.read_text(encoding='utf-8')
-        for match in ID.finditer(text):
+        for match in REFERENCE.finditer(text):
             require(match.group() in known, f'{name}: dangling invariant reference: {match.group()}')
         if name in required:
             found.add(name)

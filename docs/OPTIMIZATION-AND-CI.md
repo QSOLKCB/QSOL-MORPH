@@ -273,6 +273,6 @@ Canonical sequencing MUST preserve source, effect, and failure ordering required
 
 ### QM-INV-022: Optimization and cache legality
 
-An optimization or cache substitution MUST preserve the active semantic, numeric, determinism, randomness, failure, authorization, provenance, and evidence contracts. Verified reuse MUST have applicable frozen legality rules and passing current-context evidence before substitution. Effectful reuse MUST NOT skip effects or their boundaries without a separately frozen applicable replay/cache rule. An unverified hit MUST NOT supply a verified result.
+An optimization or cache substitution MUST preserve the active semantic, numeric, determinism, randomness, failure, authorization, provenance, and evidence contracts. Verified reuse MUST have applicable frozen legality rules and passing current-context evidence before substitution. Effectful reuse MUST NOT skip effects or their boundaries without a separately frozen applicable replay/cache rule. An unverified cache hit MUST NOT supply execution results.
 
 <!-- END QSOL CORE INVARIANTS -->

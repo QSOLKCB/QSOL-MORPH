@@ -1977,7 +1977,7 @@ For every selected concrete execution subject, each applicable declared effect M
 
 ### QM-INV-018: Per-attempt completion distinctions
 
-Effect completion MUST be classified per concrete attempt independently of its enclosing outcome. Never begun, known completed, begun but cleanly aborted, observably partial, and genuinely unknown states MUST remain distinct. Known completion MUST take precedence over uncertainty about broader consequences. A begun attempt MUST NOT be classified as never started, and no attempt MUST NOT be confused with an identified never-started attempt.
+Effect completion MUST be classified per concrete attempt independently of its enclosing outcome. Never begun, known completed, begun but cleanly aborted, observably partial, and genuinely unknown states MUST remain distinct. Known completion MUST take precedence over uncertainty about broader consequences. A begun attempt MUST NOT be classified as never started, and the absence of an attempt MUST NOT be confused with an identified never-started attempt.
 
 ### QM-INV-019: Inspectability and attributable provenance
 
@@ -1993,6 +1993,6 @@ A requested-to-effective semantic contract change MUST require explicit accepted
 
 ### QM-INV-022: Optimization and cache legality
 
-An optimization or cache substitution MUST preserve the active semantic, numeric, determinism, randomness, failure, authorization, provenance, and evidence contracts. Verified reuse MUST have applicable frozen legality rules and passing current-context evidence before substitution. Effectful reuse MUST NOT skip effects or their boundaries without a separately frozen applicable replay/cache rule. An unverified hit MUST NOT supply a verified result.
+An optimization or cache substitution MUST preserve the active semantic, numeric, determinism, randomness, failure, authorization, provenance, and evidence contracts. Verified reuse MUST have applicable frozen legality rules and passing current-context evidence before substitution. Effectful reuse MUST NOT skip effects or their boundaries without a separately frozen applicable replay/cache rule. An unverified cache hit MUST NOT supply execution results.
 
 <!-- END QSOL CORE INVARIANTS -->
