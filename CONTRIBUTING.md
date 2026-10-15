@@ -105,6 +105,10 @@ Normative requirements will be introduced in their roadmap phases. Documentation
 
 Human `.qsl` parsing or lossless text serialization must not be implemented until the dedicated normative text profile freezes grammar and source-to-Semantic-IR mapping.
 
+## Core-invariant checks
+
+The normative cross-cutting statements live in [Core Invariants](docs/CORE-INVARIANTS.md) and `spec/core-invariants.json`. Do not edit controlled document copies independently. Run `python tools/check_invariants.py` and `python -m unittest discover -s tests -v` with Python 3.11 or newer. These checks validate documentation agreement, not executable language conformance. Follow the invariant change-control policy and preserve initial registry history.
+
 ## Tests
 
 Once executable code exists, changes should include the smallest tests that demonstrate:
@@ -134,3 +138,4 @@ A PR description should state:
 ## License
 
 By contributing, you agree that your contribution may be distributed under the repository's Apache License 2.0 terms.
+

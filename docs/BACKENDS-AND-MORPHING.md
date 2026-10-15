@@ -245,3 +245,32 @@ The exact CLI is not frozen.
 ## Principle
 
 > QSOL programs describe meaning. Semantic lowering defines lower meaning. QSOL-MORPH chooses machinery and must be able to explain the choice.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-001: Meaning before machinery
+
+Transformations and backend selection MUST preserve the active semantic contract. Unsupported semantics MUST fail explicitly; a backend MUST NOT silently redefine, discard, or invent meaning.
+
+### QM-INV-011: Separate machinery authorization
+
+Protected machinery requirements MUST remain distinct from external effects and MUST NOT be encoded as synthetic effects merely for authorization. Every protected use MUST satisfy all applicable machinery capabilities before use begins and retain its concrete execution or genuine pre-execution scope, authorization ordering, and final executable selection decision. Denied or merely considered machinery MUST NOT be represented as executed.
+
+### QM-INV-012: Small core and extension boundary
+
+Backend-specific controls and optional operational profiles MUST remain behind explicit versioned backend or extension boundaries rather than silently expanding core semantics. Extension availability MUST NOT grant runtime capability authorization. Compiler backend selection, operating-environment profiles, and optional vendor controls MUST remain distinct concepts.
+
+### QM-INV-020: Selection and fallback history
+
+Backend-selection scopes and individual selection decisions MUST have distinct identities. Fallback MUST preserve the ordered predecessor, denial or rejection, applicable frozen fallback authority, passing context-bound evidence, and final decision rather than overwrite history. Selection provenance MUST identify the exact scope governed.
+
+<!-- END QSOL CORE INVARIANTS -->

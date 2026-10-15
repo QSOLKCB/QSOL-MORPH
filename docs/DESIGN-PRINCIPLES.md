@@ -92,3 +92,24 @@ Every new feature should answer:
 > Does this increase semantic power, or merely increase the number of ways to say the same thing?
 
 If it is the latter, the default answer should be no.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-006: Nondeterminism disclosure
+
+Result-determinism guarantees and randomness configuration MUST be distinct contract facets. Permitted nondeterministic behavior MUST be explicit in the source contract and trace. Reproducibility claims MUST identify the governed scope and material program, input, implementation, and execution-contract identities; portability MUST NOT be presented as universal byte identity.
+
+### QM-INV-009: Epistemic non-promotion
+
+Observation, assumption, simulation, derivation, test, validation, proof, and unclassified output MUST NOT be silently conflated or promoted. Each output MUST retain its applicable epistemic bindings and class-compatible evidence status. Evidence-bearing claims and class transitions MUST be justified by applicable frozen rules and passing evidence bound to the exact output and context before publication; operational success or AI output alone MUST NOT establish a stronger research claim.
+
+<!-- END QSOL CORE INVARIANTS -->

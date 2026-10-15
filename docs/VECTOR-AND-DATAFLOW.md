@@ -552,3 +552,28 @@ Representative tests should include:
 > Move data as little as possible. Preserve the whole program. Expose vectorizable structure. Let MORPH choose the physical execution strategy.
 
 The architecture is inspired by vector and chaining traditions, but it is target-independent by design.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-003: Mandatory lowering boundaries
+
+Semantic IR to QSOL-CORE and QSOL-CORE to Vector/Dataflow IR MUST be explicit independently specified and provenance-bearing boundaries. Backends MUST NOT bypass either applicable boundary or privately reinterpret source semantics. Vector/Dataflow IR MUST preserve the complete supported Core surface, including scalar operations, control, calls, effects, capabilities, machinery, epistemic bindings, failure behavior, and contracts.
+
+### QM-INV-004: Lowering identity mappings
+
+Each mandatory lowering MUST preserve or explicitly map result bindings with cardinality-aware, owner-qualified relations. Split/fusion and other non-identity mappings MUST use applicable frozen rules. Execution-relevant qualifiers, scoped contracts, extension requirements, machinery requirements, and epistemic bindings MUST remain attributable through preserved identity or explicit provenance-visible mappings; a copied label or IR hash alone MUST NOT substitute for required lineage.
+
+### QM-INV-015: Failure and effect ordering
+
+Canonical sequencing MUST preserve source, effect, and failure ordering required by the active contract. Purity alone MUST NOT authorize reordering or dead-result elimination: a potentially failing operation remains observable under fail-stop. Dependency-only reordering or deletion solely because a result is unused MUST require purity and totality, unless a separately frozen rule preserves the original failure/effect observability and provenance.
+
+<!-- END QSOL CORE INVARIANTS -->

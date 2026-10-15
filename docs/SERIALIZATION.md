@@ -323,3 +323,24 @@ These are documentation acceptance cases for future canonical-model and serializ
 ## Principle
 
 > One meaning, many transports. Preserve hierarchy as well as identity, freeze source grammar before implementing it, round-trip every semantic field, canonicalize before you hash, and version before you freeze.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-002: Canonical identity and ownership
+
+Canonical JOB, DECK, and CARD identities, containment, source order, literal values, result bindings, types, units, qualifiers, semantic classes, and semantic/enforcement requirements MUST survive any boundary claiming semantic preservation, either directly or through an explicit frozen provenance-visible mapping. Local identifiers MUST be resolved with their complete owning context, not first-match lookup.
+
+### QM-INV-023: Lossless transport
+
+A representation claiming semantic losslessness MUST round-trip all canonical identity, containment, source-order, value, dependency, result-binding, semantic, scoped-contract, and enforcement state. Canonical tagged sequencing MUST NOT be replaced by incomplete derived views. Human text parsing and lossless text serialization MUST await a frozen grammar and source mapping; architectural examples MUST NOT be treated as that grammar.
+
+<!-- END QSOL CORE INVARIANTS -->

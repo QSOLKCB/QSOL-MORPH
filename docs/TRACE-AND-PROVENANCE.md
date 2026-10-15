@@ -2,7 +2,7 @@
 
 QSOL-MORPH treats provenance as part of execution semantics for research workflows.
 
-This document is architectural and non-normative until the relevant contracts are frozen. Its purpose is to ensure that later implementations can explain not only what bytes were produced, but which semantic units, concrete executions, lowerings, machinery decisions, authorization decisions, execution paths, entropy acquisitions, external tools, toolchain invocations, and evidence transitions produced them.
+Its detailed trace schemas remain architectural and non-normative until their dedicated contract phases; only the controlled core-invariant statements below are frozen by PR #2. Its purpose is to ensure that later implementations can explain not only what bytes were produced, but which semantic units, concrete executions, lowerings, machinery decisions, authorization decisions, execution paths, entropy acquisitions, external tools, toolchain invocations, and evidence transitions produced them.
 
 ### One record contract, not independent mirror schemas
 
@@ -1943,3 +1943,56 @@ For every case involving referenced rules or evidence, also reject missing conte
 ## Principle
 
 > Trace meaning, not just bytes. Preserve stable semantic identity when it exists, explicit no-claim state when it does not, representation-qualified concrete execution and class identity at every entry layer, typed scope and sequencing correspondence, typed non-reach causes, unconditional declared-effect accounting, final-selection consistency, authorization-before-use ordering, truthful direct build edges, exact ordered toolchain arguments, content-bound material environment/configuration, transitive toolchain ancestry, and the exact evidence chain from immutable inputs through lowerings, optimization, toolchain invocations, machinery, and class/evidence validation to each output or failure.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-009: Epistemic non-promotion
+
+Observation, assumption, simulation, derivation, test, validation, proof, and unclassified output MUST NOT be silently conflated or promoted. Each output MUST retain its applicable epistemic bindings and class-compatible evidence status. Evidence-bearing claims and class transitions MUST be justified by applicable frozen rules and passing evidence bound to the exact output and context before publication; operational success or AI output alone MUST NOT establish a stronger research claim.
+
+### QM-INV-010: Explicit protected effects
+
+External stateful interactions MUST be explicit effects. Each protected effect declaration MUST retain its stable owner-qualified identity and complete associated capability set. Every concrete protected attempt MUST retain its contextual authorization record, including denial when applicable. An effect MUST NOT begin until every required capability is granted, with authorization-before-begin ordering evidence. A denied attempt MUST remain never-started. Aggregate capability summaries MUST NOT replace the per-effect association or authorization.
+
+### QM-INV-014: Default fail-stop propagation
+
+Unless an explicit frozen scoped policy handles the failure, an unhandled CARD failure MUST fail its DECK and stop later CARD execution, and an unhandled DECK failure MUST fail its JOB and prevent later DECKs from starting. Dependents MUST NOT consume failed, missing, or partial outputs as complete. Already committed effects and completed DECK history MUST remain recorded; retained partial artifacts MUST retain their status.
+
+### QM-INV-016: Concrete execution accounting
+
+Canonical program membership MUST NOT be treated as concrete execution evidence. Every selected DECK and every CARD in a selected DECK execution MUST have an identified outcome/path record, including prevented, untaken, not-reached, and explicitly skipped paths. Legitimate lower-representation entry MUST instead retain actual representation-qualified operation executions and MUST NOT fabricate Semantic lineage. Non-reach and skips MUST retain validated typed causes and applicable rule/evidence.
+
+### QM-INV-017: Unconditional effect accounting
+
+For every selected concrete execution subject, each applicable declared effect MUST resolve to identified attempt(s), exactly one legitimate identified non-attempt, or structured failure. A detected omission of a reachable required effect MUST fail execution/conformance, never legitimize success. No profile, backend, optimization mode, or audit setting MAY disable this accounting.
+
+### QM-INV-018: Per-attempt completion distinctions
+
+Effect completion MUST be classified per concrete attempt independently of its enclosing outcome. Never begun, known completed, begun but cleanly aborted, observably partial, and genuinely unknown states MUST remain distinct. Known completion MUST take precedence over uncertainty about broader consequences. A begun attempt MUST NOT be classified as never started, and the absence of an attempt MUST NOT be confused with an identified never-started attempt.
+
+### QM-INV-019: Inspectability and attributable provenance
+
+Material inputs, outputs, effects, external tools, lowerings, scoped contracts, backend decisions, generated artifacts, and toolchain transformations MUST be inspectable and attributable to exact identities and concrete executions. Material content MUST be bound immutably or its unavailability and resulting claim limits explicitly disclosed. Required references MUST resolve with complete ownership and representation context, including in failure traces. Summaries and mutable locators MUST NOT replace required identity or lineage.
+
+### QM-INV-020: Selection and fallback history
+
+Backend-selection scopes and individual selection decisions MUST have distinct identities. Fallback MUST preserve the ordered predecessor, denial or rejection, applicable frozen fallback authority, passing context-bound evidence, and final decision rather than overwrite history. Selection provenance MUST identify the exact scope governed.
+
+### QM-INV-021: Authorized semantic transitions
+
+A requested-to-effective semantic contract change MUST require explicit accepted versioned or content-bound transition authority and passing evidence for the exact subject, requested/effective pair, owning scope, and active context before application. A generic mapping, recorded change, backend flag, or later success MUST NOT authorize the transition. Missing, inapplicable, unverifiable, or late authority/evidence MUST fail closed.
+
+### QM-INV-022: Optimization and cache legality
+
+An optimization or cache substitution MUST preserve the active semantic, numeric, determinism, randomness, failure, authorization, provenance, and evidence contracts. Verified reuse MUST have applicable frozen legality rules and passing current-context evidence before substitution. Effectful reuse MUST NOT skip effects or their boundaries without a separately frozen applicable replay/cache rule. An unverified cache hit MUST NOT supply execution results.
+
+<!-- END QSOL CORE INVARIANTS -->

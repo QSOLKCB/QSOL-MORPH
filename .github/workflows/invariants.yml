@@ -1,0 +1,31 @@
+name: Core invariants
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  documentation-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check registry against accepted history and controlled documentation
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+          REF_NAME: ${{ github.ref }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            base="$PR_BASE"
+          elif [ "$REF_NAME" = refs/heads/main ]; then
+            base="$BEFORE"
+          else
+            base="origin/main"
+          fi
+          python3 tools/check_invariants.py --base-ref "$base"
+      - name: Run positive and negative contract tests
+        run: python3 -m unittest discover -s tests -v

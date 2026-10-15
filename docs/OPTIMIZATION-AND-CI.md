@@ -243,3 +243,36 @@ If CI cannot establish the evidence required by a release claim, the claim shoul
 ## Principle
 
 > Optimize the pipeline, not the evidence away.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-007: Numeric contracts
+
+Numeric behavior MUST satisfy the explicit contract governing its scope. Tolerance, precision, rounding, denormals, reassociation, and other material numeric choices MUST NOT be silently changed by a backend or optimization. A tolerance-bounded result guarantee MUST identify the contract that defines permitted variation.
+
+### QM-INV-009: Epistemic non-promotion
+
+Observation, assumption, simulation, derivation, test, validation, proof, and unclassified output MUST NOT be silently conflated or promoted. Each output MUST retain its applicable epistemic bindings and class-compatible evidence status. Evidence-bearing claims and class transitions MUST be justified by applicable frozen rules and passing evidence bound to the exact output and context before publication; operational success or AI output alone MUST NOT establish a stronger research claim.
+
+### QM-INV-013: Failure is semantic
+
+Failure MUST be a structured outcome, not an implicit ordinary sentinel. A failed pure evaluation MUST NOT commit a partial result. Failure behavior and already observable effects MUST be preserved through execution, lowering, optimization, and tracing; target-language undefined behavior MUST NOT define QSOL semantics.
+
+### QM-INV-015: Failure and effect ordering
+
+Canonical sequencing MUST preserve source, effect, and failure ordering required by the active contract. Purity alone MUST NOT authorize reordering or dead-result elimination: a potentially failing operation remains observable under fail-stop. Dependency-only reordering or deletion solely because a result is unused MUST require purity and totality, unless a separately frozen rule preserves the original failure/effect observability and provenance.
+
+### QM-INV-022: Optimization and cache legality
+
+An optimization or cache substitution MUST preserve the active semantic, numeric, determinism, randomness, failure, authorization, provenance, and evidence contracts. Verified reuse MUST have applicable frozen legality rules and passing current-context evidence before substitution. Effectful reuse MUST NOT skip effects or their boundaries without a separately frozen applicable replay/cache rule. An unverified cache hit MUST NOT supply execution results.
+
+<!-- END QSOL CORE INVARIANTS -->
