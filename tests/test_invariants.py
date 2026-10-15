@@ -223,6 +223,17 @@ class RegistryTests(unittest.TestCase):
         with self.assertRaisesRegex(check.Invalid, 'valid UTF-8'):
             check.validate(self.root, base)
 
+    def test_populated_contract_ancestor_gitlinks_are_rejected(self):
+        base = self.commit_accepted()
+        for name in ('spec', 'docs'):
+            with self.subTest(ancestor=name):
+                subprocess.check_call(['git', '-C', str(self.root), 'rm', '--cached', '-qr', name])
+                subprocess.check_call(['git', '-C', str(self.root), 'update-index', '--add', '--cacheinfo',
+                                       '160000,' + base + ',' + name])
+                with self.assertRaisesRegex(check.Invalid, 'not a regular blob'):
+                    check.validate(self.root, base)
+                subprocess.check_call(['git', '-C', str(self.root), 'reset', '-q', base, '--', name])
+
     def test_duplicate_json_key(self):
         path = self.root / check.REGISTRY
         path.write_text(path.read_text().replace('"schema_version": 1', '"schema_version": 1, "schema_version": 1'))

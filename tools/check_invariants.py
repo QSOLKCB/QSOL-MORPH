@@ -122,7 +122,8 @@ def contract_entries(data, *, index=False):
         if not entry:
             continue
         metadata, raw_name = entry.split(b'\t', 1)
-        if raw_name != REGISTRY.encode() and raw_name != b'spec/history' and not raw_name.startswith(b'spec/history/'):
+        if not (raw_name in (b'spec', b'docs') or raw_name.startswith((b'spec/', b'docs/'))
+                or (b'/' not in raw_name and raw_name.endswith(b'.md'))):
             continue
         try:
             name = raw_name.decode('utf-8')
