@@ -8,15 +8,17 @@ import json
 from pathlib import Path, PurePosixPath
 import re
 import sys
+import subprocess
+import tempfile
 
 REGISTRY = 'spec/core-invariants.json'
 BASELINE = 'spec/history/core-invariants-1.0.0.json'
-BASELINE_SHA256 = '3a68861b27567a0d6b1bad7d7e4b642358727d4f7dcbe879bca4226f6833f124'
+BASELINE_SHA256 = 'c1240695e92b791eff84584ccbd152f61fff0587ca2b474c70b9ddd604b1e610'
 CORE = 'docs/CORE-INVARIANTS.md'
 BEGIN = '<!-- BEGIN QSOL CORE INVARIANTS -->'
 END = '<!-- END QSOL CORE INVARIANTS -->'
 ID = re.compile(r'QM-INV-[0-9]{3}')
-REFERENCE = re.compile(r'QM-INV-[0-9]+')
+REFERENCE = re.compile(r'QM-INV-[A-Za-z0-9_-]+')
 VERSION = re.compile(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)')
 
 
@@ -100,13 +102,41 @@ def documentation_paths(root):
     return sorted(set(root.glob('*.md')) | set((root / 'docs').rglob('*.md')))
 
 
-def validate(root):
+def git(root, *args):
+    result = subprocess.run(['git', '-C', str(root), *args], capture_output=True)
+    require(result.returncode == 0, 'cannot read accepted Git base: ' + result.stderr.decode('utf-8', errors='replace').strip())
+    return result.stdout
+
+
+def check_accepted_base(root, registry, base_ref):
+    # Resolve once, then use only the immutable commit ID for all reads.
+    sha = git(root, 'rev-parse', '--verify', '--end-of-options', base_ref + '^{commit}').decode().strip()
+    require(re.fullmatch(r'[a-f0-9]{40}', sha), 'invalid accepted base commit')
+    names = git(root, 'ls-tree', '-r', '--name-only', sha).decode().splitlines()
+    for name in names:
+        if name.startswith('spec/history/'):
+            require((root / name).is_file(), 'accepted historical file removed: ' + name)
+            accepted = git(root, 'show', sha + ':' + name).decode('utf-8')
+            require((root / name).read_text(encoding='utf-8') == accepted.replace('\r\n', '\n'), 'accepted historical file changed: ' + name)
+    if REGISTRY not in names:
+        require(sha == 'a4b6b8d28129d8fc566db88058651542e2d43c57', 'accepted base lacks registry outside initial foundation bootstrap')
+        return
+    # Reuse strict schema validation without accepting a candidate-controlled baseline.
+    with tempfile.TemporaryDirectory() as directory:
+        previous = Path(directory) / 'accepted.json'
+        previous.write_bytes(git(root, 'show', sha + ':' + REGISTRY))
+        check_compatibility(registry, load_registry(previous))
+
+
+def validate(root, base_ref=None):
     root = root.resolve()
     registry = load_registry(root / REGISTRY)
     require(hashlib.sha256((root / BASELINE).read_text(encoding='utf-8').encode('utf-8')).hexdigest() == BASELINE_SHA256,
             'historical baseline content changed')
     baseline = load_registry(root / BASELINE)
     check_compatibility(registry, baseline)
+    if base_ref is not None:
+        check_accepted_base(root, registry, base_ref)
     required = {CORE} | {p for e in registry['invariants'] for p in e['documents']}
     known = {e['id'] for e in registry['invariants']}
     found = set()
@@ -132,12 +162,15 @@ def validate(root):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument('--base-ref', help='Accepted Git commit/ref; CI supplies the PR base or preceding main commit')
     args = parser.parse_args(argv)
     try:
-        registry = validate(args.root)
+        registry = validate(args.root, args.base_ref)
     except (Invalid, OSError, UnicodeError) as exc:
         print(f'invariant check failed: {exc}', file=sys.stderr)
         return 1
+    if args.base_ref is None:
+        print('Accepted-base compatibility not checked; use --base-ref for the CI gate.')
     print(f"Validated {len(registry['invariants'])} core invariants at registry {registry['registry_version']} (controlled documentation only).")
     return 0
 

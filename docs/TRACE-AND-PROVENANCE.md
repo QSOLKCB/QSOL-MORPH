@@ -1961,7 +1961,7 @@ Observation, assumption, simulation, derivation, test, validation, proof, and un
 
 ### QM-INV-010: Explicit protected effects
 
-External stateful interactions MUST be explicit effects. Each protected effect declaration MUST retain its stable owner-qualified identity and complete associated capability set. Every concrete protected attempt MUST have contextual authorization granting every required capability before the effect begins, with ordering evidence. Aggregate capability summaries MUST NOT replace the per-effect association or authorization.
+External stateful interactions MUST be explicit effects. Each protected effect declaration MUST retain its stable owner-qualified identity and complete associated capability set. Every concrete protected attempt MUST retain its contextual authorization record, including denial when applicable. An effect MUST NOT begin until every required capability is granted, with authorization-before-begin ordering evidence. A denied attempt MUST remain never-started. Aggregate capability summaries MUST NOT replace the per-effect association or authorization.
 
 ### QM-INV-014: Default fail-stop propagation
 

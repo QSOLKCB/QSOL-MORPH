@@ -58,14 +58,29 @@ Core instruction set, serialized data model, or an entire roadmap phase by impli
 Run from the repository root with Python 3.11 or newer (standard library only):
 
 ```sh
-python tools/check_invariants.py
+python tools/check_invariants.py --base-ref <accepted-commit>
 python -m unittest discover -s tests -v
 ```
 
+CI supplies the immutable pull-request base commit, or the preceding main commit on a
+main push. Branch-push checks compare with `origin/main`. The checker resolves the ref
+once to a commit, compares every accepted `spec/history/` file with that Git snapshot,
+and compares the current registry with the latest accepted registry, including IDs added
+after 1.0.0. Missing Git history or a missing accepted registry fails closed, except for
+the exact original documentation-foundation commit used to bootstrap PR #2.
+
+For an offline structural check, omit `--base-ref`; the tool explicitly reports that
+accepted-base compatibility was not checked. Git is required for the accepted-base gate.
+The embedded initial digest catches accidental local drift but is not a trust anchor
+against someone changing the checker itself. CI and its policy code remain reviewable
+repository code: these checks do not protect against an authorized or malicious change
+to the workflow/checker that disables them. Branch protection or separately protected
+policy would be a separate repository-security decision, outside this PR.
+
 The validator checks strict registry fields and duplicate JSON keys; stable, unique, ordered
-IDs; nonempty statements and document coverage; SHA-256-pinned initial snapshot integrity after universal newline decoding and baseline compatibility; required
+IDs; nonempty statements and document coverage; SHA-256-pinned initial snapshot integrity after universal newline decoding and accepted-base compatibility when requested; required
 file existence; exactly one controlled block in each registered document; byte-equivalent
-block text after universal newline decoding; and dangling or malformed `QM-INV-` numeric references
+block text after universal newline decoding; and dangling or malformed alphanumeric `QM-INV-` identifier tokens
 in root and `docs/` Markdown files. Every registered domain copy contains the complete
 statements assigned to it, not a manually abbreviated summary. The core view contains all IDs.
 
@@ -117,7 +132,7 @@ Numeric behavior MUST satisfy the explicit contract governing its scope. Toleran
 
 ### QM-INV-008: Randomness and entropy
 
-Reproducible seeded randomness MUST identify algorithm, version, seed, stream, and material partitioning or stream mapping. Fresh external entropy MUST be an explicit protected effect with contextual authorization and concrete acquisition provenance. A randomness mode MUST NOT itself grant permission.
+Reproducible seeded randomness MUST identify algorithm, version, seed, and stream identity. Partitioning or stream mapping MUST also be identified whenever it can affect generated or consumed values. Fresh external entropy MUST be an explicit protected effect with contextual authorization and concrete acquisition provenance. A randomness mode MUST NOT itself grant permission.
 
 ### QM-INV-009: Epistemic non-promotion
 
@@ -125,7 +140,7 @@ Observation, assumption, simulation, derivation, test, validation, proof, and un
 
 ### QM-INV-010: Explicit protected effects
 
-External stateful interactions MUST be explicit effects. Each protected effect declaration MUST retain its stable owner-qualified identity and complete associated capability set. Every concrete protected attempt MUST have contextual authorization granting every required capability before the effect begins, with ordering evidence. Aggregate capability summaries MUST NOT replace the per-effect association or authorization.
+External stateful interactions MUST be explicit effects. Each protected effect declaration MUST retain its stable owner-qualified identity and complete associated capability set. Every concrete protected attempt MUST retain its contextual authorization record, including denial when applicable. An effect MUST NOT begin until every required capability is granted, with authorization-before-begin ordering evidence. A denied attempt MUST remain never-started. Aggregate capability summaries MUST NOT replace the per-effect association or authorization.
 
 ### QM-INV-011: Separate machinery authorization
 

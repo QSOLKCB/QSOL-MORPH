@@ -1134,7 +1134,7 @@ Numeric behavior MUST satisfy the explicit contract governing its scope. Toleran
 
 ### QM-INV-008: Randomness and entropy
 
-Reproducible seeded randomness MUST identify algorithm, version, seed, stream, and material partitioning or stream mapping. Fresh external entropy MUST be an explicit protected effect with contextual authorization and concrete acquisition provenance. A randomness mode MUST NOT itself grant permission.
+Reproducible seeded randomness MUST identify algorithm, version, seed, and stream identity. Partitioning or stream mapping MUST also be identified whenever it can affect generated or consumed values. Fresh external entropy MUST be an explicit protected effect with contextual authorization and concrete acquisition provenance. A randomness mode MUST NOT itself grant permission.
 
 ### QM-INV-019: Inspectability and attributable provenance
 

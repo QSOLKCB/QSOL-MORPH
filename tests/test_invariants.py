@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
+import subprocess
+from unittest import mock
 import unittest
 
 from tools import check_invariants as check
@@ -87,6 +89,83 @@ class RegistryTests(unittest.TestCase):
     def test_malformed_numeric_reference(self):
         path = self.root / check.CORE
         path.write_text(path.read_text() + '\nQM-INV-0010\n')
+        with self.assertRaisesRegex(check.Invalid, 'dangling invariant reference'):
+            check.validate(self.root)
+
+    def commit_accepted(self):
+        def run(*args):
+            return subprocess.check_output(['git', '-C', str(self.root), *args], stderr=subprocess.DEVNULL).decode().strip()
+        run('init', '-q')
+        run('add', '.')
+        run('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'Accepted registry')
+        return run('rev-parse', 'HEAD')
+
+    def accept_minor(self):
+        entry = copy.deepcopy(self.registry['invariants'][-1])
+        entry['id'] = 'QM-INV-025'
+        self.registry['invariants'].append(entry)
+        self.registry['registry_version'] = '1.1.0'
+        self.save()
+        self.refresh()
+        return self.commit_accepted()
+
+    def test_latest_accepted_id_cannot_disappear(self):
+        base = self.accept_minor()
+        self.registry['invariants'].pop()
+        self.save()
+        self.refresh()
+        with self.assertRaisesRegex(check.Invalid, 'missing frozen invariant ID: QM-INV-025'):
+            check.validate(self.root, base)
+
+    def test_addition_requires_increment_from_latest_accepted(self):
+        base = self.accept_minor()
+        entry = copy.deepcopy(self.registry['invariants'][-1])
+        entry['id'] = 'QM-INV-026'
+        self.registry['invariants'].append(entry)
+        self.save()
+        self.refresh()
+        with self.assertRaisesRegex(check.Invalid, 'minor version increment'):
+            check.validate(self.root, base)
+        self.registry['registry_version'] = '1.2.0'
+        self.save()
+        self.refresh()
+        check.validate(self.root, base)
+
+    def test_accepted_history_rejects_recomputed_local_digest(self):
+        base = self.commit_accepted()
+        self.registry['invariants'][0]['statement'] = 'Backends MUST discard active semantic contracts.'
+        self.save()
+        history = self.root / check.BASELINE
+        history.write_text(json.dumps(self.registry))
+        self.refresh()
+        digest = check.hashlib.sha256(history.read_bytes()).hexdigest()
+        with mock.patch.object(check, 'BASELINE_SHA256', digest):
+            with self.assertRaisesRegex(check.Invalid, 'accepted historical file changed'):
+                check.validate(self.root, base)
+
+    def test_latest_accepted_statement_cannot_change(self):
+        base = self.accept_minor()
+        self.registry['invariants'][-1]['statement'] += ' New requirement MUST apply.'
+        self.save()
+        self.refresh()
+        with self.assertRaisesRegex(check.Invalid, 'frozen normative statement/title changed'):
+            check.validate(self.root, base)
+
+    def test_missing_accepted_registry_fails_closed(self):
+        (self.root / check.REGISTRY).unlink()
+        base = self.commit_accepted()
+        self.save()
+        with self.assertRaisesRegex(check.Invalid, 'outside initial foundation bootstrap'):
+            check.validate(self.root, base)
+
+    def test_unknown_accepted_ref_fails_closed(self):
+        self.commit_accepted()
+        with self.assertRaisesRegex(check.Invalid, 'cannot read accepted Git base'):
+            check.validate(self.root, 'no-such-ref')
+
+    def test_alphanumeric_reference_suffix(self):
+        path = self.root / check.CORE
+        path.write_text(path.read_text() + '\nQM-INV-001x\n')
         with self.assertRaisesRegex(check.Invalid, 'dangling invariant reference'):
             check.validate(self.root)
 
