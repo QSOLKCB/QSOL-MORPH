@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "registry_version": "1.0.0",
+  "invariants": [
+    {
+      "id": "QM-INV-001",
+      "title": "Meaning before machinery",
+      "statement": "Transformations and backend selection MUST preserve the active semantic contract. Unsupported semantics MUST fail explicitly; a backend MUST NOT silently redefine, discard, or invent meaning.",
+      "documents": [
+        "docs/ARCHITECTURE.md",
+        "docs/BACKENDS-AND-MORPHING.md"
+      ]
+    },
+    {
+      "id": "QM-INV-002",
+      "title": "Canonical identity and ownership",
+      "statement": "Canonical JOB, DECK, and CARD identities, containment, source order, literal values, result bindings, types, units, qualifiers, semantic classes, and semantic/enforcement requirements MUST survive any boundary claiming semantic preservation, either directly or through an explicit frozen provenance-visible mapping. Local identifiers MUST be resolved with their complete owning context, not first-match lookup.",
+      "documents": [
+        "docs/SEMANTIC-IR.md",
+        "docs/LANGUAGE-MODEL.md",
+        "docs/SERIALIZATION.md"
+      ]
+    },
+    {
+      "id": "QM-INV-003",
+      "title": "Mandatory lowering boundaries",
+      "statement": "Semantic IR to QSOL-CORE and QSOL-CORE to Vector/Dataflow IR MUST be explicit independently specified and provenance-bearing boundaries. Backends MUST NOT bypass either applicable boundary or privately reinterpret source semantics. Vector/Dataflow IR MUST preserve the complete supported Core surface, including scalar operations, control, calls, effects, capabilities, machinery, epistemic bindings, failure behavior, and contracts.",
+      "documents": [
+        "docs/SEMANTIC-TO-CORE-LOWERING.md",
+        "docs/VECTOR-AND-DATAFLOW.md",
+        "docs/ARCHITECTURE.md"
+      ]
+    },
+    {
+      "id": "QM-INV-004",
+      "title": "Lowering identity mappings",
+      "statement": "Each mandatory lowering MUST preserve or explicitly map result bindings with cardinality-aware, owner-qualified relations. Split/fusion and other non-identity mappings MUST use applicable frozen rules. Execution-relevant qualifiers, scoped contracts, extension requirements, machinery requirements, and epistemic bindings MUST remain attributable through preserved identity or explicit provenance-visible mappings; a copied label or IR hash alone MUST NOT substitute for required lineage.",
+      "documents": [
+        "docs/SEMANTIC-TO-CORE-LOWERING.md",
+        "docs/VECTOR-AND-DATAFLOW.md"
+      ]
+    },
+    {
+      "id": "QM-INV-005",
+      "title": "Scoped contract preservation",
+      "statement": "Result-determinism, numeric, randomness, failure-behavior, extension, and machinery requirements MUST retain their canonical owning scope. A representation MUST NOT silently flatten or relocate requirements or weaken a parent requirement. Composition and inheritance rules MUST be frozen before execution derives effective contracts.",
+      "documents": [
+        "docs/SEMANTIC-IR.md",
+        "docs/DETERMINISM-AND-REPRODUCIBILITY.md"
+      ]
+    },
+    {
+      "id": "QM-INV-006",
+      "title": "Nondeterminism disclosure",
+      "statement": "Result-determinism guarantees and randomness configuration MUST be distinct contract facets. Permitted nondeterministic behavior MUST be explicit in the source contract and trace. Reproducibility claims MUST identify the governed scope and material program, input, implementation, and execution-contract identities; portability MUST NOT be presented as universal byte identity.",
+      "documents": [
+        "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+        "docs/DESIGN-PRINCIPLES.md"
+      ]
+    },
+    {
+      "id": "QM-INV-007",
+      "title": "Numeric contracts",
+      "statement": "Numeric behavior MUST satisfy the explicit contract governing its scope. Tolerance, precision, rounding, denormals, reassociation, and other material numeric choices MUST NOT be silently changed by a backend or optimization. A tolerance-bounded result guarantee MUST identify the contract that defines permitted variation.",
+      "documents": [
+        "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+        "docs/OPTIMIZATION-AND-CI.md"
+      ]
+    },
+    {
+      "id": "QM-INV-008",
+      "title": "Randomness and entropy",
+      "statement": "Reproducible seeded randomness MUST identify algorithm, version, seed, stream, and material partitioning or stream mapping. Fresh external entropy MUST be an explicit protected effect with contextual authorization and concrete acquisition provenance. A randomness mode MUST NOT itself grant permission.",
+      "documents": [
+        "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+        "docs/EXTENSIONS-AND-CAPABILITIES.md"
+      ]
+    },
+    {
+      "id": "QM-INV-009",
+      "title": "Epistemic non-promotion",
+      "statement": "Observation, assumption, simulation, derivation, test, validation, proof, and unclassified output MUST NOT be silently conflated or promoted. Each output MUST retain its applicable epistemic bindings and class-compatible evidence status. Evidence-bearing claims and class transitions MUST be justified by applicable frozen rules and passing evidence bound to the exact output and context before publication; operational success or AI output alone MUST NOT establish a stronger research claim.",
+      "documents": [
+        "docs/TRACE-AND-PROVENANCE.md",
+        "docs/DESIGN-PRINCIPLES.md",
+        "docs/OPTIMIZATION-AND-CI.md"
+      ]
+    },
+    {
+      "id": "QM-INV-010",
+      "title": "Explicit protected effects",
+      "statement": "External stateful interactions MUST be explicit effects. Each protected effect declaration MUST retain its stable owner-qualified identity and complete associated capability set. Every concrete protected attempt MUST have contextual authorization granting every required capability before the effect begins, with ordering evidence. Aggregate capability summaries MUST NOT replace the per-effect association or authorization.",
+      "documents": [
+        "docs/EXTENSIONS-AND-CAPABILITIES.md",
+        "docs/TRACE-AND-PROVENANCE.md"
+      ]
+    },
+    {
+      "id": "QM-INV-011",
+      "title": "Separate machinery authorization",
+      "statement": "Protected machinery requirements MUST remain distinct from external effects and MUST NOT be encoded as synthetic effects merely for authorization. Every protected use MUST satisfy all applicable machinery capabilities before use begins and retain its concrete execution or genuine pre-execution scope, authorization ordering, and final executable selection decision. Denied or merely considered machinery MUST NOT be represented as executed.",
+      "documents": [
+        "docs/BACKENDS-AND-MORPHING.md",
+        "docs/EXTENSIONS-AND-CAPABILITIES.md"
+      ]
+    },
+    {
+      "id": "QM-INV-012",
+      "title": "Small core and extension boundary",
+      "statement": "Backend-specific controls and optional operational profiles MUST remain behind explicit versioned backend or extension boundaries rather than silently expanding core semantics. Extension availability MUST NOT grant runtime capability authorization. Compiler backend selection, operating-environment profiles, and optional vendor controls MUST remain distinct concepts.",
+      "documents": [
+        "docs/EXTENSIONS-AND-CAPABILITIES.md",
+        "docs/BACKENDS-AND-MORPHING.md"
+      ]
+    },
+    {
+      "id": "QM-INV-013",
+      "title": "Failure is semantic",
+      "statement": "Failure MUST be a structured outcome, not an implicit ordinary sentinel. A failed pure evaluation MUST NOT commit a partial result. Failure behavior and already observable effects MUST be preserved through execution, lowering, optimization, and tracing; target-language undefined behavior MUST NOT define QSOL semantics.",
+      "documents": [
+        "docs/FAILURE-AND-PARTIAL-EFFECTS.md",
+        "docs/OPTIMIZATION-AND-CI.md"
+      ]
+    },
+    {
+      "id": "QM-INV-014",
+      "title": "Default fail-stop propagation",
+      "statement": "Unless an explicit frozen scoped policy handles the failure, an unhandled CARD failure MUST fail its DECK and stop later CARD execution, and an unhandled DECK failure MUST fail its JOB and prevent later DECKs from starting. Dependents MUST NOT consume failed, missing, or partial outputs as complete. Already committed effects and completed DECK history MUST remain recorded; retained partial artifacts MUST retain their status.",
+      "documents": [
+        "docs/FAILURE-AND-PARTIAL-EFFECTS.md",
+        "docs/TRACE-AND-PROVENANCE.md"
+      ]
+    },
+    {
+      "id": "QM-INV-015",
+      "title": "Failure and effect ordering",
+      "statement": "Canonical sequencing MUST preserve source, effect, and failure ordering required by the active contract. Purity alone MUST NOT authorize reordering or dead-result elimination: a potentially failing operation remains observable under fail-stop. Dependency-only reordering or deletion solely because a result is unused MUST require purity and totality, unless a separately frozen rule preserves the original failure/effect observability and provenance.",
+      "documents": [
+        "docs/SEMANTIC-IR.md",
+        "docs/VECTOR-AND-DATAFLOW.md",
+        "docs/OPTIMIZATION-AND-CI.md"
+      ]
+    },
+    {
+      "id": "QM-INV-016",
+      "title": "Concrete execution accounting",
+      "statement": "Canonical program membership MUST NOT be treated as concrete execution evidence. Every selected DECK and every CARD in a selected DECK execution MUST have an identified outcome/path record, including prevented, untaken, not-reached, and explicitly skipped paths. Legitimate lower-representation entry MUST instead retain actual representation-qualified operation executions and MUST NOT fabricate Semantic lineage. Non-reach and skips MUST retain validated typed causes and applicable rule/evidence.",
+      "documents": [
+        "docs/TRACE-AND-PROVENANCE.md",
+        "docs/FAILURE-AND-PARTIAL-EFFECTS.md"
+      ]
+    },
+    {
+      "id": "QM-INV-017",
+      "title": "Unconditional effect accounting",
+      "statement": "For every selected concrete execution subject, each applicable declared effect MUST resolve to identified attempt(s), exactly one legitimate identified non-attempt, or structured failure. A detected omission of a reachable required effect MUST fail execution/conformance, never legitimize success. No profile, backend, optimization mode, or audit setting MAY disable this accounting.",
+      "documents": [
+        "docs/TRACE-AND-PROVENANCE.md",
+        "docs/FAILURE-AND-PARTIAL-EFFECTS.md"
+      ]
+    },
+    {
+      "id": "QM-INV-018",
+      "title": "Per-attempt completion distinctions",
+      "statement": "Effect completion MUST be classified per concrete attempt independently of its enclosing outcome. Never begun, known completed, begun but cleanly aborted, observably partial, and genuinely unknown states MUST remain distinct. Known completion MUST take precedence over uncertainty about broader consequences. A begun attempt MUST NOT be classified as never started, and no attempt MUST NOT be confused with an identified never-started attempt.",
+      "documents": [
+        "docs/FAILURE-AND-PARTIAL-EFFECTS.md",
+        "docs/TRACE-AND-PROVENANCE.md"
+      ]
+    },
+    {
+      "id": "QM-INV-019",
+      "title": "Inspectability and attributable provenance",
+      "statement": "Material inputs, outputs, effects, external tools, lowerings, scoped contracts, backend decisions, generated artifacts, and toolchain transformations MUST be inspectable and attributable to exact identities and concrete executions. Material content MUST be bound immutably or its unavailability and resulting claim limits explicitly disclosed. Required references MUST resolve with complete ownership and representation context, including in failure traces. Summaries and mutable locators MUST NOT replace required identity or lineage.",
+      "documents": [
+        "docs/TRACE-AND-PROVENANCE.md",
+        "docs/DETERMINISM-AND-REPRODUCIBILITY.md"
+      ]
+    },
+    {
+      "id": "QM-INV-020",
+      "title": "Selection and fallback history",
+      "statement": "Backend-selection scopes and individual selection decisions MUST have distinct identities. Fallback MUST preserve the ordered predecessor, denial or rejection, applicable frozen fallback authority, passing context-bound evidence, and final decision rather than overwrite history. Selection provenance MUST identify the exact scope governed.",
+      "documents": [
+        "docs/BACKENDS-AND-MORPHING.md",
+        "docs/TRACE-AND-PROVENANCE.md"
+      ]
+    },
+    {
+      "id": "QM-INV-021",
+      "title": "Authorized semantic transitions",
+      "statement": "A requested-to-effective semantic contract change MUST require explicit accepted versioned or content-bound transition authority and passing evidence for the exact subject, requested/effective pair, owning scope, and active context before application. A generic mapping, recorded change, backend flag, or later success MUST NOT authorize the transition. Missing, inapplicable, unverifiable, or late authority/evidence MUST fail closed.",
+      "documents": [
+        "docs/DETERMINISM-AND-REPRODUCIBILITY.md",
+        "docs/SEMANTIC-TO-CORE-LOWERING.md",
+        "docs/TRACE-AND-PROVENANCE.md"
+      ]
+    },
+    {
+      "id": "QM-INV-022",
+      "title": "Optimization and cache legality",
+      "statement": "An optimization or cache substitution MUST preserve the active semantic, numeric, determinism, randomness, failure, authorization, provenance, and evidence contracts. Verified reuse MUST have applicable frozen legality rules and passing current-context evidence before substitution. Effectful reuse MUST NOT skip effects or their boundaries without a separately frozen applicable replay/cache rule. An unverified hit MUST NOT supply a verified result.",
+      "documents": [
+        "docs/OPTIMIZATION-AND-CI.md",
+        "docs/TRACE-AND-PROVENANCE.md"
+      ]
+    },
+    {
+      "id": "QM-INV-023",
+      "title": "Lossless transport",
+      "statement": "A representation claiming semantic losslessness MUST round-trip all canonical identity, containment, source-order, value, dependency, result-binding, semantic, scoped-contract, and enforcement state. Canonical tagged sequencing MUST NOT be replaced by incomplete derived views. Human text parsing and lossless text serialization MUST await a frozen grammar and source mapping; architectural examples MUST NOT be treated as that grammar.",
+      "documents": [
+        "docs/SERIALIZATION.md",
+        "docs/LANGUAGE-MODEL.md"
+      ]
+    },
+    {
+      "id": "QM-INV-024",
+      "title": "Freeze before implementation",
+      "statement": "Operational Core, lowering, Vector/Dataflow, extension, and backend implementations MUST follow their applicable frozen specifications. The invariant registry MUST NOT be treated as an instruction set, data schema, grammar, execution engine, or authorization to implement later roadmap phases. Documentation MUST distinguish implemented behavior from design targets.",
+      "documents": [
+        "ROADMAP.md",
+        "docs/SPECIFICATION-STATUS.md",
+        "AGENTS.md"
+      ]
+    }
+  ]
+}

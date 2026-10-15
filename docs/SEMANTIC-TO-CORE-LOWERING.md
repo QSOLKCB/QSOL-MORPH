@@ -2,7 +2,7 @@
 
 QSOL-MORPH requires an explicit boundary between the research-facing Semantic IR and QSOL-CORE.
 
-This document describes the candidate architecture for that boundary. It is **non-normative until the relevant specification phase is frozen**.
+This document describes the candidate architecture for that boundary. Its detailed lowering contract remains **non-normative until the dedicated lowering specification phase**; only the controlled core-invariant statements below are frozen by PR #2.
 
 ## Why this boundary exists
 
@@ -448,3 +448,28 @@ This allows a result to be traced through the first representational change rath
 ## Principle
 
 > The first lowering arrow is part of the language contract, not backend plumbing.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-003: Mandatory lowering boundaries
+
+Semantic IR to QSOL-CORE and QSOL-CORE to Vector/Dataflow IR MUST be explicit independently specified and provenance-bearing boundaries. Backends MUST NOT bypass either applicable boundary or privately reinterpret source semantics. Vector/Dataflow IR MUST preserve the complete supported Core surface, including scalar operations, control, calls, effects, capabilities, machinery, epistemic bindings, failure behavior, and contracts.
+
+### QM-INV-004: Lowering identity mappings
+
+Each mandatory lowering MUST preserve or explicitly map result bindings with cardinality-aware, owner-qualified relations. Split/fusion and other non-identity mappings MUST use applicable frozen rules. Execution-relevant qualifiers, scoped contracts, extension requirements, machinery requirements, and epistemic bindings MUST remain attributable through preserved identity or explicit provenance-visible mappings; a copied label or IR hash alone MUST NOT substitute for required lineage.
+
+### QM-INV-021: Authorized semantic transitions
+
+A requested-to-effective semantic contract change MUST require explicit accepted versioned or content-bound transition authority and passing evidence for the exact subject, requested/effective pair, owning scope, and active context before application. A generic mapping, recorded change, backend flag, or later success MUST NOT authorize the transition. Missing, inapplicable, unverifiable, or late authority/evidence MUST fail closed.
+
+<!-- END QSOL CORE INVARIANTS -->

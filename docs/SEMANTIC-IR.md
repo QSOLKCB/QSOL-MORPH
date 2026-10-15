@@ -2,7 +2,7 @@
 
 This document describes the proposed intermediate representation between human-facing QSOL source and lower computational forms.
 
-It is **non-normative until the core invariants are frozen**.
+Its detailed data-model layouts remain **non-normative pending the canonical-data-model phase**. Only the controlled core-invariant statements at the end of this document are frozen by PR #2.
 
 ## Purpose
 
@@ -460,3 +460,28 @@ The Semantic IR should not become:
 - a place where every backend deposits private fields into the core schema.
 
 Target-specific metadata belongs behind explicit extension boundaries.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-002: Canonical identity and ownership
+
+Canonical JOB, DECK, and CARD identities, containment, source order, literal values, result bindings, types, units, qualifiers, semantic classes, and semantic/enforcement requirements MUST survive any boundary claiming semantic preservation, either directly or through an explicit frozen provenance-visible mapping. Local identifiers MUST be resolved with their complete owning context, not first-match lookup.
+
+### QM-INV-005: Scoped contract preservation
+
+Result-determinism, numeric, randomness, failure-behavior, extension, and machinery requirements MUST retain their canonical owning scope. A representation MUST NOT silently flatten or relocate requirements or weaken a parent requirement. Composition and inheritance rules MUST be frozen before execution derives effective contracts.
+
+### QM-INV-015: Failure and effect ordering
+
+Canonical sequencing MUST preserve source, effect, and failure ordering required by the active contract. Purity alone MUST NOT authorize reordering or dead-result elimination: a potentially failing operation remains observable under fail-stop. Dependency-only reordering or deletion solely because a result is unused MUST require purity and totality, unless a separately frozen rule preserves the original failure/effect observability and provenance.
+
+<!-- END QSOL CORE INVARIANTS -->

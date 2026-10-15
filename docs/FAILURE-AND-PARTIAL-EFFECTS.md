@@ -2,7 +2,7 @@
 
 QSOL-MORPH treats failure behavior as part of program semantics.
 
-This document is architectural and non-normative until the invariant freeze. Its purpose is to prevent the reference machine and later backends from inventing incompatible answers to the same failed computation.
+The detailed operational layouts in this document remain architectural pending their dedicated specification phase; only its controlled core-invariant statements are frozen by PR #2. Its purpose is to prevent the reference machine and later backends from inventing incompatible answers to the same failed computation.
 
 Record inventories here are projections of the [canonical trace contract](TRACE-AND-PROVENANCE.md#one-record-contract-not-independent-mirror-schemas), not independent weaker schemas. Conditional field requirements, exact cross-record capability equality, typed non-reach causes, representation-qualified execution subjects, and content-bound rule/evidence validation apply to failure manifests too. Shorter inventories never waive those checks.
 
@@ -19,7 +19,7 @@ A failure is not an ordinary value and must not be represented by an implicit se
 
 ## Default DECK behavior
 
-The candidate default is **fail-stop**.
+The frozen cross-cutting default is **fail-stop**; detailed operational contracts remain deferred.
 
 An unhandled CARD failure stops further CARD execution in the DECK.
 
@@ -31,7 +31,7 @@ If QSOL later introduces recovery, retry, compensation, or exception-like constr
 
 A JOB coordinates DECKs, so DECK failure must have a JOB-level meaning.
 
-The candidate default is also fail-stop at the JOB boundary:
+The frozen cross-cutting default is also fail-stop at the JOB boundary:
 
 ```text
 CARD failure
@@ -621,3 +621,36 @@ The [future trace-validator conformance cases](TRACE-AND-PROVENANCE.md#conforman
 ## Principle
 
 > Failure is observable behavior. Record every selected DECK, every concrete execution-subject outcome, every typed control/failure cause, the actual governing failure and execution contracts, every declared effect's authorization/attempt or verified non-attempt reason, and every protected machinery use with its selection history and concrete execution subject. Fail when a reachable required effect is omitted. Effect completion belongs to the effect attempt, not the enclosing execution outcome. Authorization happens before the protected boundary. Do not leave any of these to backend folklore.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-013: Failure is semantic
+
+Failure MUST be a structured outcome, not an implicit ordinary sentinel. A failed pure evaluation MUST NOT commit a partial result. Failure behavior and already observable effects MUST be preserved through execution, lowering, optimization, and tracing; target-language undefined behavior MUST NOT define QSOL semantics.
+
+### QM-INV-014: Default fail-stop propagation
+
+Unless an explicit frozen scoped policy handles the failure, an unhandled CARD failure MUST fail its DECK and stop later CARD execution, and an unhandled DECK failure MUST fail its JOB and prevent later DECKs from starting. Dependents MUST NOT consume failed, missing, or partial outputs as complete. Already committed effects and completed DECK history MUST remain recorded; retained partial artifacts MUST retain their status.
+
+### QM-INV-016: Concrete execution accounting
+
+Canonical program membership MUST NOT be treated as concrete execution evidence. Every selected DECK and every CARD in a selected DECK execution MUST have an identified outcome/path record, including prevented, untaken, not-reached, and explicitly skipped paths. Legitimate lower-representation entry MUST instead retain actual representation-qualified operation executions and MUST NOT fabricate Semantic lineage. Non-reach and skips MUST retain validated typed causes and applicable rule/evidence.
+
+### QM-INV-017: Unconditional effect accounting
+
+For every selected concrete execution subject, each applicable declared effect MUST resolve to identified attempt(s), exactly one legitimate identified non-attempt, or structured failure. A detected omission of a reachable required effect MUST fail execution/conformance, never legitimize success. No profile, backend, optimization mode, or audit setting MAY disable this accounting.
+
+### QM-INV-018: Per-attempt completion distinctions
+
+Effect completion MUST be classified per concrete attempt independently of its enclosing outcome. Never begun, known completed, begun but cleanly aborted, observably partial, and genuinely unknown states MUST remain distinct. Known completion MUST take precedence over uncertainty about broader consequences. A begun attempt MUST NOT be classified as never started, and no attempt MUST NOT be confused with an identified never-started attempt.
+
+<!-- END QSOL CORE INVARIANTS -->

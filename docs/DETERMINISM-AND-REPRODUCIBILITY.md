@@ -2,7 +2,7 @@
 
 QSOL-MORPH is intended for research computing, where performance is useful but reproducibility is part of the scientific contract.
 
-This document describes the candidate determinism and reproducibility model. It is non-normative until the relevant invariants and contracts are frozen.
+This document describes the candidate determinism and reproducibility model. Only its controlled core-invariant statements are frozen by PR #2; detailed execution contracts remain deferred to their dedicated specification phases.
 
 ## Composable reproducibility contract
 
@@ -1108,3 +1108,40 @@ General execution failure and effect-attempt completion semantics are documented
 ## Design principle
 
 > Nondeterminism, failure policy, typed execution path, concrete representation-qualified execution-subject and class identity, final machinery selection, authorization order, cache reuse, external tools, optimization decisions, direct toolchain production, exact ordered invocation arguments, material environment/configuration, transitive toolchain ancestry, generated-artifact identity, immutable inputs, and entropy acquisition are scientific inputs, not invisible implementation details.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-005: Scoped contract preservation
+
+Result-determinism, numeric, randomness, failure-behavior, extension, and machinery requirements MUST retain their canonical owning scope. A representation MUST NOT silently flatten or relocate requirements or weaken a parent requirement. Composition and inheritance rules MUST be frozen before execution derives effective contracts.
+
+### QM-INV-006: Nondeterminism disclosure
+
+Result-determinism guarantees and randomness configuration MUST be distinct contract facets. Permitted nondeterministic behavior MUST be explicit in the source contract and trace. Reproducibility claims MUST identify the governed scope and material program, input, implementation, and execution-contract identities; portability MUST NOT be presented as universal byte identity.
+
+### QM-INV-007: Numeric contracts
+
+Numeric behavior MUST satisfy the explicit contract governing its scope. Tolerance, precision, rounding, denormals, reassociation, and other material numeric choices MUST NOT be silently changed by a backend or optimization. A tolerance-bounded result guarantee MUST identify the contract that defines permitted variation.
+
+### QM-INV-008: Randomness and entropy
+
+Reproducible seeded randomness MUST identify algorithm, version, seed, stream, and material partitioning or stream mapping. Fresh external entropy MUST be an explicit protected effect with contextual authorization and concrete acquisition provenance. A randomness mode MUST NOT itself grant permission.
+
+### QM-INV-019: Inspectability and attributable provenance
+
+Material inputs, outputs, effects, external tools, lowerings, scoped contracts, backend decisions, generated artifacts, and toolchain transformations MUST be inspectable and attributable to exact identities and concrete executions. Material content MUST be bound immutably or its unavailability and resulting claim limits explicitly disclosed. Required references MUST resolve with complete ownership and representation context, including in failure traces. Summaries and mutable locators MUST NOT replace required identity or lineage.
+
+### QM-INV-021: Authorized semantic transitions
+
+A requested-to-effective semantic contract change MUST require explicit accepted versioned or content-bound transition authority and passing evidence for the exact subject, requested/effective pair, owning scope, and active context before application. A generic mapping, recorded change, backend flag, or later success MUST NOT authorize the transition. Missing, inapplicable, unverifiable, or late authority/evidence MUST fail closed.
+
+<!-- END QSOL CORE INVARIANTS -->

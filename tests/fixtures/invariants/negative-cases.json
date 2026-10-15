@@ -1,0 +1,10 @@
+[
+  {"name":"duplicate-id","mutation":"duplicate_id","error":"duplicate invariant ID"},
+  {"name":"missing-id","mutation":"missing_id","error":"missing frozen invariant ID"},
+  {"name":"dangling-reference","mutation":"dangling_reference","error":"dangling invariant reference"},
+  {"name":"mismatched-statement","mutation":"mismatched_statement","error":"controlled statements disagree"},
+  {"name":"missing-block","mutation":"missing_block","error":"missing or duplicate controlled block"},
+  {"name":"duplicate-block","mutation":"duplicate_block","error":"missing or duplicate controlled block"},
+  {"name":"missing-document","mutation":"missing_document","error":"missing registered documents"},
+  {"name":"changed-frozen-statement","mutation":"changed_statement","error":"frozen normative statement/title changed"}
+]

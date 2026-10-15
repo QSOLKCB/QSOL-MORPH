@@ -2,11 +2,11 @@
 
 This directory contains the architectural documentation for QSOL-MORPH.
 
-The documentation-foundation phase is intentionally **non-normative**. PR #2 is reserved for freezing the first core invariants.
+The historical documentation foundation remains **non-normative**. PR #2 freezes only the [Core Invariants](CORE-INVARIANTS.md) contract and its controlled domain copies; detailed schemas, grammar, and operational contracts remain candidates.
 
 ## Start here
 
-1. [Specification Status](SPECIFICATION-STATUS.md)
+1. [Specification Status](SPECIFICATION-STATUS.md) and [Core Invariants](CORE-INVARIANTS.md)
 2. [Design Principles](DESIGN-PRINCIPLES.md)
 3. [Architecture](ARCHITECTURE.md)
 4. [Human–AI Language Model](LANGUAGE-MODEL.md)
@@ -44,7 +44,7 @@ TRACE ALL
 LOCK RESULT
 ```
 
-Until the normative invariant/specification phases are merged, examples show intended semantic shape rather than a backwards-compatible language promise.
+Examples show intended semantic shape rather than a backwards-compatible language promise. The core-invariant freeze does not freeze these examples or their grammar.
 
 The intended lowering chain is explicit:
 
@@ -71,3 +71,4 @@ QSOL describes intent.
 QSOL-CORE defines meaning.
 QSOL-MORPH chooses machinery.
 ```
+

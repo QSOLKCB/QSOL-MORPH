@@ -255,3 +255,32 @@ A QSOL card can retain stable semantics while QX-MIDI maps relevant events or pr
 ## Principle
 
 > Keep the core small. Effects describe external actions. Machinery describes execution placement. Capabilities authorize protected boundaries. Extensions define optional language, adapter, and control functionality. Never let one masquerade as another.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-008: Randomness and entropy
+
+Reproducible seeded randomness MUST identify algorithm, version, seed, stream, and material partitioning or stream mapping. Fresh external entropy MUST be an explicit protected effect with contextual authorization and concrete acquisition provenance. A randomness mode MUST NOT itself grant permission.
+
+### QM-INV-010: Explicit protected effects
+
+External stateful interactions MUST be explicit effects. Each protected effect declaration MUST retain its stable owner-qualified identity and complete associated capability set. Every concrete protected attempt MUST have contextual authorization granting every required capability before the effect begins, with ordering evidence. Aggregate capability summaries MUST NOT replace the per-effect association or authorization.
+
+### QM-INV-011: Separate machinery authorization
+
+Protected machinery requirements MUST remain distinct from external effects and MUST NOT be encoded as synthetic effects merely for authorization. Every protected use MUST satisfy all applicable machinery capabilities before use begins and retain its concrete execution or genuine pre-execution scope, authorization ordering, and final executable selection decision. Denied or merely considered machinery MUST NOT be represented as executed.
+
+### QM-INV-012: Small core and extension boundary
+
+Backend-specific controls and optional operational profiles MUST remain behind explicit versioned backend or extension boundaries rather than silently expanding core semantics. Extension availability MUST NOT grant runtime capability authorization. Compiler backend selection, operating-environment profiles, and optional vendor controls MUST remain distinct concepts.
+
+<!-- END QSOL CORE INVARIANTS -->

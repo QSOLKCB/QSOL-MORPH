@@ -20,7 +20,7 @@ The repository is specification-first and pre-alpha.
 
 Do not implement compiler/runtime/backend code unless the active task explicitly belongs to an implementation phase in `ROADMAP.md`.
 
-PR #1 is documentation foundation. PR #2 is reserved for locking core invariants.
+PR #1 established the documentation foundation. PR #2 freezes the bounded contract in `spec/core-invariants.json` and `docs/CORE-INVARIANTS.md`. Read that contract and run `python tools/check_invariants.py` plus `python -m unittest discover -s tests -v` for changes. Other candidate schemas and operational specifications remain deferred.
 
 QSOL-CORE implementation must not precede its normative operational specification, including frozen result-determinism and randomness/RNG semantics.
 
@@ -719,3 +719,20 @@ For every substantive change, ask:
 - Did documentation claim functionality that does not exist?
 
 If any answer is yes, make the change explicit or reject it.
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](docs/CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-024: Freeze before implementation
+
+Operational Core, lowering, Vector/Dataflow, extension, and backend implementations MUST follow their applicable frozen specifications. The invariant registry MUST NOT be treated as an instruction set, data schema, grammar, execution engine, or authorization to implement later roadmap phases. Documentation MUST distinguish implemented behavior from design targets.
+
+<!-- END QSOL CORE INVARIANTS -->

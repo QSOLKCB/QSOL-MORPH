@@ -318,3 +318,24 @@ result + trace manifest
 ```
 
 Every stage should be inspectable enough to answer: **what did the program mean, what transformation happened, and what machinery executed it?**
+
+## Frozen cross-cutting invariants
+
+The following controlled statements are normative. Other content in this document
+remains architectural or candidate material unless separately frozen. See
+[Core Invariants](CORE-INVARIANTS.md) for authority, compatibility, and validation limits.
+
+
+<!-- BEGIN QSOL CORE INVARIANTS -->
+
+Registry version: 1.0.0
+
+### QM-INV-001: Meaning before machinery
+
+Transformations and backend selection MUST preserve the active semantic contract. Unsupported semantics MUST fail explicitly; a backend MUST NOT silently redefine, discard, or invent meaning.
+
+### QM-INV-003: Mandatory lowering boundaries
+
+Semantic IR to QSOL-CORE and QSOL-CORE to Vector/Dataflow IR MUST be explicit independently specified and provenance-bearing boundaries. Backends MUST NOT bypass either applicable boundary or privately reinterpret source semantics. Vector/Dataflow IR MUST preserve the complete supported Core surface, including scalar operations, control, calls, effects, capabilities, machinery, epistemic bindings, failure behavior, and contracts.
+
+<!-- END QSOL CORE INVARIANTS -->
