@@ -108,19 +108,50 @@ def git(root, *args):
     return result.stdout
 
 
+def require_regular(path, root):
+    for component in (path, *path.parents):
+        if component == root:
+            break
+        require(not component.is_symlink(), 'symlink is not a regular contract file: ' + str(path))
+    require(path.is_file(), 'missing or non-regular contract file: ' + str(path))
+
+
+def contract_entries(data, *, index=False):
+    names = {}
+    for entry in data.split(b'\0'):
+        if not entry:
+            continue
+        metadata, raw_name = entry.split(b'\t', 1)
+        if raw_name != REGISTRY.encode() and raw_name != b'spec/history' and not raw_name.startswith(b'spec/history/'):
+            continue
+        try:
+            name = raw_name.decode('utf-8')
+        except UnicodeDecodeError as exc:
+            raise Invalid('contract filenames must be valid UTF-8') from exc
+        fields = metadata.split()
+        if index:
+            require(fields[2] == b'0', 'unmerged candidate contract entry: ' + name)
+        require(fields[0] in (b'100644', b'100755'), 'contract entry is not a regular blob: ' + name)
+        names[name] = fields[0].decode('ascii')
+    return names
+
+
 def check_accepted_base(root, registry, base_ref):
     # Resolve once, then use only the immutable commit ID for all reads.
     sha = git(root, 'rev-parse', '--verify', '--end-of-options', base_ref + '^{commit}').decode().strip()
     require(re.fullmatch(r'[a-f0-9]{40}', sha), 'invalid accepted base commit')
-    names = git(root, 'ls-tree', '-r', '--name-only', sha).decode().splitlines()
+    contract_entries(git(root, 'ls-files', '--stage', '-z'), index=True)
+    names = contract_entries(git(root, 'ls-tree', '-rz', sha))
     for name in names:
         if name.startswith('spec/history/'):
-            require((root / name).is_file(), 'accepted historical file removed: ' + name)
-            accepted = git(root, 'show', sha + ':' + name).decode('utf-8')
-            require((root / name).read_text(encoding='utf-8') == accepted.replace('\r\n', '\n'), 'accepted historical file changed: ' + name)
+            require(names[name] in ('100644', '100755'), 'accepted history is not a regular blob: ' + name)
+            require_regular(root / name, root)
+            accepted = git(root, 'show', sha + ':' + name)
+            require((root / name).read_bytes().replace(b'\r\n', b'\n') == accepted.replace(b'\r\n', b'\n'), 'accepted historical file changed: ' + name)
     if REGISTRY not in names:
         require(sha == 'a4b6b8d28129d8fc566db88058651542e2d43c57', 'accepted base lacks registry outside initial foundation bootstrap')
         return
+    require(names[REGISTRY] in ('100644', '100755'), 'accepted registry is not a regular blob')
     # Reuse strict schema validation without accepting a candidate-controlled baseline.
     with tempfile.TemporaryDirectory() as directory:
         previous = Path(directory) / 'accepted.json'
@@ -130,6 +161,16 @@ def check_accepted_base(root, registry, base_ref):
 
 def validate(root, base_ref=None):
     root = root.resolve()
+    require_regular(root / REGISTRY, root)
+    require_regular(root / BASELINE, root)
+    for path in (root / 'spec/history').rglob('*'):
+        try:
+            path.relative_to(root).as_posix().encode('utf-8')
+        except UnicodeEncodeError as exc:
+            raise Invalid('contract filenames must be valid UTF-8') from exc
+        require(not path.is_symlink(), 'symlink in candidate history: ' + str(path))
+        if not path.is_dir():
+            require_regular(path, root)
     registry = load_registry(root / REGISTRY)
     require(hashlib.sha256((root / BASELINE).read_text(encoding='utf-8').encode('utf-8')).hexdigest() == BASELINE_SHA256,
             'historical baseline content changed')
@@ -141,7 +182,7 @@ def validate(root, base_ref=None):
     known = {e['id'] for e in registry['invariants']}
     found = set()
     for path in documentation_paths(root):
-        require(path.resolve().is_relative_to(root), f'document escapes repository: {path}')
+        require_regular(path, root)
         name = path.relative_to(root).as_posix()
         text = path.read_text(encoding='utf-8')
         for match in REFERENCE.finditer(text):

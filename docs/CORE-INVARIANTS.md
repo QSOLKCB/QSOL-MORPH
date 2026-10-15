@@ -65,6 +65,7 @@ python -m unittest discover -s tests -v
 CI supplies the immutable pull-request base commit, or the preceding main commit on a
 main push. Branch-push checks compare with `origin/main`. The checker resolves the ref
 once to a commit, compares every accepted `spec/history/` file with that Git snapshot,
+rejects symbolic links and non-regular contract Git modes (including new history gitlinks),
 and compares the current registry with the latest accepted registry, including IDs added
 after 1.0.0. Missing Git history or a missing accepted registry fails closed, except for
 the exact original documentation-foundation commit used to bootstrap PR #2.
@@ -76,6 +77,9 @@ against someone changing the checker itself. CI and its policy code remain revie
 repository code: these checks do not protect against an authorized or malicious change
 to the workflow/checker that disables them. Branch protection or separately protected
 policy would be a separate repository-security decision, outside this PR.
+
+Contract paths must be valid UTF-8. Git path lists use NUL delimiters, so non-ASCII
+characters, tabs, and newlines cannot hide historical files through quoting.
 
 The validator checks strict registry fields and duplicate JSON keys; stable, unique, ordered
 IDs; nonempty statements and document coverage; SHA-256-pinned initial snapshot integrity after universal newline decoding and accepted-base compatibility when requested; required

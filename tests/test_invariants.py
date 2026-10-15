@@ -2,6 +2,7 @@
 import contextlib
 import copy
 import io
+import os
 import json
 from pathlib import Path
 import shutil
@@ -168,6 +169,59 @@ class RegistryTests(unittest.TestCase):
         path.write_text(path.read_text() + '\nQM-INV-001x\n')
         with self.assertRaisesRegex(check.Invalid, 'dangling invariant reference'):
             check.validate(self.root)
+
+    def test_candidate_registry_symlink(self):
+        base = self.commit_accepted()
+        path = self.root / check.REGISTRY
+        path.unlink()
+        path.symlink_to('history/core-invariants-1.0.0.json')
+        with self.assertRaisesRegex(check.Invalid, 'symlink'):
+            check.validate(self.root, base)
+
+    def test_candidate_history_symlink(self):
+        base = self.commit_accepted()
+        path = self.root / check.BASELINE
+        path.unlink()
+        path.symlink_to('../core-invariants.json')
+        with self.assertRaisesRegex(check.Invalid, 'symlink'):
+            check.validate(self.root, base)
+
+    def test_history_directory_symlink(self):
+        original = self.root / 'spec/history'
+        original.rename(self.root / 'moved-history')
+        original.symlink_to('../moved-history', target_is_directory=True)
+        with self.assertRaisesRegex(check.Invalid, 'symlink'):
+            check.validate(self.root)
+
+    def test_accepted_history_unusual_names(self):
+        paths = [self.root / 'spec/history' / name for name in ('core-invariants-é.json', 'tab\tfile.json', 'line\nfile.json')]
+        for path in paths:
+            path.write_text('{}\n')
+        base = self.commit_accepted()
+        check.validate(self.root, base)
+        for path in paths:
+            with self.subTest(name=path.name):
+                path.write_text('{"changed":true}\n')
+                with self.assertRaisesRegex(check.Invalid, 'accepted historical file changed'):
+                    check.validate(self.root, base)
+                path.write_text('{}\n')
+
+    def test_new_history_gitlink_is_rejected(self):
+        base = self.commit_accepted()
+        path = self.root / 'spec/history/new-submodule'
+        path.mkdir()
+        subprocess.check_call(['git', '-C', str(self.root), 'update-index', '--add', '--cacheinfo',
+                               '160000,' + base + ',spec/history/new-submodule'])
+        with self.assertRaisesRegex(check.Invalid, 'not a regular blob'):
+            check.validate(self.root, base)
+
+    def test_non_utf8_history_name_is_rejected_before_acceptance(self):
+        base = self.commit_accepted()
+        name = os.fsencode(self.root / 'spec/history') + b'/invalid-\xff.json'
+        with open(name, 'wb') as handle:
+            handle.write(b'{}')
+        with self.assertRaisesRegex(check.Invalid, 'valid UTF-8'):
+            check.validate(self.root, base)
 
     def test_duplicate_json_key(self):
         path = self.root / check.REGISTRY
