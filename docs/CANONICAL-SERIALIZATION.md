@@ -189,7 +189,8 @@ exponent tokens; a resource-limit rejection is not a change to logical integer
 semantics. The same bound applies to Python integer source positions before
 serialization; the API reports `ResourceLimit` (a distinct `Invalid` subclass)
 rather than claiming those models violate the schema. Typed numeric strings are
-unaffected. The library never changes global interpreter limits.
+unaffected. Exponent tokens beyond the host Decimal range likewise report
+`ResourceLimit`. The library never changes global interpreter limits.
 
 Golden fixtures cover every existing positive model, multiple JOBs, exceptional
 text/codepoints, large integers, control characters, and exact field preservation.

@@ -263,6 +263,18 @@ class SerializationTests(unittest.TestCase):
                 ser.read_model(b'{"source":1e999999999}')
         self.assertEqual(ser._parse(b'0e999999999'), 0)
 
+    def test_exponents_beyond_decimal_host_range(self):
+        for token in (b'1e9999999999999999999999999999999',
+                      b'1e-9999999999999999999999999999999'):
+            with self.assertRaisesRegex(ser.ResourceLimit, 'exponent resource limit'):
+                ser.read_model(token)
+            run = subprocess.run([sys.executable, str(ROOT / 'tools/serialization.py'), '-'],
+                                 input=token, capture_output=True)
+            self.assertNotEqual(run.returncode, 0)
+            self.assertEqual(run.stdout, b'')
+            self.assertIn(b'resource limit', run.stderr)
+            self.assertNotIn(b'Traceback', run.stderr)
+
     def test_valid_huge_source_integer_reports_resource_limit(self):
         limit = sys.get_int_max_str_digits()
         if not limit:

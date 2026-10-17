@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 import hashlib
 import json
 import math
@@ -69,6 +69,11 @@ def _integral(node):
 def _parse(data):
     def reject(value):
         raise Invalid('non-JSON number: ' + value)
+    def decimal(token):
+        try:
+            return Decimal(token)
+        except DecimalException as exc:
+            raise ResourceLimit('decimal exponent resource limit exceeded') from exc
     def integer(token):
         limit = sys.get_int_max_str_digits()
         if limit and len(token.lstrip('-')) > limit:
@@ -78,7 +83,7 @@ def _parse(data):
         # Decode explicitly: json.loads(bytes) would also accept UTF-16/32.
         text = data.decode('utf-8') if isinstance(data, bytes) else data
         return _integral(json.loads(text, object_pairs_hook=unique_object,
-                                    parse_int=integer, parse_float=Decimal, parse_constant=reject))
+                                    parse_int=integer, parse_float=decimal, parse_constant=reject))
     except ResourceLimit:
         raise
     except (UnicodeError, json.JSONDecodeError, ValueError, OverflowError,
