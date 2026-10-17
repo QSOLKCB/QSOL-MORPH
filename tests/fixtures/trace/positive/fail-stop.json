@@ -1,0 +1,396 @@
+{
+  "representation_records": [
+    {
+      "representation_kind": "SEMANTIC_IR",
+      "representation_identity": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+      "format": "QSOL-MORPH-MODEL-1.0.0",
+      "content": {
+        "schema_version": "1.0.0",
+        "jobs": [
+          {
+            "id": "study",
+            "machinery_requirements": [],
+            "extension_requirements": [],
+            "result_determinism": "STRICT",
+            "randomness_contract": {
+              "mode": "NONE"
+            },
+            "decks": [
+              {
+                "id": "baseline",
+                "machinery_requirements": [],
+                "extension_requirements": [],
+                "cards": [
+                  {
+                    "id": "value",
+                    "machinery_requirements": [],
+                    "extension_requirements": [],
+                    "verb": "DECLARE",
+                    "noun": "VALUE",
+                    "operands": [],
+                    "result_bindings": [
+                      {
+                        "result_binding_id": "mass",
+                        "type": "DECIMAL",
+                        "unit": "kg",
+                        "semantic_class": "PARAMETER"
+                      }
+                    ],
+                    "qualifiers": [],
+                    "semantic_class": "PARAMETER",
+                    "effect_requirements": [],
+                    "dependencies": [],
+                    "sequencing_constraints": [],
+                    "value": {
+                      "type": "DECIMAL",
+                      "unit": "kg",
+                      "value": "4.2"
+                    },
+                    "source_location": {
+                      "source_id": "example-source-v1",
+                      "start": {
+                        "line": 1,
+                        "column": 1
+                      },
+                      "end": {
+                        "line": 1,
+                        "column": 22
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "second",
+                "machinery_requirements": [],
+                "extension_requirements": [],
+                "cards": [
+                  {
+                    "id": "value",
+                    "machinery_requirements": [],
+                    "extension_requirements": [],
+                    "verb": "DECLARE",
+                    "noun": "VALUE",
+                    "operands": [],
+                    "result_bindings": [
+                      {
+                        "result_binding_id": "mass",
+                        "type": "DECIMAL",
+                        "unit": "kg",
+                        "semantic_class": "PARAMETER"
+                      }
+                    ],
+                    "qualifiers": [],
+                    "semantic_class": "PARAMETER",
+                    "effect_requirements": [],
+                    "dependencies": [],
+                    "sequencing_constraints": [
+                      {
+                        "constraint_id": "failure_order",
+                        "kind": "FAILURE_ORDER",
+                        "predecessor_ref": {
+                          "owner_scope_path": [
+                            {
+                              "scope_kind": "JOB",
+                              "scope_id": "study"
+                            },
+                            {
+                              "scope_kind": "DECK",
+                              "scope_id": "baseline"
+                            },
+                            {
+                              "scope_kind": "CARD",
+                              "scope_id": "value"
+                            }
+                          ],
+                          "producer_card_id": "value"
+                        }
+                      },
+                      {
+                        "constraint_id": "source_order",
+                        "kind": "SOURCE_ORDER",
+                        "predecessor_ref": {
+                          "owner_scope_path": [
+                            {
+                              "scope_kind": "JOB",
+                              "scope_id": "study"
+                            },
+                            {
+                              "scope_kind": "DECK",
+                              "scope_id": "baseline"
+                            },
+                            {
+                              "scope_kind": "CARD",
+                              "scope_id": "value"
+                            }
+                          ],
+                          "producer_card_id": "value"
+                        }
+                      }
+                    ],
+                    "value": {
+                      "type": "DECIMAL",
+                      "unit": "kg",
+                      "value": "4.2"
+                    },
+                    "source_location": {
+                      "source_id": "example-source-v1",
+                      "start": {
+                        "line": 1,
+                        "column": 1
+                      },
+                      "end": {
+                        "line": 1,
+                        "column": 22
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "operation_executions": [],
+  "epistemic_class_bindings": [
+    {
+      "representation_kind": "SEMANTIC_IR",
+      "representation_identity": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+      "owner_scope_path": [
+        {
+          "scope_kind": "JOB",
+          "scope_id": "study"
+        },
+        {
+          "scope_kind": "DECK",
+          "scope_id": "baseline"
+        },
+        {
+          "scope_kind": "CARD",
+          "scope_id": "value"
+        }
+      ],
+      "epistemic_class_binding_id": "class-0",
+      "subject_kind": "CARD",
+      "subject_id": "value",
+      "semantic_class": "PARAMETER"
+    },
+    {
+      "representation_kind": "SEMANTIC_IR",
+      "representation_identity": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+      "owner_scope_path": [
+        {
+          "scope_kind": "JOB",
+          "scope_id": "study"
+        },
+        {
+          "scope_kind": "DECK",
+          "scope_id": "second"
+        },
+        {
+          "scope_kind": "CARD",
+          "scope_id": "value"
+        }
+      ],
+      "epistemic_class_binding_id": "class-1",
+      "subject_kind": "CARD",
+      "subject_id": "value",
+      "semantic_class": "PARAMETER"
+    }
+  ],
+  "control_decisions": [],
+  "failure_records": [
+    {
+      "failure_record_id": "failed",
+      "failing_scope_kind": "CARD_EXECUTION",
+      "failing_scope_id": "card-0-0",
+      "failure_card_id": "value",
+      "failure_card_execution_id": "card-0-0",
+      "deck_execution_id": "deck-0",
+      "failure_class": "SYNTHETIC_FAILURE",
+      "failure_stage": "CARD",
+      "sequence_index": 100,
+      "effect_accounting_failure_record_ids": [],
+      "result_determinism_scope_ids": [
+        "determinism-0"
+      ],
+      "numeric_scope_ids": [],
+      "randomness_scope_ids": [
+        "randomness-0"
+      ],
+      "failure_behavior_binding_ids": [
+        "failure-0"
+      ]
+    }
+  ],
+  "backend_selection_scopes": [
+    {
+      "backend_selection_scope_id": "backend-scope",
+      "governed_scope_ref": {
+        "representation_kind": "SEMANTIC_IR",
+        "representation_identity": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+        "owner_scope_path": [
+          {
+            "scope_kind": "JOB",
+            "scope_id": "study"
+          }
+        ]
+      },
+      "source_card_ids": [
+        "value"
+      ],
+      "selection_decision_ids": [
+        "selection"
+      ],
+      "final_selection_decision_id": "selection"
+    }
+  ],
+  "backend_selection_decisions": [
+    {
+      "backend_selection_decision_id": "selection",
+      "backend_selection_scope_id": "backend-scope",
+      "decision_sequence_index": 0,
+      "requested_target": "SYNTHETIC",
+      "selected_backend": "SYNTHETIC",
+      "selected_backend_version": "1",
+      "selected_backend_implementation_identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "decision_status": "FINAL_EXECUTABLE",
+      "machinery_authorization_record_ids": []
+    }
+  ],
+  "machinery_requirements": [],
+  "machinery_authorization_records": [],
+  "machinery_use_records": [],
+  "result_determinism_scopes": [
+    {
+      "governed_scope_ref": {
+        "representation_kind": "SEMANTIC_IR",
+        "representation_identity": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+        "owner_scope_path": [
+          {
+            "scope_kind": "JOB",
+            "scope_id": "study"
+          }
+        ]
+      },
+      "source_card_ids": [
+        "value"
+      ],
+      "result_determinism_scope_id": "determinism-0",
+      "requested_result_determinism": "STRICT",
+      "effective_result_determinism": "STRICT"
+    }
+  ],
+  "numeric_execution_scopes": [],
+  "randomness_execution_scopes": [
+    {
+      "governed_scope_ref": {
+        "representation_kind": "SEMANTIC_IR",
+        "representation_identity": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+        "owner_scope_path": [
+          {
+            "scope_kind": "JOB",
+            "scope_id": "study"
+          }
+        ]
+      },
+      "source_card_ids": [
+        "value"
+      ],
+      "randomness_scope_id": "randomness-0",
+      "requested_randomness_mode": "NONE",
+      "effective_randomness_mode": "NONE"
+    }
+  ],
+  "failure_behavior_bindings": [
+    {
+      "governed_scope_ref": {
+        "representation_kind": "SEMANTIC_IR",
+        "representation_identity": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+        "owner_scope_path": [
+          {
+            "scope_kind": "JOB",
+            "scope_id": "study"
+          }
+        ]
+      },
+      "source_card_ids": [
+        "value"
+      ],
+      "failure_behavior_binding_id": "failure-0",
+      "requested_failure_behavior_id": "QSOL-MORPH:FAIL_STOP:1.0.0",
+      "effective_failure_behavior_id": "QSOL-MORPH:FAIL_STOP:1.0.0"
+    }
+  ],
+  "rule_records": [],
+  "validation_evidence": [],
+  "inputs": [],
+  "resolved_extensions": [],
+  "effect_requirements": [],
+  "effect_authorization_records": [],
+  "effect_attempts": [],
+  "effect_non_attempt_records": [],
+  "effect_accounting_failure_records": [],
+  "cache_reuse_records": [],
+  "external_tool_versions": [],
+  "generated_artifacts": [],
+  "toolchain_environment_configs": [],
+  "toolchain_invocations": [],
+  "optimization_provenance": [],
+  "outputs": [],
+  "trace_version": "1.0.0",
+  "receipt_kind": "SYNTHETIC_CONFORMANCE_RECEIPT",
+  "run_id": "synthetic-run",
+  "input_representation": "SEMANTIC_IR",
+  "semantic_ir_hash": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+  "input_representation_identity": "sha256:210d22b3d555e03960c032f1cd343b2416fab8d6e67252893503edb3cd3af5e1",
+  "execution_status": "FAILED",
+  "capability_policy_id": "synthetic-policy",
+  "capability_policy_version": "1",
+  "event_order_domain": "RUN_SEQUENCE",
+  "job_id": "study",
+  "job_status": "FAILED",
+  "deck_executions": [
+    {
+      "deck_execution_id": "deck-0",
+      "deck_id": "baseline",
+      "deck_status": "FAILED",
+      "card_execution_ids": [
+        "card-0-0"
+      ],
+      "execution_order_index": 10,
+      "failure_record_id": "failed"
+    },
+    {
+      "deck_execution_id": "deck-1",
+      "deck_id": "second",
+      "deck_status": "BLOCKED",
+      "card_execution_ids": [
+        "card-1-0"
+      ],
+      "governing_failure_record_id": "failed"
+    }
+  ],
+  "card_executions": [
+    {
+      "card_execution_id": "card-0-0",
+      "deck_execution_id": "deck-0",
+      "card_id": "value",
+      "card_status": "FAILED",
+      "input_ids": [],
+      "execution_order_index": 20,
+      "failure_record_id": "failed"
+    },
+    {
+      "card_execution_id": "card-1-0",
+      "deck_execution_id": "deck-1",
+      "card_id": "value",
+      "card_status": "BLOCKED",
+      "input_ids": [],
+      "governing_failure_record_id": "failed"
+    }
+  ],
+  "primary_failure_record_id": "failed"
+}

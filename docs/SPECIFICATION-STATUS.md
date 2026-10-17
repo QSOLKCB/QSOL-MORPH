@@ -10,7 +10,7 @@ PR #1 is the immutable v1.0.0 documentation foundation. PR #2 introduces the fir
 bounded normative [Core Invariants](CORE-INVARIANTS.md) contract, machine-readable
 registry, documentation-agreement validator, tests, and CI. PR #3 introduces the
 bounded [Canonical Data Model 1.0.0](CANONICAL-DATA-MODEL.md), closed schema, reference
-validator, and fixtures. PR #4 introduces [Canonical Serialization 1.0.0](CANONICAL-SERIALIZATION.md), canonical JSON/JSONL/XML encoders and strict readers, content fingerprints, and round-trip fixtures. No compiler, runtime, human-source parser, operational trace validator, or backend exists yet.
+validator, and fixtures. PR #4 introduces [Canonical Serialization 1.0.0](CANONICAL-SERIALIZATION.md), canonical JSON/JSONL/XML encoders and strict readers, content fingerprints, and round-trip fixtures. The bounded [Execution Trace Foundation](EXECUTION-TRACE-FOUNDATION.md) adds a closed candidate trace schema and a source-bound synthetic receipt consistency validator. No compiler, runtime, human-source parser, production execution-trace validator, or backend exists yet; the full PR #5 execution gate remains incomplete.
 
 ## Normative boundary
 
@@ -32,6 +32,11 @@ The canonical serialization document and `spec/serialization-profile.json` freez
 only the versioned transport encodings, exact round-trip relation, and content
 fingerprint explicitly defined there. Transport identity is not executable semantic
 equivalence, a grant of authority, or evidence of a research claim.
+
+The trace foundation explicitly separates structural candidate coverage from its
+implemented synthetic consistency checks and deferred operational conformance.
+Its schema does not freeze the candidate execution semantics, and a passing receipt
+is not proof of execution, authorization, or a research claim.
 
 Outside these three bounded contracts, detailed layouts, instruction families,
 examples, syntax, algorithms, operational contracts, extension profiles, and later

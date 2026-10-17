@@ -33,5 +33,9 @@ jobs:
         run: python3 tools/check_model.py tests/fixtures/model/positive/*.json
       - name: Check canonical serialization entry point
         run: python3 tools/serialization.py tests/fixtures/model/positive/minimal.json --hash
+      - name: Check closed trace schema and synthetic receipt fixtures
+        run: |
+          python3 tools/trace_schema.py --check
+          python3 tools/check_trace.py tests/fixtures/trace/positive/*.json
       - name: Run positive and negative contract tests
         run: python3 -m unittest discover -s tests -v

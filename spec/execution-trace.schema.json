@@ -1,0 +1,5039 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/QSOLKCB/QSOL-MORPH/blob/main/spec/execution-trace.schema.json",
+  "title": "QSOL-MORPH PR5 structural trace envelope 1.0.0",
+  "description": "Closed structural provenance vocabulary. Schema validity does not authorize execution or prove operational, lowering, evidence, or research conformance. The reference validator accepts only its explicitly bounded synthetic receipt profile.",
+  "type": "object",
+  "properties": {
+    "trace_version": {
+      "const": "1.0.0"
+    },
+    "receipt_kind": {
+      "enum": [
+        "SYNTHETIC_CONFORMANCE_RECEIPT",
+        "EXECUTION_TRACE"
+      ]
+    },
+    "run_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "input_representation": {
+      "$ref": "#/$defs/representation_kind"
+    },
+    "input_representation_identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "execution_status": {
+      "$ref": "#/$defs/execution_status"
+    },
+    "event_order_domain": {
+      "const": "RUN_SEQUENCE"
+    },
+    "representation_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/representation_record"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "operation_executions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/operation_execution"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "epistemic_class_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/epistemic_class_binding"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "control_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/control_decision"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "failure_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/failure_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "backend_selection_scopes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/backend_selection_scope"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "backend_selection_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/backend_selection_decision"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "machinery_requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/machinery_requirement"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "machinery_authorization_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/machinery_authorization_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "machinery_use_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/machinery_use_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "result_determinism_scopes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result_determinism_scope"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "numeric_execution_scopes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/numeric_execution_scope"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "randomness_execution_scopes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/randomness_execution_scope"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "failure_behavior_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/failure_behavior_binding"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "rule_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "validation_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/validation_evidence"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/input"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "resolved_extensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resolved_extension"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "effect_requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effect_requirement"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "effect_authorization_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effect_authorization_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "effect_attempts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effect_attempt"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "effect_non_attempt_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effect_non_attempt_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "effect_accounting_failure_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effect_accounting_failure_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "cache_reuse_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cache_reuse_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "external_tool_versions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/external_tool"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "generated_artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/generated_artifact"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "toolchain_environment_configs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/toolchain_environment_config"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "toolchain_invocations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/toolchain_invocation"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "optimization_provenance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/optimization_record"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/output"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "job_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "job_status": {
+      "$ref": "#/$defs/execution_status"
+    },
+    "deck_executions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deck_execution"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "card_executions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/card_execution"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "source_trace": {
+      "$ref": "#/$defs/source_trace"
+    },
+    "semantic_ir_hash": {
+      "$ref": "#/$defs/identity"
+    },
+    "core_ir_hash": {
+      "$ref": "#/$defs/identity"
+    },
+    "vector_dataflow_ir_hash": {
+      "$ref": "#/$defs/identity"
+    },
+    "semantic_to_core": {
+      "$ref": "#/$defs/semantic_to_core"
+    },
+    "core_to_vector": {
+      "$ref": "#/$defs/core_to_vector"
+    },
+    "dependency_graph_hash": {
+      "$ref": "#/$defs/identity"
+    },
+    "morph_version": {
+      "$ref": "#/$defs/identity"
+    },
+    "optimization_profile": {
+      "$ref": "#/$defs/identity"
+    },
+    "primary_failure_record_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "observable_output_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "result_determinism_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result_determinism_binding"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "numeric_contract_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/numeric_contract_binding"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "randomness_contract_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/randomness_contract_binding"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "extension_requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonical_extension"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "job_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "deck_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "card_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "required_capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "granted_capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "denied_capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "capabilities_used": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "runtime_compiler_versions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "vectorization_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "fusion_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "memory_placement_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "capability_policy_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "capability_policy_version": {
+      "$ref": "#/$defs/identity"
+    }
+  },
+  "required": [
+    "trace_version",
+    "receipt_kind",
+    "run_id",
+    "input_representation",
+    "input_representation_identity",
+    "execution_status",
+    "event_order_domain",
+    "representation_records",
+    "operation_executions",
+    "epistemic_class_bindings",
+    "control_decisions",
+    "failure_records",
+    "backend_selection_scopes",
+    "backend_selection_decisions",
+    "machinery_requirements",
+    "machinery_authorization_records",
+    "machinery_use_records",
+    "result_determinism_scopes",
+    "numeric_execution_scopes",
+    "randomness_execution_scopes",
+    "failure_behavior_bindings",
+    "rule_records",
+    "validation_evidence",
+    "inputs",
+    "resolved_extensions",
+    "effect_requirements",
+    "effect_authorization_records",
+    "effect_attempts",
+    "effect_non_attempt_records",
+    "effect_accounting_failure_records",
+    "cache_reuse_records",
+    "external_tool_versions",
+    "generated_artifacts",
+    "toolchain_environment_configs",
+    "toolchain_invocations",
+    "optimization_provenance",
+    "outputs"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "description": "Opaque JSON content; its declared content identity must be verified separately."
+    },
+    "representation_kind": {
+      "enum": [
+        "SEMANTIC_IR",
+        "QSOL_CORE",
+        "VECTOR_DATAFLOW_IR"
+      ]
+    },
+    "semantic_class": {
+      "enum": [
+        "OBSERVATION",
+        "ASSUMPTION",
+        "PARAMETER",
+        "MODEL",
+        "SIMULATION",
+        "DERIVATION",
+        "TEST",
+        "VALIDATION",
+        "PROOF",
+        "RESULT",
+        "UNCLASSIFIED"
+      ]
+    },
+    "randomness_mode": {
+      "enum": [
+        "NONE",
+        "SEEDED",
+        "EXTERNAL-ENTROPY",
+        "DECLARED-NONDETERMINISTIC"
+      ]
+    },
+    "authorization_status": {
+      "enum": [
+        "GRANTED",
+        "DENIED",
+        "INCOMPLETE"
+      ]
+    },
+    "execution_status": {
+      "enum": [
+        "SUCCESS",
+        "FAILED",
+        "NOT_STARTED",
+        "UNTAKEN",
+        "UNTAKEN_BRANCH",
+        "BLOCKED",
+        "FAIL_STOP_BLOCKED",
+        "NOT_REACHED",
+        "EXPLICIT_SKIP",
+        "SKIPPED"
+      ]
+    },
+    "scope_segment": {
+      "type": "object",
+      "properties": {
+        "scope_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "scope_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "scope_kind",
+        "scope_id"
+      ],
+      "additionalProperties": false
+    },
+    "scope_path": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scope_segment"
+      },
+      "minItems": 0
+    },
+    "scope_ref": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        }
+      },
+      "required": [
+        "owner_scope_path"
+      ],
+      "additionalProperties": false
+    },
+    "governed_scope_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path"
+      ],
+      "additionalProperties": false
+    },
+    "execution_subject_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "subject_kind": {
+          "enum": [
+            "CARD",
+            "CORE_OPERATION",
+            "VECTOR_DATAFLOW_OPERATION"
+          ]
+        },
+        "subject_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "execution_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "subject_kind",
+        "subject_id",
+        "execution_id"
+      ],
+      "additionalProperties": false
+    },
+    "effect_requirement_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "declared_effect_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "declared_effect_id"
+      ],
+      "additionalProperties": false
+    },
+    "machinery_requirement_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "machinery_requirement_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "machinery_requirement_id"
+      ],
+      "additionalProperties": false
+    },
+    "local_machinery_requirement_ref": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "machinery_requirement_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "machinery_requirement_id"
+      ],
+      "additionalProperties": false
+    },
+    "result_binding_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "binding_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "binding_id"
+      ],
+      "additionalProperties": false
+    },
+    "operation_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "operation_id"
+      ],
+      "additionalProperties": false
+    },
+    "initiating_scope_ref": {
+      "type": "object",
+      "properties": {
+        "scope_kind": {
+          "enum": [
+            "RUN",
+            "DECK_EXECUTION"
+          ]
+        },
+        "scope_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "scope_kind",
+        "scope_id"
+      ],
+      "additionalProperties": false
+    },
+    "source_binding_ref": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "binding_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_card_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "binding_id"
+      ],
+      "additionalProperties": false
+    },
+    "lower_binding_ref": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "binding_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "binding_id"
+      ],
+      "additionalProperties": false
+    },
+    "sequencing_endpoint": {
+      "type": "object",
+      "properties": {
+        "endpoint_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "endpoint_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "endpoint_kind",
+        "owner_scope_path",
+        "endpoint_id"
+      ],
+      "additionalProperties": false,
+      "description": "Typed endpoint shape only. Recognized kinds, exact ownership, permitted edges and applicability require a frozen representation-specific validator; no lower-representation namespace is frozen here."
+    },
+    "edge_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "constraint_kind": {
+          "enum": [
+            "SOURCE_ORDER",
+            "EFFECT_ORDER",
+            "FAILURE_ORDER"
+          ]
+        },
+        "predecessor_endpoint_ref": {
+          "$ref": "#/$defs/sequencing_endpoint"
+        },
+        "successor_endpoint_ref": {
+          "$ref": "#/$defs/sequencing_endpoint"
+        },
+        "edge_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "constraint_kind",
+        "predecessor_endpoint_ref",
+        "successor_endpoint_ref",
+        "edge_hash"
+      ],
+      "additionalProperties": false,
+      "description": "Directed source/lower edge reference. The containing boundary supplies representation identities; hash agreement and edge preservation are cross-record checks."
+    },
+    "canonical_numericContract": {
+      "type": "object",
+      "properties": {
+        "contract_id": {
+          "$ref": "#/$defs/canonical_id"
+        },
+        "version": {
+          "$ref": "#/$defs/canonical_version"
+        },
+        "definition_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/canonical_parameter"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "contract_id",
+        "version",
+        "definition_hash",
+        "parameters"
+      ],
+      "additionalProperties": false
+    },
+    "canonical_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.:-]*(?![\\s\\S])",
+      "maxLength": 256
+    },
+    "canonical_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?![\\s\\S])"
+    },
+    "canonical_parameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/canonical_id"
+        },
+        "value": {
+          "$ref": "#/$defs/canonical_value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "canonical_value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "BOOLEAN"
+            },
+            "unit": {
+              "$ref": "#/$defs/canonical_unit"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "INTEGER"
+            },
+            "unit": {
+              "$ref": "#/$defs/canonical_unit"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^(0|-?[1-9][0-9]*)(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "DECIMAL"
+            },
+            "unit": {
+              "$ref": "#/$defs/canonical_unit"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "TEXT"
+            },
+            "unit": {
+              "$ref": "#/$defs/canonical_unit"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "canonical_unit": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/^*-]*(?![\\s\\S])",
+      "maxLength": 256
+    },
+    "representation_record": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "format": {
+          "$ref": "#/$defs/identity"
+        },
+        "content": {
+          "$ref": "#/$defs/payload"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "format",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "deck_identity": {
+      "type": "object",
+      "properties": {
+        "deck_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        }
+      },
+      "required": [
+        "deck_id",
+        "owner_scope_path"
+      ],
+      "additionalProperties": false
+    },
+    "card_identity": {
+      "type": "object",
+      "properties": {
+        "card_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        }
+      },
+      "required": [
+        "card_id",
+        "owner_scope_path"
+      ],
+      "additionalProperties": false
+    },
+    "canonical_sourceLocation": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "$ref": "#/$defs/canonical_position"
+        },
+        "end": {
+          "$ref": "#/$defs/canonical_position"
+        }
+      },
+      "required": [
+        "source_id",
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "canonical_position": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "line",
+        "column"
+      ],
+      "additionalProperties": false
+    },
+    "source_trace": {
+      "type": "object",
+      "properties": {
+        "source_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "spec_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "run_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "job_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "deck_identities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deck_identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "card_identities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/card_identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "source_location": {
+          "$ref": "#/$defs/canonical_sourceLocation"
+        }
+      },
+      "required": [
+        "source_hash",
+        "spec_version",
+        "job_id",
+        "deck_identities",
+        "card_identities"
+      ],
+      "additionalProperties": false
+    },
+    "epistemic_class_binding": {
+      "type": "object",
+      "properties": {
+        "epistemic_class_binding_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "subject_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "subject_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "semantic_class": {
+          "$ref": "#/$defs/semantic_class"
+        },
+        "source_epistemic_class_binding_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "epistemic_class_binding_id",
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "subject_kind",
+        "subject_id",
+        "semantic_class"
+      ],
+      "additionalProperties": false
+    },
+    "effect_requirement": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "declared_effect_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "card_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effect_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "declared_effect_id",
+        "effect_kind",
+        "required_capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "machinery_requirement": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "machinery_requirement_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "source_operation_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "target_selector_or_class": {
+          "$ref": "#/$defs/identity"
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "machinery_requirement_id",
+        "target_selector_or_class",
+        "required_capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "result_determinism_binding": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "requested_result_determinism": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "source_card_ids",
+        "requested_result_determinism"
+      ],
+      "additionalProperties": false
+    },
+    "numeric_contract_binding": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "numeric_contract_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "numeric_contract_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "source_card_ids",
+        "numeric_contract_id",
+        "numeric_contract_hash"
+      ],
+      "additionalProperties": false
+    },
+    "randomness_contract_binding": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "requested_randomness_mode": {
+          "$ref": "#/$defs/randomness_mode"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "source_card_ids",
+        "requested_randomness_mode"
+      ],
+      "additionalProperties": false
+    },
+    "failure_behavior_binding": {
+      "type": "object",
+      "properties": {
+        "failure_behavior_binding_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governed_scope_ref": {
+          "$ref": "#/$defs/governed_scope_ref"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "requested_failure_behavior_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effective_failure_behavior_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "mapping_or_transition_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "failure_behavior_binding_id",
+        "governed_scope_ref",
+        "source_card_ids",
+        "requested_failure_behavior_id",
+        "effective_failure_behavior_id"
+      ],
+      "additionalProperties": false
+    },
+    "extension_component": {
+      "type": "object",
+      "properties": {
+        "component_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "component_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "component_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "component_content_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "component_location": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "component_kind",
+        "component_id",
+        "component_version",
+        "component_content_hash"
+      ],
+      "additionalProperties": false
+    },
+    "extension_source_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "requirement_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "ir_hash",
+        "owner_scope_path",
+        "requirement_hash"
+      ],
+      "additionalProperties": false
+    },
+    "extension_scope_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "ir_hash",
+        "owner_scope_path"
+      ],
+      "additionalProperties": false
+    },
+    "resolved_extension": {
+      "type": "object",
+      "properties": {
+        "resolved_extension_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "profile_name": {
+          "$ref": "#/$defs/identity"
+        },
+        "resolved_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "contract_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "contract_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "implementation_components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension_component"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_requirement_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension_source_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "governing_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension_scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "resolved_extension_id",
+        "profile_name",
+        "resolved_version",
+        "contract_id",
+        "contract_hash",
+        "implementation_components",
+        "source_requirement_refs",
+        "governing_scope_refs",
+        "source_card_ids"
+      ],
+      "additionalProperties": false
+    },
+    "source_qualifier_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "qualifier_key_path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 1
+        },
+        "qualifier_value_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "qualifier_key_path",
+        "qualifier_value_hash"
+      ],
+      "additionalProperties": false
+    },
+    "core_result_ref": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "result_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "result_key_or_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "result_value_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "result_kind",
+        "result_key_or_id"
+      ],
+      "additionalProperties": false
+    },
+    "qualifier_lowering_decision": {
+      "type": "object",
+      "properties": {
+        "qualifier_lowering_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_qualifier_ref": {
+          "$ref": "#/$defs/source_qualifier_ref"
+        },
+        "disposition": {
+          "enum": [
+            "PRESERVED",
+            "CONSUMED"
+          ]
+        },
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "resulting_core_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/core_result_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "resolved_extension_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "lowering_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "validation_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "qualifier_lowering_decision_id",
+        "source_qualifier_ref",
+        "disposition",
+        "core_scope_refs",
+        "resulting_core_refs"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "CONSUMED"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "lowering_rule_id",
+              "validation_evidence_id"
+            ]
+          }
+        }
+      ]
+    },
+    "source_fact_ref": {
+      "type": "object",
+      "properties": {
+        "representation_kind": {
+          "$ref": "#/$defs/representation_kind"
+        },
+        "representation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "fact_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "fact_key_or_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "fact_value_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "representation_kind",
+        "representation_identity",
+        "owner_scope_path",
+        "fact_kind",
+        "fact_key_or_id",
+        "fact_value_hash"
+      ],
+      "additionalProperties": false
+    },
+    "core_fact_ref": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/scope_path"
+        },
+        "fact_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "fact_key_or_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "fact_value_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "fact_kind",
+        "fact_key_or_id"
+      ],
+      "additionalProperties": false
+    },
+    "type_unit_lowering_decision": {
+      "type": "object",
+      "properties": {
+        "type_unit_lowering_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_fact_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_fact_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "core_fact_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/core_fact_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "disposition": {
+          "enum": [
+            "PRESERVED",
+            "NORMALIZED",
+            "ERASED"
+          ]
+        },
+        "lowering_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "validation_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "type_unit_lowering_decision_id",
+        "source_fact_refs",
+        "core_fact_refs",
+        "disposition"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "NORMALIZED"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "lowering_rule_id",
+              "validation_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "ERASED"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "lowering_rule_id",
+              "validation_evidence_id"
+            ]
+          }
+        }
+      ]
+    },
+    "sequencing_mapping": {
+      "type": "object",
+      "properties": {
+        "sequencing_mapping_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_edge_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lower_edge_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "validation_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "sequencing_mapping_id",
+        "source_edge_refs",
+        "lower_edge_refs"
+      ],
+      "additionalProperties": false
+    },
+    "result_binding_map": {
+      "type": "object",
+      "properties": {
+        "mapping_group_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_binding_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lower_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/lower_binding_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "mapping_group_id",
+        "source_bindings",
+        "lower_bindings"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source_bindings": {
+                "minItems": 2
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "mapping_rule_id"
+            ]
+          }
+        }
+      ]
+    },
+    "numeric_contract_ref": {
+      "type": "object",
+      "properties": {
+        "numeric_contract_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "numeric_contract_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "numeric_contract_id",
+        "numeric_contract_hash"
+      ],
+      "additionalProperties": false
+    },
+    "first_scope_mapping": {
+      "type": "object",
+      "properties": {
+        "source_scope_ref": {
+          "$ref": "#/$defs/scope_ref"
+        },
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_authorized_by": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "source_scope_ref",
+        "core_scope_refs",
+        "source_card_ids",
+        "mapping_rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "first_numeric_mapping": {
+      "type": "object",
+      "properties": {
+        "source_scope_ref": {
+          "$ref": "#/$defs/scope_ref"
+        },
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "requested_numeric_contract_ref": {
+          "$ref": "#/$defs/numeric_contract_ref"
+        },
+        "effective_numeric_contract_ref": {
+          "$ref": "#/$defs/numeric_contract_ref"
+        },
+        "transition_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_authorized_by": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "source_scope_ref",
+        "core_scope_refs",
+        "source_card_ids",
+        "mapping_rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "first_extension_mapping": {
+      "type": "object",
+      "properties": {
+        "source_scope_ref": {
+          "$ref": "#/$defs/scope_ref"
+        },
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "resolved_extension_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "profile_name": {
+          "$ref": "#/$defs/identity"
+        },
+        "resolved_version_or_content_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "contract_id_or_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "source_scope_ref",
+        "core_scope_refs",
+        "source_card_ids",
+        "resolved_extension_ids",
+        "profile_name",
+        "resolved_version_or_content_identity",
+        "mapping_rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "first_machinery_mapping": {
+      "type": "object",
+      "properties": {
+        "mapping_group_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_machinery_requirement_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/local_machinery_requirement_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lower_machinery_requirement_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/local_machinery_requirement_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "mapping_group_id",
+        "source_scope_refs",
+        "core_scope_refs",
+        "source_machinery_requirement_refs",
+        "lower_machinery_requirement_refs",
+        "source_card_ids",
+        "mapping_rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "second_scope_mapping": {
+      "type": "object",
+      "properties": {
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "vector_dataflow_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_unit_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "transition_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_authorized_by": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "core_scope_refs",
+        "vector_dataflow_scope_refs",
+        "source_card_ids",
+        "mapping_rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "second_numeric_mapping": {
+      "type": "object",
+      "properties": {
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "vector_dataflow_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_unit_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "requested_numeric_contract_ref": {
+          "$ref": "#/$defs/numeric_contract_ref"
+        },
+        "effective_numeric_contract_ref": {
+          "$ref": "#/$defs/numeric_contract_ref"
+        },
+        "transition_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_authorized_by": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "core_scope_refs",
+        "vector_dataflow_scope_refs",
+        "source_card_ids",
+        "mapping_rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "second_extension_mapping": {
+      "type": "object",
+      "properties": {
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "vector_dataflow_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_unit_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "profile_name": {
+          "$ref": "#/$defs/identity"
+        },
+        "resolved_version_or_content_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "contract_id_or_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "resolved_extension_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "core_scope_refs",
+        "vector_dataflow_scope_refs",
+        "source_card_ids",
+        "mapping_rule_id",
+        "profile_name",
+        "resolved_version_or_content_identity",
+        "resolved_extension_ids"
+      ],
+      "additionalProperties": false
+    },
+    "second_machinery_mapping": {
+      "type": "object",
+      "properties": {
+        "core_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "vector_dataflow_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "mapping_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_unit_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "source_machinery_requirement_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/local_machinery_requirement_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lower_machinery_requirement_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/local_machinery_requirement_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "core_scope_refs",
+        "vector_dataflow_scope_refs",
+        "source_card_ids",
+        "mapping_rule_id",
+        "source_machinery_requirement_refs",
+        "lower_machinery_requirement_refs"
+      ],
+      "additionalProperties": false
+    },
+    "semantic_to_core": {
+      "type": "object",
+      "properties": {
+        "semantic_ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "semantic_to_core_spec_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "semantic_to_core_implementation_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "core_ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "result_binding_map": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/result_binding_map"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "sequencing_constraint_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sequencing_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "type_unit_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/type_unit_lowering_decision"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "resolved_extensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resolved_extension"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "extension_requirement_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/first_extension_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "qualifier_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/qualifier_lowering_decision"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "machinery_requirement_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/first_machinery_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "result_determinism_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/first_scope_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "numeric_contract_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/first_numeric_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "randomness_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/first_scope_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "failure_behavior_lowering_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/first_scope_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "lowering_diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "semantic_ir_hash",
+        "semantic_to_core_spec_version",
+        "semantic_to_core_implementation_version",
+        "core_ir_hash",
+        "result_binding_map",
+        "sequencing_constraint_lowering_decisions",
+        "type_unit_lowering_decisions",
+        "resolved_extensions",
+        "extension_requirement_lowering_decisions",
+        "qualifier_lowering_decisions",
+        "machinery_requirement_lowering_decisions",
+        "result_determinism_lowering_decisions",
+        "numeric_contract_lowering_decisions",
+        "randomness_lowering_decisions",
+        "failure_behavior_lowering_decisions",
+        "lowering_diagnostics"
+      ],
+      "additionalProperties": false
+    },
+    "core_to_vector": {
+      "type": "object",
+      "properties": {
+        "core_ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "vector_dataflow_spec_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "vector_dataflow_implementation_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "vector_dataflow_ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "result_binding_map": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/result_binding_map"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "sequencing_constraint_mapping_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sequencing_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "extension_requirement_mapping_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/second_extension_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "machinery_requirement_mapping_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/second_machinery_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "core_to_vector_result_determinism_mapping_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/second_scope_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "core_to_vector_numeric_contract_mapping_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/second_numeric_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "core_to_vector_randomness_mapping_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/second_scope_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "failure_behavior_mapping_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/second_scope_mapping"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "vector_dataflow_lowering_diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "core_ir_hash",
+        "vector_dataflow_spec_version",
+        "vector_dataflow_implementation_version",
+        "vector_dataflow_ir_hash",
+        "result_binding_map",
+        "sequencing_constraint_mapping_decisions",
+        "extension_requirement_mapping_decisions",
+        "machinery_requirement_mapping_decisions",
+        "core_to_vector_result_determinism_mapping_decisions",
+        "core_to_vector_numeric_contract_mapping_decisions",
+        "core_to_vector_randomness_mapping_decisions",
+        "failure_behavior_mapping_decisions",
+        "vector_dataflow_lowering_diagnostics"
+      ],
+      "additionalProperties": false
+    },
+    "backend_selection_scope": {
+      "type": "object",
+      "properties": {
+        "backend_selection_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governed_scope_ref": {
+          "$ref": "#/$defs/governed_scope_ref"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "backend_unit_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "selection_decision_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "final_selection_decision_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "backend_selection_scope_id",
+        "governed_scope_ref",
+        "source_card_ids",
+        "selection_decision_ids"
+      ],
+      "additionalProperties": false
+    },
+    "backend_selection_decision": {
+      "type": "object",
+      "properties": {
+        "backend_selection_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_selection_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "decision_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "requested_target": {
+          "$ref": "#/$defs/identity"
+        },
+        "selected_backend": {
+          "$ref": "#/$defs/identity"
+        },
+        "selected_backend_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "selected_backend_implementation_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "target_architecture": {
+          "$ref": "#/$defs/identity"
+        },
+        "device": {
+          "$ref": "#/$defs/identity"
+        },
+        "selection_policy_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "selection_policy_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "selection_tuning_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "selection_tuning_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "predecessor_selection_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "fallback_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "fallback_evidence_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "machinery_authorization_record_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "decision_status": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "backend_selection_decision_id",
+        "backend_selection_scope_id",
+        "decision_sequence_index",
+        "requested_target",
+        "selected_backend",
+        "decision_status"
+      ],
+      "additionalProperties": false
+    },
+    "machinery_authorization_record": {
+      "type": "object",
+      "properties": {
+        "machinery_authorization_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_selection_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_selection_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "machinery_requirement_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/machinery_requirement_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "granted_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "denied_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "capability_policy_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "capability_policy_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "authorization_status": {
+          "$ref": "#/$defs/authorization_status"
+        },
+        "authorization_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        }
+      },
+      "required": [
+        "machinery_authorization_record_id",
+        "backend_selection_scope_id",
+        "backend_selection_decision_id",
+        "machinery_requirement_refs",
+        "required_capabilities",
+        "granted_capabilities",
+        "denied_capabilities",
+        "capability_policy_id",
+        "capability_policy_version",
+        "authorization_status"
+      ],
+      "additionalProperties": false
+    },
+    "machinery_use_record": {
+      "type": "object",
+      "properties": {
+        "machinery_use_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_selection_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_selection_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_unit_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "generated_artifact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "execution_subject_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/execution_subject_ref"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "card_execution_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "initiating_scope_ref": {
+          "$ref": "#/$defs/initiating_scope_ref"
+        },
+        "machinery_authorization_record_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "output_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "protected_use_start_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "protected_use_stop_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        }
+      },
+      "required": [
+        "machinery_use_record_id",
+        "backend_selection_scope_id",
+        "backend_selection_decision_id",
+        "generated_artifact_ids",
+        "execution_subject_refs",
+        "machinery_authorization_record_ids",
+        "output_ids",
+        "protected_use_start_sequence_index"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "execution_subject_refs": {
+                "maxItems": 0
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initiating_scope_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "generated_artifact": {
+      "type": "object",
+      "properties": {
+        "generated_artifact_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "artifact_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "artifact_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_unit_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_selection_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_selection_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "optimized_ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "optimization_record_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "direct_producer_toolchain_invocation_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "toolchain_invocation_chain_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "artifact_location": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "generated_artifact_id",
+        "artifact_kind",
+        "artifact_hash",
+        "backend_unit_id",
+        "backend_selection_scope_id",
+        "backend_selection_decision_id",
+        "direct_producer_toolchain_invocation_id",
+        "toolchain_invocation_chain_ids"
+      ],
+      "additionalProperties": false
+    },
+    "argument": {
+      "type": "object",
+      "properties": {
+        "argument_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "argument_kind": {
+          "enum": [
+            "LITERAL",
+            "INPUT",
+            "GENERATED_ARTIFACT_INPUT",
+            "IR_INPUT",
+            "OUTPUT_GENERATED_ARTIFACT",
+            "SEPARATOR",
+            "RESPONSE_FILE"
+          ]
+        },
+        "argument_text": {
+          "type": "string"
+        },
+        "input_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "generated_artifact_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "output_generated_artifact_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "argument_index",
+        "argument_kind",
+        "argument_text"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "argument_kind": {
+                "const": "INPUT"
+              }
+            },
+            "required": [
+              "argument_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "input_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "argument_kind": {
+                "const": "GENERATED_ARTIFACT_INPUT"
+              }
+            },
+            "required": [
+              "argument_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "generated_artifact_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "argument_kind": {
+                "const": "IR_INPUT"
+              }
+            },
+            "required": [
+              "argument_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "ir_hash"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "argument_kind": {
+                "const": "OUTPUT_GENERATED_ARTIFACT"
+              }
+            },
+            "required": [
+              "argument_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "output_generated_artifact_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "argument_kind": {
+                "const": "RESPONSE_FILE"
+              }
+            },
+            "required": [
+              "argument_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "input_id"
+            ]
+          }
+        }
+      ]
+    },
+    "toolchain_invocation": {
+      "type": "object",
+      "properties": {
+        "toolchain_invocation_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "invocation_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "invocation_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "tool_name": {
+          "$ref": "#/$defs/identity"
+        },
+        "material_tool_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "target_or_architecture": {
+          "$ref": "#/$defs/identity"
+        },
+        "abi": {
+          "$ref": "#/$defs/identity"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "argument_vector": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/argument"
+          },
+          "minItems": 0
+        },
+        "environment_config_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "input_ir_hashes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "input_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "input_generated_artifact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "output_generated_artifact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "backend_unit_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_selection_scope_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "toolchain_invocation_id",
+        "invocation_sequence_index",
+        "invocation_kind",
+        "tool_name",
+        "material_tool_identity",
+        "flags",
+        "argument_vector",
+        "input_ir_hashes",
+        "input_ids",
+        "output_generated_artifact_ids"
+      ],
+      "additionalProperties": false
+    },
+    "environment_entry": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identity"
+        },
+        "value_identity": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "name",
+        "value_identity"
+      ],
+      "additionalProperties": false
+    },
+    "toolchain_environment_config": {
+      "type": "object",
+      "properties": {
+        "environment_config_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "canonical_environment_entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/environment_entry"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "working_directory_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "config_input_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "reproducibility_input_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "locale_or_timezone_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "record_content": {
+          "$ref": "#/$defs/payload"
+        },
+        "record_location": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "environment_config_hash",
+        "canonical_environment_entries",
+        "config_input_ids",
+        "reproducibility_input_ids"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "record_content"
+          ]
+        },
+        {
+          "required": [
+            "record_location"
+          ]
+        }
+      ]
+    },
+    "legality_witness": {
+      "type": "object",
+      "properties": {
+        "legality_witness_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "witness_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "validation_evidence_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "legality_witness_id",
+        "witness_kind",
+        "validation_evidence_id"
+      ],
+      "additionalProperties": false
+    },
+    "optimization_record": {
+      "type": "object",
+      "properties": {
+        "optimization_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "backend_unit_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "reference_ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "optimized_ir_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "transformation_sequence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0
+        },
+        "legality_witnesses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/legality_witness"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "vectorization_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "fusion_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "memory_placement_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "target_context_measurements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "resource_model_assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "generated_artifact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "optimization_record_id",
+        "source_card_ids",
+        "reference_ir_hash",
+        "optimized_ir_hash",
+        "transformation_sequence",
+        "legality_witnesses",
+        "generated_artifact_ids"
+      ],
+      "additionalProperties": false
+    },
+    "rule_record": {
+      "type": "object",
+      "properties": {
+        "rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "rule_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "authority_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "authority_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "authority_version_or_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "rule_content_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "rule_content": {
+          "$ref": "#/$defs/payload"
+        },
+        "rule_location": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "rule_id",
+        "rule_kind",
+        "authority_kind",
+        "authority_id",
+        "authority_version_or_hash",
+        "rule_content_hash"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "rule_content"
+          ]
+        },
+        {
+          "required": [
+            "rule_location"
+          ]
+        }
+      ]
+    },
+    "validation_evidence": {
+      "type": "object",
+      "properties": {
+        "validation_evidence_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "subject_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "subject_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "evaluated_context_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "verifier_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "outcome": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNAVAILABLE"
+          ]
+        },
+        "validation_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "application_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "related_evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "evidence_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "evidence_content": {
+          "$ref": "#/$defs/payload"
+        },
+        "evidence_location": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "validation_evidence_id",
+        "rule_id",
+        "subject_kind",
+        "subject_id",
+        "evaluated_context_hash",
+        "verifier_identity",
+        "outcome",
+        "validation_sequence_index",
+        "evidence_hash"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "evidence_content"
+          ]
+        },
+        {
+          "required": [
+            "evidence_location"
+          ]
+        }
+      ]
+    },
+    "result_determinism_scope": {
+      "type": "object",
+      "properties": {
+        "result_determinism_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governed_scope_ref": {
+          "$ref": "#/$defs/governed_scope_ref"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "requested_result_determinism": {
+          "$ref": "#/$defs/identity"
+        },
+        "effective_result_determinism": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_authorized_by": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_evidence_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_unit_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "result_determinism_scope_id",
+        "governed_scope_ref",
+        "source_card_ids",
+        "requested_result_determinism",
+        "effective_result_determinism"
+      ],
+      "additionalProperties": false
+    },
+    "numeric_execution_scope": {
+      "type": "object",
+      "properties": {
+        "numeric_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governed_scope_ref": {
+          "$ref": "#/$defs/governed_scope_ref"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "numeric_contract_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "numeric_contract_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "material_numeric_mode": {
+          "$ref": "#/$defs/canonical_numericContract"
+        },
+        "backend_unit_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "numeric_scope_id",
+        "governed_scope_ref",
+        "source_card_ids",
+        "numeric_contract_id",
+        "numeric_contract_hash",
+        "material_numeric_mode"
+      ],
+      "additionalProperties": false
+    },
+    "randomness_execution_scope": {
+      "type": "object",
+      "properties": {
+        "randomness_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governed_scope_ref": {
+          "$ref": "#/$defs/governed_scope_ref"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "requested_randomness_mode": {
+          "$ref": "#/$defs/randomness_mode"
+        },
+        "effective_randomness_mode": {
+          "$ref": "#/$defs/randomness_mode"
+        },
+        "transition_authorized_by": {
+          "$ref": "#/$defs/identity"
+        },
+        "transition_evidence_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "rng_algorithm": {
+          "$ref": "#/$defs/identity"
+        },
+        "rng_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "seed": {
+          "$ref": "#/$defs/identity"
+        },
+        "stream_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "parallel_partitioning": {
+          "type": "object",
+          "properties": {
+            "contract_id": {
+              "$ref": "#/$defs/identity"
+            },
+            "version": {
+              "$ref": "#/$defs/identity"
+            },
+            "definition_hash": {
+              "$ref": "#/$defs/identity"
+            }
+          },
+          "required": [
+            "contract_id",
+            "version",
+            "definition_hash"
+          ],
+          "additionalProperties": false
+        },
+        "entropy_effect_attempt_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "entropy_input_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "backend_unit_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "randomness_scope_id",
+        "governed_scope_ref",
+        "source_card_ids",
+        "requested_randomness_mode",
+        "effective_randomness_mode"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "effective_randomness_mode": {
+                "const": "SEEDED"
+              }
+            },
+            "required": [
+              "effective_randomness_mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "rng_algorithm",
+              "rng_version",
+              "seed",
+              "stream_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "effective_randomness_mode": {
+                "const": "EXTERNAL-ENTROPY"
+              }
+            },
+            "required": [
+              "effective_randomness_mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "entropy_effect_attempt_ids"
+            ],
+            "properties": {
+              "entropy_effect_attempt_ids": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/identity"
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "deck_execution": {
+      "type": "object",
+      "properties": {
+        "deck_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "deck_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "deck_status": {
+          "$ref": "#/$defs/execution_status"
+        },
+        "card_execution_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "execution_order_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "governing_failure_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "failure_record_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "deck_execution_id",
+        "deck_id",
+        "deck_status",
+        "card_execution_ids"
+      ],
+      "additionalProperties": false
+    },
+    "card_execution": {
+      "type": "object",
+      "properties": {
+        "card_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "deck_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "card_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "card_status": {
+          "$ref": "#/$defs/execution_status"
+        },
+        "input_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "cache_reuse_record_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "execution_order_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "governing_control_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governing_failure_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governing_skip_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "skip_verification_evidence_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "failure_record_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "card_execution_id",
+        "deck_execution_id",
+        "card_id",
+        "card_status",
+        "input_ids"
+      ],
+      "additionalProperties": false
+    },
+    "operation_execution": {
+      "type": "object",
+      "properties": {
+        "operation_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "operation_ref": {
+          "$ref": "#/$defs/operation_ref"
+        },
+        "operation_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "operation_status": {
+          "$ref": "#/$defs/identity"
+        },
+        "input_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "cache_reuse_record_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "execution_order_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "governing_control_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governing_failure_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governing_skip_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "skip_verification_evidence_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "failure_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "source_card_execution_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "operation_execution_id",
+        "operation_ref",
+        "operation_kind",
+        "operation_status",
+        "input_ids"
+      ],
+      "additionalProperties": false
+    },
+    "control_decision": {
+      "type": "object",
+      "properties": {
+        "control_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "card_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "operation_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "control_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "decision": {
+          "$ref": "#/$defs/identity"
+        },
+        "sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "backend_detail": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "control_decision_id",
+        "control_kind",
+        "decision"
+      ],
+      "additionalProperties": false
+    },
+    "failure_record": {
+      "type": "object",
+      "properties": {
+        "failure_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "failing_scope_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "failing_scope_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "failure_behavior_binding_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "result_determinism_scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "numeric_scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "randomness_scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "effect_accounting_failure_record_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "failure_class": {
+          "$ref": "#/$defs/identity"
+        },
+        "failure_stage": {
+          "$ref": "#/$defs/identity"
+        },
+        "failure_card_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "failure_card_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "operation_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "deck_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "backend_detail": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "failure_record_id",
+        "failing_scope_kind",
+        "failing_scope_id",
+        "failure_behavior_binding_ids",
+        "result_determinism_scope_ids",
+        "numeric_scope_ids",
+        "randomness_scope_ids",
+        "failure_class",
+        "failure_stage"
+      ],
+      "additionalProperties": false
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "input_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "input_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "canonical_value": {
+          "$ref": "#/$defs/payload"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "artifact_id_or_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "location": {
+          "$ref": "#/$defs/identity"
+        },
+        "media_or_schema_type": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "consumer_execution_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/execution_subject_ref"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "consumer_card_execution_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "consumer_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/initiating_scope_ref"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "effect_attempt_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "input_id",
+        "input_kind",
+        "consumer_execution_refs",
+        "effect_attempt_ids"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "canonical_value"
+          ]
+        },
+        {
+          "required": [
+            "content_hash"
+          ]
+        },
+        {
+          "required": [
+            "artifact_id_or_version"
+          ]
+        }
+      ]
+    },
+    "effect_authorization_record": {
+      "type": "object",
+      "properties": {
+        "effect_authorization_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effect_attempt_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effect_requirement_ref": {
+          "$ref": "#/$defs/effect_requirement_ref"
+        },
+        "execution_subject_ref": {
+          "$ref": "#/$defs/execution_subject_ref"
+        },
+        "card_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "card_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "granted_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "denied_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "capability_policy_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "capability_policy_version": {
+          "$ref": "#/$defs/identity"
+        },
+        "authorization_status": {
+          "$ref": "#/$defs/authorization_status"
+        },
+        "authorization_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        }
+      },
+      "required": [
+        "effect_authorization_record_id",
+        "effect_attempt_id",
+        "effect_requirement_ref",
+        "execution_subject_ref",
+        "required_capabilities",
+        "granted_capabilities",
+        "denied_capabilities",
+        "capability_policy_id",
+        "capability_policy_version",
+        "authorization_status"
+      ],
+      "additionalProperties": false
+    },
+    "effect_attempt": {
+      "type": "object",
+      "properties": {
+        "effect_attempt_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effect_requirement_ref": {
+          "$ref": "#/$defs/effect_requirement_ref"
+        },
+        "execution_subject_ref": {
+          "$ref": "#/$defs/execution_subject_ref"
+        },
+        "card_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "card_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effect_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "effect_authorization_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "effect_begin_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "effect_end_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "completion_state": {
+          "enum": [
+            "NOT_STARTED",
+            "COMPLETED",
+            "ABORTED_CLEAN",
+            "PARTIAL",
+            "UNKNOWN"
+          ]
+        },
+        "termination_known": {
+          "type": "boolean"
+        },
+        "backend_detail": {
+          "$ref": "#/$defs/identity"
+        },
+        "acquired_input_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "observable_output_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "external_tool_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "effect_attempt_id",
+        "effect_requirement_ref",
+        "execution_subject_ref",
+        "effect_kind",
+        "required_capabilities",
+        "effect_authorization_record_id",
+        "sequence_index",
+        "completion_state",
+        "acquired_input_ids",
+        "observable_output_ids",
+        "external_tool_ids"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "completion_state": {
+                "const": "COMPLETED"
+              }
+            },
+            "required": [
+              "completion_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "effect_begin_sequence_index",
+              "effect_end_sequence_index"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "completion_state": {
+                "const": "ABORTED_CLEAN"
+              }
+            },
+            "required": [
+              "completion_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "effect_begin_sequence_index",
+              "effect_end_sequence_index"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "completion_state": {
+                "const": "PARTIAL"
+              }
+            },
+            "required": [
+              "completion_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "effect_begin_sequence_index",
+              "effect_end_sequence_index"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "completion_state": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "completion_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "effect_begin_sequence_index"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "completion_state": {
+                "const": "NOT_STARTED"
+              }
+            },
+            "required": [
+              "completion_state"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "effect_begin_sequence_index"
+                  ]
+                },
+                {
+                  "required": [
+                    "effect_end_sequence_index"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "acquired_input_ids": {
+                "maxItems": 0
+              },
+              "observable_output_ids": {
+                "maxItems": 0
+              },
+              "external_tool_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "effect_non_attempt_record": {
+      "type": "object",
+      "properties": {
+        "effect_non_attempt_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effect_requirement_ref": {
+          "$ref": "#/$defs/effect_requirement_ref"
+        },
+        "execution_subject_ref": {
+          "$ref": "#/$defs/execution_subject_ref"
+        },
+        "card_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "card_execution_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effect_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "non_attempt_reason": {
+          "$ref": "#/$defs/identity"
+        },
+        "governing_control_decision_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governing_failure_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "governing_skip_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "skip_verification_evidence_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "backend_detail": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "effect_non_attempt_record_id",
+        "effect_requirement_ref",
+        "execution_subject_ref",
+        "effect_kind",
+        "non_attempt_reason"
+      ],
+      "additionalProperties": false
+    },
+    "effect_accounting_failure_record": {
+      "type": "object",
+      "properties": {
+        "effect_accounting_failure_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "failure_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "effect_requirement_ref": {
+          "$ref": "#/$defs/effect_requirement_ref"
+        },
+        "execution_subject_ref": {
+          "$ref": "#/$defs/execution_subject_ref"
+        },
+        "accounting_failure_kind": {
+          "enum": [
+            "BACKEND_OMISSION_DETECTED",
+            "ACCOUNTING_INCOMPLETE"
+          ]
+        },
+        "detected_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        },
+        "backend_detail": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "effect_accounting_failure_record_id",
+        "failure_record_id",
+        "effect_requirement_ref",
+        "execution_subject_ref",
+        "accounting_failure_kind"
+      ],
+      "additionalProperties": false
+    },
+    "external_tool": {
+      "type": "object",
+      "properties": {
+        "external_tool_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "tool_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "tool_name_or_service": {
+          "$ref": "#/$defs/identity"
+        },
+        "material_identity_status": {
+          "enum": [
+            "IDENTIFIED",
+            "UNAVAILABLE"
+          ]
+        },
+        "material_identity_kind": {
+          "$ref": "#/$defs/identity"
+        },
+        "material_identity_value": {
+          "$ref": "#/$defs/identity"
+        },
+        "endpoint_or_location": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "effect_attempt_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "output_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "external_tool_id",
+        "tool_kind",
+        "tool_name_or_service",
+        "material_identity_status",
+        "effect_attempt_ids",
+        "output_ids"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "material_identity_status": {
+                "const": "IDENTIFIED"
+              }
+            },
+            "required": [
+              "material_identity_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "material_identity_kind",
+              "material_identity_value"
+            ]
+          }
+        }
+      ],
+      "anyOf": [
+        {
+          "properties": {
+            "effect_attempt_ids": {
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "properties": {
+            "output_ids": {
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "cache_reuse_record": {
+      "type": "object",
+      "properties": {
+        "cache_reuse_record_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "classification": {
+          "enum": [
+            "COLD_EXECUTION",
+            "VERIFIED_REUSE",
+            "UNVERIFIED_HIT"
+          ]
+        },
+        "execution_subject_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/execution_subject_ref"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "source_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "card_execution_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "reused_computation_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "cache_key_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "cached_artifact_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "cached_output_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "cache_producer_run_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "legality_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "verification_evidence_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "material_cache_identity_hash": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "cache_reuse_record_id",
+        "classification",
+        "execution_subject_refs",
+        "material_cache_identity_hash"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "classification": {
+                "const": "VERIFIED_REUSE"
+              }
+            },
+            "required": [
+              "classification"
+            ]
+          },
+          "then": {
+            "required": [
+              "legality_rule_id",
+              "verification_evidence_id"
+            ]
+          }
+        }
+      ]
+    },
+    "evidence_status": {
+      "type": "object",
+      "properties": {
+        "evidence_class": {
+          "enum": [
+            "TEST",
+            "VALIDATION",
+            "PROOF"
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/identity"
+        },
+        "evidence_rule_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "evidence_validation_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "evidence_class",
+        "status",
+        "evidence_rule_id",
+        "evidence_validation_id"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "output_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "result_binding_ref": {
+          "$ref": "#/$defs/result_binding_ref"
+        },
+        "artifact_hash": {
+          "$ref": "#/$defs/identity"
+        },
+        "artifact_location": {
+          "$ref": "#/$defs/identity"
+        },
+        "semantic_class": {
+          "$ref": "#/$defs/semantic_class"
+        },
+        "epistemic_class_binding_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "status": {
+          "$ref": "#/$defs/identity"
+        },
+        "producer_execution_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/execution_subject_ref"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "producer_card_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "producer_card_execution_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "input_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "effect_attempt_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "external_tool_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "backend_selection_scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "machinery_use_record_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "generated_artifact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "result_determinism_scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "numeric_scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "randomness_scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "failure_behavior_binding_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "cache_reuse_record_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "publication_sequence_index": {
+          "$ref": "#/$defs/event_index"
+        }
+      },
+      "required": [
+        "output_id",
+        "artifact_hash",
+        "semantic_class",
+        "epistemic_class_binding_ids",
+        "status",
+        "producer_execution_refs",
+        "input_ids",
+        "external_tool_ids",
+        "backend_selection_scope_ids",
+        "machinery_use_record_ids",
+        "result_determinism_scope_ids",
+        "numeric_scope_ids",
+        "randomness_scope_ids",
+        "failure_behavior_binding_ids"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "semantic_class": {
+                "const": "UNCLASSIFIED"
+              }
+            },
+            "required": [
+              "semantic_class"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "evidence_status"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "epistemic_class_binding_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "semantic_class": {
+                "const": "TEST"
+              }
+            },
+            "required": [
+              "semantic_class"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_status"
+            ],
+            "properties": {
+              "evidence_status": {
+                "properties": {
+                  "evidence_class": {
+                    "const": "TEST"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "semantic_class": {
+                "const": "VALIDATION"
+              }
+            },
+            "required": [
+              "semantic_class"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_status"
+            ],
+            "properties": {
+              "evidence_status": {
+                "properties": {
+                  "evidence_class": {
+                    "const": "VALIDATION"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "semantic_class": {
+                "const": "PROOF"
+              }
+            },
+            "required": [
+              "semantic_class"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_status"
+            ],
+            "properties": {
+              "evidence_status": {
+                "properties": {
+                  "evidence_class": {
+                    "const": "PROOF"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "canonical_extension": {
+      "type": "object",
+      "properties": {
+        "profile_name": {
+          "$ref": "#/$defs/canonical_id"
+        },
+        "required_version": {
+          "$ref": "#/$defs/canonical_version"
+        },
+        "contract_id": {
+          "$ref": "#/$defs/canonical_id"
+        },
+        "definition_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "profile_name",
+        "required_version",
+        "contract_id",
+        "definition_hash"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "input_representation": {
+            "const": "SEMANTIC_IR"
+          }
+        },
+        "required": [
+          "input_representation"
+        ]
+      },
+      "then": {
+        "required": [
+          "job_id",
+          "job_status",
+          "semantic_ir_hash",
+          "deck_executions",
+          "card_executions"
+        ]
+      }
+    }
+  ]
+}
