@@ -252,7 +252,13 @@ execution conformance. In particular, structural checks do not establish source/
 field equality, actual representation-root ownership, capability-set equality, scope
 resolution, or transition applicability. Binding references retain the documented
 empty owner-path spelling only for actual representation-root bindings; ordinary
-scope and sequencing-endpoint paths remain nonempty.
+scope and sequencing-endpoint paths remain nonempty. Likewise, lower-operation or
+propagated failure records may carry paired CARD culprit projections only when
+validated Semantic lineage establishes actual CARD causality; structure alone
+cannot prove that lineage. Known preflight/setup failure kinds forbid these
+projections, and the synthetic validator independently rejects fabricated lineage.
+The structural foundation permits one typed cause for non-reach; composed causes
+remain unsupported until a frozen composition rule is available.
 
 ## Validation and review
 

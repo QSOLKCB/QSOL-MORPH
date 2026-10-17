@@ -93,7 +93,11 @@ class TraceSchemaContractTests(unittest.TestCase):
                 if name not in ('first_scope_mapping', 'first_numeric_mapping', 'second_scope_mapping', 'second_numeric_mapping'):
                     continue
                 with self.subTest(boundary=boundary, family=family):
-                    self.check_triple(name, base, triple)
+                    candidate = dict(base)
+                    if name in ('first_numeric_mapping', 'second_numeric_mapping'):
+                        candidate.update(requested_numeric_contract_ref={'numeric_contract_id': 'requested', 'numeric_contract_hash': 'hash'},
+                                         effective_numeric_contract_ref={'numeric_contract_id': 'effective', 'numeric_contract_hash': 'hash'})
+                    self.check_triple(name, candidate, triple)
 
     def test_fallback_triple_co_present(self):
         decision = build()['backend_selection_decisions'][0]
@@ -184,7 +188,8 @@ class TraceSchemaContractTests(unittest.TestCase):
             for members in ((), (fields[0],), (fields[1],), fields):
                 with self.subTest(record=name, fields=members):
                     candidate = dict(base, **{field: 'identity' for field in members})
-                    self.assertEqual(self.valid(name, candidate), len(members) in (0, 2))
+                    expected = len(members) == 2 if name == 'randomness_execution_scope' else len(members) in (0, 2)
+                    self.assertEqual(self.valid(name, candidate), expected)
 
     def test_failure_transition_evidence_requires_authority(self):
         binding = build()['failure_behavior_bindings'][0]
@@ -303,6 +308,190 @@ class TraceSchemaContractTests(unittest.TestCase):
                 missing = dict(complete)
                 missing.pop(field)
                 self.assertFalse(self.valid('failure_record', missing))
+
+
+    def minimal_record(self, name):
+        """Build required fields only for isolated deferred record-shape tests."""
+        definitions = self.schema['$defs']
+        def value(shape):
+            if '$ref' in shape:
+                return value(definitions[shape['$ref'].rsplit('/', 1)[-1]])
+            if 'const' in shape: return shape['const']
+            if 'enum' in shape: return shape['enum'][0]
+            if shape.get('type') == 'object':
+                return {field: value(shape['properties'][field]) for field in shape.get('required', [])}
+            if shape.get('type') == 'array':
+                return [value(shape['items']) for _ in range(shape.get('minItems', 0))]
+            if shape.get('type') == 'integer': return shape.get('minimum', 0)
+            return 'identity'
+        return value(definitions[name])
+
+    def test_all_representation_subject_kind_pairs(self):
+        subject = build()['outputs'][0]['producer_execution_refs'][0]
+        pairs = {'SEMANTIC_IR': 'CARD', 'QSOL_CORE': 'CORE_OPERATION',
+                 'VECTOR_DATAFLOW_IR': 'VECTOR_DATAFLOW_OPERATION'}
+        for representation, expected in pairs.items():
+            for kind in pairs.values():
+                with self.subTest(representation=representation, subject=kind):
+                    self.assertEqual(self.valid('execution_subject_ref', dict(subject,
+                        representation_kind=representation, subject_kind=kind)), kind == expected)
+
+    def test_optimization_record_inventory_requires_hash_inversely(self):
+        artifact = self.minimal_record('generated_artifact')
+        self.assertTrue(self.valid('generated_artifact', artifact))
+        for inventory in ([], ['optimization']):
+            self.assertFalse(self.valid('generated_artifact', dict(artifact, optimization_record_ids=inventory)))
+        self.assertTrue(self.valid('generated_artifact', dict(artifact,
+            optimized_ir_hash='optimized', optimization_record_ids=['optimization'])))
+
+    def test_numeric_transition_requires_both_contract_references(self):
+        for name in ('first_numeric_mapping', 'second_numeric_mapping'):
+            base = self.minimal_record(name)
+            self.assertTrue(self.valid(name, base))
+            transition = dict(base, transition_decision_id='transition',
+                transition_authorized_by='authority', transition_evidence_id='evidence')
+            fields = ('requested_numeric_contract_ref', 'effective_numeric_contract_ref')
+            for members in ((), (fields[0],), (fields[1],), fields):
+                candidate = dict(transition, **{field: {'numeric_contract_id': field, 'numeric_contract_hash': 'hash'} for field in members})
+                with self.subTest(record=name, refs=members):
+                    self.assertEqual(self.valid(name, candidate), len(members) == 2)
+            self.assertFalse(self.valid(name, dict(base, requested_numeric_contract_ref={'numeric_contract_id': 'contract', 'numeric_contract_hash': 'hash'})))
+
+    def test_not_reached_requires_exactly_one_typed_cause(self):
+        base = self.minimal_record('operation_execution')
+        cause_sets = ({'governing_control_decision_id': 'control'},
+                      {'governing_failure_record_id': 'failure'},
+                      {'governing_skip_rule_id': 'rule', 'skip_verification_evidence_id': 'evidence'})
+        for status in ('NOT_REACHED', 'SUBJECT_NOT_REACHED', 'OPERATION_NOT_REACHED', 'UNTAKEN', 'SKIPPED', 'BLOCKED'):
+            not_reached = dict(base, operation_status=status)
+            for count in range(4):
+                for selected in itertools.combinations(cause_sets, count):
+                    candidate = dict(not_reached)
+                    for cause in selected: candidate.update(cause)
+                    with self.subTest(status=status, causes=count):
+                        self.assertEqual(self.valid('operation_execution', candidate), count == 1)
+                        if count == 1:
+                            self.assertFalse(self.valid('operation_execution', dict(candidate, failure_record_id='self-failure')))
+
+    def test_preexecution_failure_forbids_card_culprit_but_lower_lineage_is_contextual(self):
+        base = self.minimal_record('failure_record')
+        for kind in ('JOB', 'RUN', 'BACKEND_SELECTION_SCOPE', 'LOWERING'):
+            candidate = dict(base, failing_scope_kind=kind)
+            self.assertTrue(self.valid('failure_record', candidate))
+            self.assertFalse(self.valid('failure_record', dict(candidate,
+                failure_card_id='card', failure_card_execution_id='card-execution')))
+        for kind in ('CORE_OPERATION_EXECUTION', 'DECK_EXECUTION'):
+            candidate = dict(base, failing_scope_kind=kind)
+            if kind == 'CORE_OPERATION_EXECUTION': candidate['operation_execution_id'] = 'op-execution'
+            self.assertTrue(self.valid('failure_record', candidate))
+            for single in ('failure_card_id', 'failure_card_execution_id'):
+                self.assertFalse(self.valid('failure_record', dict(candidate, **{single: 'identity'})))
+            self.assertTrue(self.valid('failure_record', dict(candidate,
+                failure_card_id='card', failure_card_execution_id='card-execution')))
+
+    def test_lowering_evidence_requires_its_subject_rule(self):
+        for name, rule in (('qualifier_lowering_decision', 'lowering_rule_id'),
+                           ('type_unit_lowering_decision', 'lowering_rule_id'),
+                           ('sequencing_mapping', 'mapping_rule_id')):
+            base = self.minimal_record(name)
+            self.assertTrue(self.valid(name, base))
+            self.assertFalse(self.valid(name, dict(base, validation_evidence_id='evidence')))
+            self.assertTrue(self.valid(name, dict(base, **{rule: 'rule'})))
+            self.assertTrue(self.valid(name, dict(base, validation_evidence_id='evidence', **{rule: 'rule'})))
+
+    def test_lower_semantic_projections_are_paired_when_retained(self):
+        trace = attributed()
+        cases = [('effect_attempt', trace['effect_attempts'][0], ('card_id', 'card_execution_id'), 'execution_subject_ref'),
+                 ('effect_authorization_record', trace['effect_authorization_records'][0], ('card_id', 'card_execution_id'), 'execution_subject_ref'),
+                 ('output', trace['outputs'][0], ('producer_card_ids', 'producer_card_execution_ids'), 'producer_execution_refs'),
+                 ('machinery_use_record', trace['machinery_use_records'][0], ('source_card_ids', 'card_execution_ids'), 'execution_subject_refs'),
+                 ('cache_reuse_record', trace['cache_reuse_records'][0], ('source_card_ids', 'card_execution_ids'), 'execution_subject_refs')]
+        for name, original, fields, subject_field in cases:
+            base = copy.deepcopy(original)
+            subjects = base[subject_field] if isinstance(base[subject_field], list) else [base[subject_field]]
+            for subject in subjects: subject.update(representation_kind='QSOL_CORE', subject_kind='CORE_OPERATION')
+            self.assertTrue(self.valid(name, base))
+            for field in fields:
+                half = copy.deepcopy(base); half.pop(field)
+                with self.subTest(record=name, missing=field): self.assertFalse(self.valid(name, half))
+            for field in fields: base.pop(field)
+            self.assertTrue(self.valid(name, base))
+
+
+    def test_unstarted_execution_cannot_claim_own_failure(self):
+        for name, status in (('card_execution', 'card_status'), ('operation_execution', 'operation_status')):
+            base = self.minimal_record(name)
+            base[status] = 'NOT_STARTED'
+            self.assertTrue(self.valid(name, base))
+            self.assertFalse(self.valid(name, dict(base, failure_record_id='failure')))
+
+    def test_epistemic_binding_has_actual_class_and_semantic_card_subject(self):
+        binding = build()['epistemic_class_bindings'][0]
+        for semantic_class in self.schema['$defs']['semantic_class']['enum']:
+            with self.subTest(semantic_class=semantic_class):
+                self.assertEqual(self.valid('epistemic_class_binding', dict(binding,
+                    semantic_class=semantic_class)), semantic_class != 'UNCLASSIFIED')
+        for subject_kind in ('CORE_OPERATION', 'VECTOR_DATAFLOW_OPERATION'):
+            self.assertFalse(self.valid('epistemic_class_binding', dict(binding, subject_kind=subject_kind)))
+
+
+    def test_randomness_mode_transition_matrix(self):
+        base = self.minimal_record('randomness_execution_scope')
+        modes = self.schema['$defs']['randomness_mode']['enum']
+        for requested, effective in itertools.product(modes, repeat=2):
+            candidate = dict(base, requested_randomness_mode=requested, effective_randomness_mode=effective)
+            if effective == 'SEEDED':
+                candidate.update(rng_algorithm='rng', rng_version='1', seed='0', stream_id='stream')
+            if effective == 'EXTERNAL-ENTROPY':
+                candidate['entropy_effect_attempt_ids'] = ['entropy-attempt']
+            with self.subTest(requested=requested, effective=effective):
+                self.assertEqual(self.valid('randomness_execution_scope', candidate), requested == effective)
+                for single in ('transition_authorized_by', 'transition_evidence_id'):
+                    self.assertFalse(self.valid('randomness_execution_scope', dict(candidate, **{single: 'identity'})))
+                self.assertTrue(self.valid('randomness_execution_scope', dict(candidate,
+                    transition_authorized_by='authority', transition_evidence_id='evidence')))
+
+
+    def test_explicit_nonreach_discriminator_rejects_mixed_causes(self):
+        base = self.minimal_record('operation_execution')
+        cases = [('UNTAKEN_BRANCH', {'governing_control_decision_id': 'control'}),
+                 ('FAIL_STOP_BLOCKED', {'governing_failure_record_id': 'failure'}),
+                 ('EXPLICIT_SKIP', {'governing_skip_rule_id': 'rule', 'skip_verification_evidence_id': 'evidence'})]
+        for status, cause in cases:
+            candidate = dict(base, operation_status=status, **cause)
+            self.assertTrue(self.valid('operation_execution', candidate))
+            for other_status, other in cases:
+                if other_status != status:
+                    with self.subTest(status=status, extra=other_status):
+                        self.assertFalse(self.valid('operation_execution', dict(candidate, **other)))
+
+
+    def test_lower_output_and_use_projections_are_absent_or_nonempty(self):
+        trace = attributed()
+        for name, ledger, subject_field, fields in (
+            ('output', 'outputs', 'producer_execution_refs', ('producer_card_ids', 'producer_card_execution_ids')),
+            ('machinery_use_record', 'machinery_use_records', 'execution_subject_refs', ('source_card_ids', 'card_execution_ids'))):
+            base = copy.deepcopy(trace[ledger][0])
+            for subject in base[subject_field]:
+                subject.update(representation_kind='QSOL_CORE', subject_kind='CORE_OPERATION')
+            self.assertTrue(self.valid(name, base))
+            for selected in ((fields[0],), (fields[1],), fields):
+                candidate = dict(base, **{field: [] for field in selected})
+                with self.subTest(record=name, empty=selected):
+                    self.assertFalse(self.valid(name, candidate))
+            for field in fields: base.pop(field)
+            self.assertTrue(self.valid(name, base))
+        setup = copy.deepcopy(trace['machinery_use_records'][0])
+        setup.update(execution_subject_refs=[], initiating_scope_ref={'scope_kind': 'RUN', 'scope_id': 'run'}, output_ids=[])
+        setup.pop('source_card_ids'); setup.pop('card_execution_ids')
+        self.assertTrue(self.valid('machinery_use_record', setup))
+        self.assertFalse(self.valid('machinery_use_record', dict(setup, source_card_ids=[], card_execution_ids=[])))
+        # Inputs explicitly allow an empty direct-Core CARD consumer projection.
+        material_input = copy.deepcopy(trace['inputs'][0])
+        for subject in material_input['consumer_execution_refs']:
+            subject.update(representation_kind='QSOL_CORE', subject_kind='CORE_OPERATION')
+        material_input['consumer_card_execution_ids'] = []
+        self.assertTrue(self.valid('input', material_input))
 
 
 if __name__ == '__main__':

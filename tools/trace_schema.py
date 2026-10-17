@@ -68,7 +68,8 @@ def build_schema():
     record('scope_ref', 'owner_scope_path', {'owner_scope_path': ref('scope_path')})
     record('governed_scope_ref', 'representation_kind representation_identity owner_scope_path', qualified)
     record('execution_subject_ref', 'representation_kind representation_identity owner_scope_path subject_kind subject_id execution_id', dict(qualified, subject_kind=enum('CARD', 'CORE_OPERATION', 'VECTOR_DATAFLOW_OPERATION')))
-    conditions('execution_subject_ref', when('representation_kind', 'SEMANTIC_IR', properties={'subject_kind': {'const': 'CARD'}}))
+    for representation, subject in (('SEMANTIC_IR', 'CARD'), ('QSOL_CORE', 'CORE_OPERATION'), ('VECTOR_DATAFLOW_IR', 'VECTOR_DATAFLOW_OPERATION')):
+        conditions('execution_subject_ref', when('representation_kind', representation, properties={'subject_kind': {'const': subject}}))
     record('effect_requirement_ref', 'representation_kind representation_identity owner_scope_path declared_effect_id', qualified)
     record('machinery_requirement_ref', 'representation_kind representation_identity owner_scope_path machinery_requirement_id', qualified)
     record('local_machinery_requirement_ref', 'owner_scope_path machinery_requirement_id', {'owner_scope_path': ref('scope_path')})
@@ -102,6 +103,8 @@ def build_schema():
     record('card_identity', 'card_id owner_scope_path', {'owner_scope_path':ref('scope_path')})
     record('source_trace', 'source_hash spec_version run_id? job_id deck_identities[] card_identities[] source_location?', {'deck_identities':array(ref('deck_identity')), 'card_identities':array(ref('card_identity')), 'source_location':canonical_ref('sourceLocation')})
     record('epistemic_class_binding', 'epistemic_class_binding_id representation_kind representation_identity owner_scope_path subject_kind subject_id semantic_class source_epistemic_class_binding_ids[]? mapping_rule_id?', dict(qualified,semantic_class=ref('semantic_class')))
+    conditions('epistemic_class_binding', when('representation_kind', 'SEMANTIC_IR', properties={'subject_kind': {'const': 'CARD'}}))
+    defs['epistemic_class_binding']['properties']['semantic_class'] = {'allOf': [ref('semantic_class'), {'not': {'const': 'UNCLASSIFIED'}}]}
     record('effect_requirement', 'representation_kind representation_identity owner_scope_path declared_effect_id card_id? operation_id? effect_kind required_capabilities[]', qualified)
     conditions('effect_requirement', when('representation_kind', 'SEMANTIC_IR', ('card_id',), forbidden=('operation_id',)))
     record('machinery_requirement', 'representation_kind representation_identity owner_scope_path machinery_requirement_id source_card_ids[]? source_operation_ids[]? target_selector_or_class required_capabilities[]', qualified)
@@ -139,6 +142,10 @@ def build_schema():
     record('second_machinery_mapping',second_fields+'source_machinery_requirement_refs[] lower_machinery_requirement_refs[]',dict(second_types,source_machinery_requirement_refs=array(ref('local_machinery_requirement_ref'),1),lower_machinery_requirement_refs=array(ref('local_machinery_requirement_ref'),1)))
     for name in ('first_scope_mapping', 'first_numeric_mapping', 'second_scope_mapping', 'second_numeric_mapping'):
         co_present(name, ('transition_decision_id', 'transition_authorized_by', 'transition_evidence_id'))
+    for name in ('first_numeric_mapping', 'second_numeric_mapping'):
+        co_present(name, ('requested_numeric_contract_ref', 'effective_numeric_contract_ref'))
+        conditions(name, {'if': {'required': ['transition_decision_id']},
+                          'then': {'required': ['requested_numeric_contract_ref', 'effective_numeric_contract_ref']}})
     first_arrays = {'result_binding_map':'result_binding_map', 'sequencing_constraint_lowering_decisions':'sequencing_mapping','type_unit_lowering_decisions':'type_unit_lowering_decision','resolved_extensions':'resolved_extension','extension_requirement_lowering_decisions':'first_extension_mapping','qualifier_lowering_decisions':'qualifier_lowering_decision','machinery_requirement_lowering_decisions':'first_machinery_mapping','result_determinism_lowering_decisions':'first_scope_mapping','numeric_contract_lowering_decisions':'first_numeric_mapping','randomness_lowering_decisions':'first_scope_mapping','failure_behavior_lowering_decisions':'first_scope_mapping'}
     record('semantic_to_core','semantic_ir_hash semantic_to_core_spec_version semantic_to_core_implementation_version core_ir_hash '+' '.join(k+'[]' for k in first_arrays)+' lowering_diagnostics[]',{k:array(ref(v)) for k,v in first_arrays.items()})
     second_arrays = {'result_binding_map':'result_binding_map','sequencing_constraint_mapping_decisions':'sequencing_mapping','extension_requirement_mapping_decisions':'second_extension_mapping','machinery_requirement_mapping_decisions':'second_machinery_mapping','core_to_vector_result_determinism_mapping_decisions':'second_scope_mapping','core_to_vector_numeric_contract_mapping_decisions':'second_numeric_mapping','core_to_vector_randomness_mapping_decisions':'second_scope_mapping','failure_behavior_mapping_decisions':'second_scope_mapping'}
@@ -153,6 +160,8 @@ def build_schema():
     record('generated_artifact','generated_artifact_id artifact_kind artifact_hash backend_unit_id backend_selection_scope_id backend_selection_decision_id source_card_ids[]? optimized_ir_hash? optimization_record_ids[]? direct_producer_toolchain_invocation_id toolchain_invocation_chain_ids[] artifact_location?',{'toolchain_invocation_chain_ids':array(minimum=1)})
     conditions('generated_artifact', {'if': {'required': ['optimized_ir_hash']},
         'then': {'required': ['optimization_record_ids'], 'properties': {'optimization_record_ids': {'minItems': 1}}}})
+    co_present('generated_artifact', ('optimized_ir_hash', 'optimization_record_ids'))
+    defs['generated_artifact']['properties']['optimization_record_ids']['minItems'] = 1
     record('argument','argument_index argument_kind argument_text input_id? generated_artifact_id? ir_hash? output_generated_artifact_id?',{'argument_text':{'type':'string'},'argument_kind':enum('LITERAL','INPUT','GENERATED_ARTIFACT_INPUT','IR_INPUT','OUTPUT_GENERATED_ARTIFACT','SEPARATOR','RESPONSE_FILE')})
     argument_refs = ('input_id', 'generated_artifact_id', 'ir_hash', 'output_generated_artifact_id')
     for kind, key in [('INPUT','input_id'),('GENERATED_ARTIFACT_INPUT','generated_artifact_id'),('IR_INPUT','ir_hash'),('OUTPUT_GENERATED_ARTIFACT','output_generated_artifact_id'),('RESPONSE_FILE','input_id'),('LITERAL',None),('SEPARATOR',None)]:
@@ -176,6 +185,16 @@ def build_schema():
     conditions('randomness_execution_scope',when('effective_randomness_mode','SEEDED',('rng_algorithm','rng_version','seed','stream_id')),when('effective_randomness_mode','EXTERNAL-ENTROPY',('entropy_effect_attempt_ids',),properties={'entropy_effect_attempt_ids':array(minimum=1)}))
     for name in ('result_determinism_scope', 'randomness_execution_scope'):
         co_present(name, ('transition_authorized_by', 'transition_evidence_id'))
+    # The randomness discriminator is a finite closed set, so unequal modes
+    # have an expressible local transition obligation without comparing hashes.
+    for requested in defs['randomness_mode']['enum']:
+        for effective in defs['randomness_mode']['enum']:
+            if requested != effective:
+                conditions('randomness_execution_scope', {
+                    'if': {'properties': {'requested_randomness_mode': {'const': requested},
+                                          'effective_randomness_mode': {'const': effective}},
+                           'required': ['requested_randomness_mode', 'effective_randomness_mode']},
+                    'then': {'required': ['transition_authorized_by', 'transition_evidence_id']}})
     causes = 'governing_control_decision_id? governing_failure_record_id? governing_skip_rule_id? skip_verification_evidence_id? failure_record_id?'
     record('deck_execution','deck_execution_id deck_id deck_status card_execution_ids[] execution_order_index? governing_failure_record_id? failure_record_id?',{'deck_status':ref('execution_status')})
     record('card_execution','card_execution_id deck_execution_id card_id card_status input_ids[] cache_reuse_record_ids[]? execution_order_index? '+causes,{'card_status':ref('execution_status')})
@@ -222,6 +241,36 @@ def build_schema():
     conditions('deck_execution', when('deck_status', 'FAIL_STOP_BLOCKED', ('governing_failure_record_id',)))
     conditions('failure_record', when('failing_scope_kind', 'CARD_EXECUTION', ('failure_card_id', 'failure_card_execution_id')),
                when('failing_scope_kind', 'CORE_OPERATION_EXECUTION', ('operation_execution_id',)))
+    # No frozen composition rule is admitted for multiple non-reach causes.
+    exactly_one_cause = {'oneOf': [
+        {'required': ['governing_control_decision_id']},
+        {'required': ['governing_failure_record_id']},
+        {'required': ['governing_skip_rule_id', 'skip_verification_evidence_id']}]}
+    for name, status in (('card_execution', 'card_status'), ('operation_execution', 'operation_status'), ('effect_non_attempt_record', 'non_attempt_reason')):
+        defs[name]['description'] = ('This bounded structural profile admits one typed non-reach cause only. Multiple-cause composition requires a future frozen composition contract and is not represented here; contextual resolution must still verify the cause.')
+        for value in ('NOT_REACHED', 'SUBJECT_NOT_REACHED', 'CARD_NOT_REACHED', 'OPERATION_NOT_REACHED', 'UNTAKEN_BRANCH', 'FAIL_STOP_BLOCKED', 'EXPLICIT_SKIP', 'PRIOR_FAIL_STOP'):
+            conditions(name, {'if': {'properties': {status: {'const': value}}, 'required': [status]}, 'then': exactly_one_cause})
+        if name != 'effect_non_attempt_record':
+            for value in ('UNTAKEN', 'SKIPPED', 'BLOCKED'):
+                conditions(name, {'if': {'properties': {status: {'const': value}}, 'required': [status]}, 'then': exactly_one_cause})
+            for value in ('NOT_REACHED', 'SUBJECT_NOT_REACHED', 'CARD_NOT_REACHED', 'OPERATION_NOT_REACHED', 'UNTAKEN_BRANCH', 'UNTAKEN', 'FAIL_STOP_BLOCKED', 'BLOCKED', 'EXPLICIT_SKIP', 'SKIPPED', 'NOT_STARTED'):
+                conditions(name, when(status, value, forbidden=('failure_record_id',)))
+    co_present('failure_record', ('failure_card_id', 'failure_card_execution_id'))
+    for kind in ('JOB', 'RUN', 'BACKEND_SELECTION_SCOPE', 'LOWERING'):
+        conditions('failure_record', when('failing_scope_kind', kind, forbidden=('failure_card_id', 'failure_card_execution_id')))
+    defs['failure_record']['description'] = ('CARD culprit projections are paired and forbidden for known pre-execution JOB/RUN/selection/lowering failures. Lower-operation and DECK scopes may retain a paired CARD culprit only when contextual lineage and causation are independently verified; shape validity does not establish that relation.')
+    for name in ('effect_authorization_record', 'effect_attempt', 'effect_non_attempt_record'):
+        co_present(name, ('card_id', 'card_execution_id'))
+    for name, fields in (('output', ('producer_card_ids', 'producer_card_execution_ids')),
+                         ('machinery_use_record', ('source_card_ids', 'card_execution_ids')),
+                         ('cache_reuse_record', ('source_card_ids', 'card_execution_ids'))):
+        co_present(name, fields)
+        # Output and machinery-use projections explicitly forbid empty lineage placeholders.
+        if name in ('output', 'machinery_use_record'):
+            for field in fields:
+                defs[name]['properties'][field]['minItems'] = 1
+    for name, rule in (('qualifier_lowering_decision', 'lowering_rule_id'), ('type_unit_lowering_decision', 'lowering_rule_id'), ('sequencing_mapping', 'mapping_rule_id')):
+        defs[name].setdefault('dependentRequired', {})['validation_evidence_id'] = [rule]
     semantic_card_subject = {'properties': {'representation_kind': {'const': 'SEMANTIC_IR'}, 'subject_kind': {'const': 'CARD'}},
                              'required': ['representation_kind', 'subject_kind']}
     for name in ('effect_authorization_record', 'effect_attempt', 'effect_non_attempt_record'):
