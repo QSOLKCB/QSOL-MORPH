@@ -263,6 +263,22 @@ class SerializationTests(unittest.TestCase):
                 ser.read_model(b'{"source":1e999999999}')
         self.assertEqual(ser._parse(b'0e999999999'), 0)
 
+    def test_valid_huge_source_integer_reports_resource_limit(self):
+        limit = sys.get_int_max_str_digits()
+        if not limit:
+            self.skipTest('host integer conversion is unbounded')
+        p = minimal()
+        p['jobs'][0]['source_location'] = {'source_id': 'src',
+            'start': {'line': 1, 'column': 1}, 'end': {'line': 10 ** limit, 'column': 1}}
+        validate(p)  # This is valid model data, not a semantic rejection.
+        with self.assertRaises(ser.ResourceLimit):
+            ser.read_model(('1' + '0' * limit).encode())
+        for fmt in ser.FORMATS:
+            with self.assertRaisesRegex(ser.ResourceLimit, 'resource limit'):
+                ser.dumps(p, fmt)
+        with self.assertRaises(ser.ResourceLimit):
+            ser.fingerprint(p)
+
     def test_wrong_input_types_and_format(self):
         for value in ('{}', {}, None):
             with self.assertRaises(Invalid): ser.loads(value)

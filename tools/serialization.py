@@ -33,6 +33,17 @@ def _profile():
             'serialization profile differs from frozen history; migration required')
 
 
+class ResourceLimit(Invalid):
+    """The host cannot process this valid-size-unbounded model, not nonconformance."""
+
+
+def _integer_bound(node):
+    limit = sys.get_int_max_str_digits()
+    if limit and abs(node) >= 10 ** limit:
+        raise ResourceLimit('integer digit resource limit exceeded')
+    return node
+
+
 def _integral(node):
     """JSON numbers here are mathematical integers, not binary float tokens."""
     if isinstance(node, dict):
@@ -46,21 +57,30 @@ def _integral(node):
             # Match the host's existing integer-string resource bound before an
             # exponent token can allocate an enormous integer (e.g. 1e999999999).
             limit = sys.get_int_max_str_digits()
-            require(not limit or not node or node.adjusted() < limit,
-                    'integer digit resource limit exceeded')
+            if limit and node and node.adjusted() >= limit:
+                raise ResourceLimit('integer digit resource limit exceeded')
         require(node == int(node), 'non-integral JSON number')
-        return int(node)
+        return _integer_bound(int(node))
+    if type(node) is int:
+        return _integer_bound(node)
     return node
 
 
 def _parse(data):
     def reject(value):
         raise Invalid('non-JSON number: ' + value)
+    def integer(token):
+        limit = sys.get_int_max_str_digits()
+        if limit and len(token.lstrip('-')) > limit:
+            raise ResourceLimit('integer digit resource limit exceeded')
+        return int(token)
     try:
         # Decode explicitly: json.loads(bytes) would also accept UTF-16/32.
         text = data.decode('utf-8') if isinstance(data, bytes) else data
         return _integral(json.loads(text, object_pairs_hook=unique_object,
-                                    parse_float=Decimal, parse_constant=reject))
+                                    parse_int=integer, parse_float=Decimal, parse_constant=reject))
+    except ResourceLimit:
+        raise
     except (UnicodeError, json.JSONDecodeError, ValueError, OverflowError,
             RecursionError) as exc:
         raise Invalid('invalid JSON: ' + str(exc)) from exc
@@ -285,6 +305,8 @@ def loads(data, format='json'):
         validate(program)
         require(dumps(program, format) == data, 'noncanonical ' + format + ' bytes')
         return program
+    except ResourceLimit:
+        raise
     except (ValueError, TypeError, OverflowError, RecursionError) as exc:
         raise Invalid(str(exc)) from exc
 

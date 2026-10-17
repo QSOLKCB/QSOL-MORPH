@@ -186,7 +186,10 @@ not modified. Normal host resource failures are not proof of model invalidity;
 this reference implementation makes no unbounded-memory or unbounded-input claim.
 The host Python integer-string digit bound also applies before expanding decimal
 exponent tokens; a resource-limit rejection is not a change to logical integer
-semantics. Typed numeric strings are unaffected.
+semantics. The same bound applies to Python integer source positions before
+serialization; the API reports `ResourceLimit` (a distinct `Invalid` subclass)
+rather than claiming those models violate the schema. Typed numeric strings are
+unaffected. The library never changes global interpreter limits.
 
 Golden fixtures cover every existing positive model, multiple JOBs, exceptional
 text/codepoints, large integers, control characters, and exact field preservation.
