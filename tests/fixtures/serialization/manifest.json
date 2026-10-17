@@ -1,0 +1,51 @@
+[
+  {
+    "name": "cross-deck-bindings",
+    "fingerprint": "sha256:39a6871f1f0b7ed7f836d691001846e52ae14281e8e362f8a0c5b6797cda942a",
+    "files": {
+      "json": "39a6871f1f0b7ed7f836d691001846e52ae14281e8e362f8a0c5b6797cda942a",
+      "jsonl": "0e7388e5eefcbe29aad65105e018bc07cd38eaf93ad32c7f4d82149f76d885f1",
+      "xml": "a1713f9b3eb8b09e27596a6cc29dc6a17fcefafec3117eaed2afa93e206ab001"
+    },
+    "model_fixture": "tests/fixtures/model/positive/cross-deck-bindings.json"
+  },
+  {
+    "name": "minimal",
+    "fingerprint": "sha256:f9b5502a21d3454036a5c6ced9a875712fcc555f5af4118d2d64f53e773d7ae7",
+    "files": {
+      "json": "f9b5502a21d3454036a5c6ced9a875712fcc555f5af4118d2d64f53e773d7ae7",
+      "jsonl": "4634fd065786c437089545aeb69cd234131b22530ce38c7fff5afc6937fd1534",
+      "xml": "e1ddbeaf9f15344b2629b9f975177853fac0f772d0bfc4654b57d320df46bf3d"
+    },
+    "model_fixture": "tests/fixtures/model/positive/minimal.json"
+  },
+  {
+    "name": "repeated-local-ids",
+    "fingerprint": "sha256:c619ed76cb7bc08b72e431df38c906150941a2b5ead50e62c9c7db3bf3ffaa3e",
+    "files": {
+      "json": "c619ed76cb7bc08b72e431df38c906150941a2b5ead50e62c9c7db3bf3ffaa3e",
+      "jsonl": "efdadd8604b5754fd0e722ad120af674fc0692b89e75bf796886c919fe9633ba",
+      "xml": "acf07273cac9c0fadde09bb1b225b4804d00a2a8c0fd9702922f06d9d9a0bd8f"
+    },
+    "model_fixture": "tests/fixtures/model/positive/repeated-local-ids.json"
+  },
+  {
+    "name": "scoped-contracts",
+    "fingerprint": "sha256:0fe95c75cde2fc8438b93f48d62c8f4be6d9df7da31d75ec3de71e4b38dac067",
+    "files": {
+      "json": "0fe95c75cde2fc8438b93f48d62c8f4be6d9df7da31d75ec3de71e4b38dac067",
+      "jsonl": "36adee581aefcd8694ecd52549e8d2768847695f9b22f4d09aeecbcf10ffde09",
+      "xml": "79c198684685175517c8a0311c2f77c9888e2ba7567e2d53ecf8e2fa6da78623"
+    },
+    "model_fixture": "tests/fixtures/model/positive/scoped-contracts.json"
+  },
+  {
+    "name": "exceptional-multiple-jobs",
+    "fingerprint": "sha256:b00f9d2f648b4b90b5e846b32c3ed0562551afff6338cd1b6a95d117008aeaf6",
+    "files": {
+      "json": "b00f9d2f648b4b90b5e846b32c3ed0562551afff6338cd1b6a95d117008aeaf6",
+      "jsonl": "2445d86a9b652305e02cc1d7068d8c4503b6b9bd33a451a29f229e32ff5c6e55",
+      "xml": "b399a6ae9f9c48149c0dc7fdd29d973bf157d9f0ae32269a286a855cf949378e"
+    }
+  }
+]

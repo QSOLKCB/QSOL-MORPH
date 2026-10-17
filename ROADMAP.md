@@ -62,7 +62,7 @@ No compiler or backend implementation is required for this PR. See [Core Invaria
 
 ## PR #3 — Canonical Data Model
 
-**Status:** implemented as bounded [model 1.0.0](docs/CANONICAL-DATA-MODEL.md): closed schema, owner-qualified references, conservative scoped composition and sequencing, reference validator, and fixtures. Serialization and later phases remain unimplemented. Exact contract redeclarations, scalar types, exact extension versions, and fail-stop are the initial supported profile; unsupported refinements/ranges/recovery fail closed.
+**Status:** implemented as bounded [model 1.0.0](docs/CANONICAL-DATA-MODEL.md): closed schema, owner-qualified references, conservative scoped composition and sequencing, reference validator, and fixtures. PR #4 provides canonical serialization; later operational phases remain unimplemented. Exact contract redeclarations, scalar types, exact extension versions, and fail-stop are the initial supported profile; unsupported refinements/ranges/recovery fail closed.
 
 Define and implement the first machine-readable representation of:
 
@@ -97,6 +97,8 @@ The normative data model must freeze how JOB/DECK/CARD execution contracts compo
 Only CARDs proven **pure and total** under the active contract may be freely reordered when dependencies permit. A CARD that may fail is semantically observable under fail-stop execution and must preserve ordering against externally observable effects unless an explicit frozen construct permits otherwise.
 
 ## PR #4 — Canonical Machine-Readable Serialization
+
+**Status:** implemented as bounded [serialization 1.0.0](docs/CANONICAL-SERIALIZATION.md): canonical JSON, framed JOB-record JSONL, typed XML interchange, content fingerprints, complete-model round trips, and rejection fixtures. No human grammar or runtime/lowering semantics.
 
 Implement deterministic serialization for the complete canonical data model **without inventing the human QSOL grammar**.
 
