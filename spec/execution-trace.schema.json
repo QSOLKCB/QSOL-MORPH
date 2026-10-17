@@ -580,7 +580,7 @@
       "items": {
         "$ref": "#/$defs/scope_segment"
       },
-      "minItems": 0
+      "minItems": 1
     },
     "scope_ref": {
       "type": "object",
@@ -3034,7 +3034,26 @@
           "then": {
             "required": [
               "input_id"
-            ]
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "generated_artifact_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "ir_hash"
+                  ]
+                },
+                {
+                  "required": [
+                    "output_generated_artifact_id"
+                  ]
+                }
+              ]
+            }
           }
         },
         {
@@ -3051,7 +3070,26 @@
           "then": {
             "required": [
               "generated_artifact_id"
-            ]
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "input_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "ir_hash"
+                  ]
+                },
+                {
+                  "required": [
+                    "output_generated_artifact_id"
+                  ]
+                }
+              ]
+            }
           }
         },
         {
@@ -3068,7 +3106,26 @@
           "then": {
             "required": [
               "ir_hash"
-            ]
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "input_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "generated_artifact_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "output_generated_artifact_id"
+                  ]
+                }
+              ]
+            }
           }
         },
         {
@@ -3085,7 +3142,26 @@
           "then": {
             "required": [
               "output_generated_artifact_id"
-            ]
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "input_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "generated_artifact_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "ir_hash"
+                  ]
+                }
+              ]
+            }
           }
         },
         {
@@ -3102,7 +3178,102 @@
           "then": {
             "required": [
               "input_id"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "generated_artifact_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "ir_hash"
+                  ]
+                },
+                {
+                  "required": [
+                    "output_generated_artifact_id"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "argument_kind": {
+                "const": "LITERAL"
+              }
+            },
+            "required": [
+              "argument_kind"
             ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "input_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "generated_artifact_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "ir_hash"
+                  ]
+                },
+                {
+                  "required": [
+                    "output_generated_artifact_id"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "argument_kind": {
+                "const": "SEPARATOR"
+              }
+            },
+            "required": [
+              "argument_kind"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "input_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "generated_artifact_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "ir_hash"
+                  ]
+                },
+                {
+                  "required": [
+                    "output_generated_artifact_id"
+                  ]
+                }
+              ]
+            }
           }
         }
       ]
@@ -4314,7 +4485,16 @@
             "required": [
               "effect_begin_sequence_index",
               "effect_end_sequence_index"
-            ]
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "termination_known"
+                  ]
+                }
+              ]
+            }
           }
         },
         {
@@ -4332,7 +4512,16 @@
             "required": [
               "effect_begin_sequence_index",
               "effect_end_sequence_index"
-            ]
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "termination_known"
+                  ]
+                }
+              ]
+            }
           }
         },
         {
@@ -4350,7 +4539,16 @@
             "required": [
               "effect_begin_sequence_index",
               "effect_end_sequence_index"
-            ]
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "termination_known"
+                  ]
+                }
+              ]
+            }
           }
         },
         {
@@ -4366,7 +4564,8 @@
           },
           "then": {
             "required": [
-              "effect_begin_sequence_index"
+              "effect_begin_sequence_index",
+              "termination_known"
             ]
           }
         },
@@ -4393,6 +4592,11 @@
                   "required": [
                     "effect_end_sequence_index"
                   ]
+                },
+                {
+                  "required": [
+                    "termination_known"
+                  ]
                 }
               ]
             },
@@ -4406,6 +4610,46 @@
               "external_tool_ids": {
                 "maxItems": 0
               }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "termination_known": {
+                "const": true
+              }
+            },
+            "required": [
+              "termination_known"
+            ]
+          },
+          "then": {
+            "required": [
+              "effect_end_sequence_index"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "termination_known": {
+                "const": false
+              }
+            },
+            "required": [
+              "termination_known"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "effect_end_sequence_index"
+                  ]
+                }
+              ]
             }
           }
         }

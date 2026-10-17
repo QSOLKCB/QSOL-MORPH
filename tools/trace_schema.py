@@ -57,7 +57,7 @@ def build_schema():
     defs['authorization_status'] = enum('GRANTED', 'DENIED', 'INCOMPLETE')
     defs['execution_status'] = enum('SUCCESS', 'FAILED', 'NOT_STARTED', 'UNTAKEN', 'UNTAKEN_BRANCH', 'BLOCKED', 'FAIL_STOP_BLOCKED', 'NOT_REACHED', 'EXPLICIT_SKIP', 'SKIPPED')
     record('scope_segment', 'scope_kind scope_id')
-    defs['scope_path'] = array(ref('scope_segment'), unique=False)
+    defs['scope_path'] = array(ref('scope_segment'), 1, unique=False)
     qualified = {'representation_kind': ref('representation_kind'), 'representation_identity': ref('identity'), 'owner_scope_path': ref('scope_path')}
     record('scope_ref', 'owner_scope_path', {'owner_scope_path': ref('scope_path')})
     record('governed_scope_ref', 'representation_kind representation_identity owner_scope_path', qualified)
@@ -140,7 +140,10 @@ def build_schema():
     conditions('machinery_use_record',{'if':{'properties':{'execution_subject_refs':{'maxItems':0}}},'then':{'required':['initiating_scope_ref']}})
     record('generated_artifact','generated_artifact_id artifact_kind artifact_hash backend_unit_id backend_selection_scope_id backend_selection_decision_id source_card_ids[]? optimized_ir_hash? optimization_record_ids[]? direct_producer_toolchain_invocation_id toolchain_invocation_chain_ids[] artifact_location?',{'toolchain_invocation_chain_ids':array(minimum=1)})
     record('argument','argument_index argument_kind argument_text input_id? generated_artifact_id? ir_hash? output_generated_artifact_id?',{'argument_text':{'type':'string'},'argument_kind':enum('LITERAL','INPUT','GENERATED_ARTIFACT_INPUT','IR_INPUT','OUTPUT_GENERATED_ARTIFACT','SEPARATOR','RESPONSE_FILE')})
-    for kind,key in [('INPUT','input_id'),('GENERATED_ARTIFACT_INPUT','generated_artifact_id'),('IR_INPUT','ir_hash'),('OUTPUT_GENERATED_ARTIFACT','output_generated_artifact_id'),('RESPONSE_FILE','input_id')]: conditions('argument',when('argument_kind',kind,(key,)))
+    argument_refs = ('input_id', 'generated_artifact_id', 'ir_hash', 'output_generated_artifact_id')
+    for kind, key in [('INPUT','input_id'),('GENERATED_ARTIFACT_INPUT','generated_artifact_id'),('IR_INPUT','ir_hash'),('OUTPUT_GENERATED_ARTIFACT','output_generated_artifact_id'),('RESPONSE_FILE','input_id'),('LITERAL',None),('SEPARATOR',None)]:
+        conditions('argument', when('argument_kind', kind, (key,) if key else (),
+                                   tuple(field for field in argument_refs if field != key)))
     record('toolchain_invocation','toolchain_invocation_id invocation_sequence_index invocation_kind tool_name material_tool_identity target_or_architecture? abi? flags[] argument_vector[] environment_config_hash? input_ir_hashes[] input_ids[] input_generated_artifact_ids[]? output_generated_artifact_ids[] backend_unit_id? backend_selection_scope_id?',{'argument_vector':array(ref('argument'),unique=False)})
     record('environment_entry','name value_identity')
     record('toolchain_environment_config','environment_config_hash canonical_environment_entries[] working_directory_identity? config_input_ids[] reproducibility_input_ids[] locale_or_timezone_identity? record_content? record_location?',{'canonical_environment_entries':array(ref('environment_entry')),'record_content':ref('payload')})
@@ -165,8 +168,10 @@ def build_schema():
     effect_refs = {'effect_requirement_ref':ref('effect_requirement_ref'),'execution_subject_ref':ref('execution_subject_ref')}
     record('effect_authorization_record','effect_authorization_record_id effect_attempt_id effect_requirement_ref execution_subject_ref card_id? card_execution_id? '+authorization,dict(effect_refs,authorization_status=ref('authorization_status')))
     record('effect_attempt','effect_attempt_id effect_requirement_ref execution_subject_ref card_id? card_execution_id? effect_kind required_capabilities[] effect_authorization_record_id sequence_index effect_begin_sequence_index? effect_end_sequence_index? completion_state termination_known? backend_detail? acquired_input_ids[] observable_output_ids[] external_tool_ids[]',dict(effect_refs,completion_state=enum('NOT_STARTED','COMPLETED','ABORTED_CLEAN','PARTIAL','UNKNOWN'),termination_known={'type':'boolean'}))
-    for state in ['COMPLETED','ABORTED_CLEAN','PARTIAL']: conditions('effect_attempt',when('completion_state',state,('effect_begin_sequence_index','effect_end_sequence_index')))
-    conditions('effect_attempt',when('completion_state','UNKNOWN',('effect_begin_sequence_index',)),when('completion_state','NOT_STARTED',forbidden=('effect_begin_sequence_index','effect_end_sequence_index'),properties={key:{'maxItems':0} for key in ['acquired_input_ids','observable_output_ids','external_tool_ids']}))
+    for state in ['COMPLETED','ABORTED_CLEAN','PARTIAL']: conditions('effect_attempt',when('completion_state',state,('effect_begin_sequence_index','effect_end_sequence_index'),forbidden=('termination_known',)))
+    conditions('effect_attempt',when('completion_state','UNKNOWN',('effect_begin_sequence_index','termination_known')),when('completion_state','NOT_STARTED',forbidden=('effect_begin_sequence_index','effect_end_sequence_index','termination_known'),properties={key:{'maxItems':0} for key in ['acquired_input_ids','observable_output_ids','external_tool_ids']}))
+    conditions('effect_attempt', when('termination_known', True, ('effect_end_sequence_index',)),
+               when('termination_known', False, forbidden=('effect_end_sequence_index',)))
     record('effect_non_attempt_record','effect_non_attempt_record_id effect_requirement_ref execution_subject_ref card_id? card_execution_id? effect_kind non_attempt_reason governing_control_decision_id? governing_failure_record_id? governing_skip_rule_id? skip_verification_evidence_id? backend_detail?',effect_refs)
     record('effect_accounting_failure_record','effect_accounting_failure_record_id failure_record_id effect_requirement_ref execution_subject_ref accounting_failure_kind detected_sequence_index? backend_detail?',dict(effect_refs,accounting_failure_kind=enum('BACKEND_OMISSION_DETECTED','ACCOUNTING_INCOMPLETE')))
     record('external_tool','external_tool_id tool_kind tool_name_or_service material_identity_status material_identity_kind? material_identity_value? endpoint_or_location? source_card_ids[]? effect_attempt_ids[] output_ids[]',{'material_identity_status':enum('IDENTIFIED','UNAVAILABLE')})
@@ -218,7 +223,7 @@ def check_structural_smoke(schema):
         (definitions['output']['properties']['input_ids'], ['input-1', 'input-1'], False),
         (definitions['sequencing_endpoint'], {'endpoint_kind': 'DECLARED_EFFECT',
          'owner_scope_path': repeated_scope, 'endpoint_id': 'effect-1'}, True),
-        (definitions['sequencing_endpoint'], {'owner_scope_path': [], 'endpoint_id': 'effect-1'}, False),
+        (definitions['sequencing_endpoint'], {'endpoint_kind': 'DECLARED_EFFECT', 'owner_scope_path': [], 'endpoint_id': 'effect-1'}, False),
     ]
     for index, (fragment, value, expected) in enumerate(checks):
         if valid(fragment, value) != expected:
