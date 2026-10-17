@@ -114,6 +114,8 @@ The human-readable `.qsl` source profile is explicitly **deferred** until a sepa
 
 ## PR #5 — Execution Contract, Trace, Failure, and Provenance Foundation
 
+**Status:** bounded [synthetic receipt foundation](docs/EXECUTION-TRACE-FOUNDATION.md) implemented: closed candidate trace schema and source-bound Semantic ledger consistency checks. Only `SYNTHETIC_CONFORMANCE_RECEIPT` is accepted; `EXECUTION_TRACE`, direct Core entry, lowerings, and evidence-dependent operational behavior fail closed. This does **not** complete the full PR #5 gate below or authorize PR #7 execution.
+
 Implement the minimum execution-contract schema required before any QSOL phase is permitted to execute research programs.
 
 This phase is an explicit gate for PR #7 and every later executable implementation. Ledger definitions and conditional validation requirements follow [Trace and Provenance](docs/TRACE-AND-PROVENANCE.md); summaries below are not alternative weaker schemas.

@@ -2,7 +2,7 @@
 
 This directory contains the architectural documentation for QSOL-MORPH.
 
-The historical documentation foundation remains **non-normative**. PR #2 freezes the [Core Invariants](CORE-INVARIANTS.md) contract and its controlled domain copies. PR #3 adds the bounded [Canonical Data Model](CANONICAL-DATA-MODEL.md). PR #4 adds [Canonical Serialization](CANONICAL-SERIALIZATION.md). Other schemas, grammar, and operational contracts remain candidates.
+The historical documentation foundation remains **non-normative**. PR #2 freezes the [Core Invariants](CORE-INVARIANTS.md) contract and its controlled domain copies. PR #3 adds the bounded [Canonical Data Model](CANONICAL-DATA-MODEL.md). PR #4 adds [Canonical Serialization](CANONICAL-SERIALIZATION.md). The bounded [Execution Trace Foundation](EXECUTION-TRACE-FOUNDATION.md) adds a closed candidate trace schema and synthetic consistency checks, without completing the executable PR #5 gate. Grammar and operational contracts remain candidates.
 
 ## Start here
 
@@ -22,6 +22,7 @@ The historical documentation foundation remains **non-normative**. PR #2 freezes
 - [Determinism and Reproducibility](DETERMINISM-AND-REPRODUCIBILITY.md)
 - [Failure and Partial Effects](FAILURE-AND-PARTIAL-EFFECTS.md)
 - [Trace and Provenance](TRACE-AND-PROVENANCE.md)
+- [Execution Trace Foundation](EXECUTION-TRACE-FOUNDATION.md): implemented synthetic boundary and deferred coverage
 - [Canonical Serialization](CANONICAL-SERIALIZATION.md) and [Serialization architecture](SERIALIZATION.md)
 - [Optimization and CI](OPTIMIZATION-AND-CI.md)
 

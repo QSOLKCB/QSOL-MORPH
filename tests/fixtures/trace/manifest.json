@@ -1,0 +1,96 @@
+{
+  "receipt_kind": "SYNTHETIC_CONFORMANCE_RECEIPT",
+  "scope": "Synthetic consistency assertions only; no runtime execution, authorization, or research evidence.",
+  "positive": [
+    "minimal",
+    "retained-partial-effect",
+    "multiple-result-bindings",
+    "attributed-input-cache-tool",
+    "reused-local-identities",
+    "scoped-contracts",
+    "fail-stop",
+    "protected-completed",
+    "protected-unknown",
+    "protected-not-started",
+    "accounting-failure"
+  ],
+  "negative": [
+    {
+      "name": "source-identity",
+      "base": "minimal",
+      "expected": "REJECT",
+      "reason": "source identity"
+    },
+    {
+      "name": "runtime-claim",
+      "base": "minimal",
+      "expected": "REJECT",
+      "reason": "runtime claim"
+    },
+    {
+      "name": "missing-outputs",
+      "base": "minimal",
+      "expected": "REJECT",
+      "reason": "missing outputs"
+    },
+    {
+      "name": "class-declassification",
+      "base": "minimal",
+      "expected": "REJECT",
+      "reason": "class declassification"
+    },
+    {
+      "name": "wrong-output-owner",
+      "base": "reused-local-identities",
+      "expected": "REJECT",
+      "reason": "wrong output owner"
+    },
+    {
+      "name": "fabricated-fallback",
+      "base": "minimal",
+      "expected": "REJECT",
+      "reason": "fabricated fallback"
+    },
+    {
+      "name": "fail-stop-later-success",
+      "base": "fail-stop",
+      "expected": "REJECT",
+      "reason": "fail stop later success"
+    },
+    {
+      "name": "effect-caps-narrowed",
+      "base": "protected-completed",
+      "expected": "REJECT",
+      "reason": "effect caps narrowed"
+    },
+    {
+      "name": "effect-wrong-owner",
+      "base": "protected-completed",
+      "expected": "REJECT",
+      "reason": "effect wrong owner"
+    },
+    {
+      "name": "unknown-missing-termination",
+      "base": "protected-unknown",
+      "expected": "REJECT",
+      "reason": "unknown missing termination"
+    },
+    {
+      "name": "accounting-missing-backlink",
+      "base": "accounting-failure",
+      "expected": "REJECT",
+      "reason": "accounting missing backlink"
+    },
+    {
+      "name": "machinery-caps-narrowed",
+      "base": "protected-completed",
+      "expected": "REJECT",
+      "reason": "machinery caps narrowed"
+    }
+  ],
+  "historical_files": {
+    "spec/history/canonical-model-1.0.0.schema.json": "b162907d3180208626cc96e4e260cc0a155db9c9066f129b84180e173da0670e",
+    "spec/history/core-invariants-1.0.0.json": "c1240695e92b791eff84584ccbd152f61fff0587ca2b474c70b9ddd604b1e610",
+    "spec/history/serialization-profile-1.0.0.json": "d0ebff808b83a888b7d41c9971eb02c1bc07596d8c0863b235d7b9d3cf586c01"
+  }
+}
