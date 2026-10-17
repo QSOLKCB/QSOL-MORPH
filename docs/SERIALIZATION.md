@@ -1,5 +1,7 @@
 # Serialization
 
+**Implemented bounded profile:** [Canonical Serialization 1.0.0](CANONICAL-SERIALIZATION.md) defines JSON/JSONL/XML for the frozen model. The broader inventory and examples below remain architectural candidates except for controlled invariants; they do not replace that profile or expand the supported model.
+
 QSOL-MORPH should support one semantic model with multiple representations.
 
 The representation may change. The meaning must not.

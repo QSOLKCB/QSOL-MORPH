@@ -31,5 +31,7 @@ jobs:
         run: python3 -m pip install --disable-pip-version-check -r requirements-model.txt
       - name: Validate canonical model reference fixtures
         run: python3 tools/check_model.py tests/fixtures/model/positive/*.json
+      - name: Check canonical serialization entry point
+        run: python3 tools/serialization.py tests/fixtures/model/positive/minimal.json --hash
       - name: Run positive and negative contract tests
         run: python3 -m unittest discover -s tests -v

@@ -10,8 +10,7 @@ PR #1 is the immutable v1.0.0 documentation foundation. PR #2 introduces the fir
 bounded normative [Core Invariants](CORE-INVARIANTS.md) contract, machine-readable
 registry, documentation-agreement validator, tests, and CI. PR #3 introduces the
 bounded [Canonical Data Model 1.0.0](CANONICAL-DATA-MODEL.md), closed schema, reference
-validator, and fixtures. No compiler, runtime, parser, canonical serialization profile,
-operational trace validator, or backend exists yet.
+validator, and fixtures. PR #4 introduces [Canonical Serialization 1.0.0](CANONICAL-SERIALIZATION.md), canonical JSON/JSONL/XML encoders and strict readers, content fingerprints, and round-trip fixtures. No compiler, runtime, human-source parser, operational trace validator, or backend exists yet.
 
 ## Normative boundary
 
@@ -29,7 +28,12 @@ bindings, and sequencing require the reference validator. Data-model acceptance 
 not executable or transport conformance. The model version is independent of the
 core invariant registry and historical release version.
 
-Outside these two bounded contracts, detailed layouts, instruction families,
+The canonical serialization document and `spec/serialization-profile.json` freeze
+only the versioned transport encodings, exact round-trip relation, and content
+fingerprint explicitly defined there. Transport identity is not executable semantic
+equivalence, a grant of authority, or evidence of a research claim.
+
+Outside these three bounded contracts, detailed layouts, instruction families,
 examples, syntax, algorithms, operational contracts, extension profiles, and later
 roadmap phases remain architectural and non-normative until their own explicit
 specification freeze. Uppercase requirement words outside the declared normative
@@ -70,7 +74,7 @@ Documentation must not imply working CUDA, LLVM, POSIX, Fortran, MIDI, AI, or fo
 
 ## Compatibility policy
 
-Compatibility for the core invariant registry follows the explicit versioning and change-control policy in [Core Invariants](CORE-INVARIANTS.md#compatibility-and-change-control). Canonical-model compatibility follows [its explicit version/migration boundary](CANONICAL-DATA-MODEL.md#authority-and-deliberately-bounded-scope). No language, runtime, transport-format, or backend compatibility is promised by these freezes.
+Compatibility for the core invariant registry follows the explicit versioning and change-control policy in [Core Invariants](CORE-INVARIANTS.md#compatibility-and-change-control). Canonical-model compatibility follows [its explicit version/migration boundary](CANONICAL-DATA-MODEL.md#authority-and-deliberately-bounded-scope). Transport compatibility follows [Canonical Serialization](CANONICAL-SERIALIZATION.md). No human-language, runtime, or backend compatibility is promised by these freezes.
 
 ## Design review rule
 

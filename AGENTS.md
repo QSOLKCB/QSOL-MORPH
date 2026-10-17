@@ -736,3 +736,7 @@ Registry version: 1.0.0
 Operational Core, lowering, Vector/Dataflow, extension, and backend implementations MUST follow their applicable frozen specifications. The invariant registry MUST NOT be treated as an instruction set, data schema, grammar, execution engine, or authorization to implement later roadmap phases. Documentation MUST distinguish implemented behavior from design targets.
 
 <!-- END QSOL CORE INVARIANTS -->
+
+## Canonical serialization checks
+
+PR #4 freezes [Canonical Serialization 1.0.0](docs/CANONICAL-SERIALIZATION.md). Read that profile before transport changes. Run the complete unit suite, including golden JSON/JSONL/XML round trips and rejection tests, and `python tools/serialization.py tests/fixtures/model/positive/minimal.json --hash`. Preserve the accepted model and invariant history plus `spec/history/serialization-profile-1.0.0.json`; changed bytes require an explicit transport version/migration. JSON transports are versioned envelopes, including an exceptional-string tag where needed for exact accepted-model preservation. Do not mistake transport fingerprints for executable semantic equivalence or authorization.

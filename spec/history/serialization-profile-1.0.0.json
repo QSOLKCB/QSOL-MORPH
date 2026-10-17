@@ -1,0 +1,12 @@
+{
+  "serialization_version": "1.0.0",
+  "model_schema_version": "1.0.0",
+  "normative_document": "docs/CANONICAL-SERIALIZATION.md",
+  "formats": ["json", "jsonl", "xml"],
+  "json_format": "QSOL-MORPH-JSON",
+  "jsonl_format": "QSOL-MORPH-JSONL",
+  "exceptional_string_tag": "$qsol_string",
+  "xml_root": "qsol-morph",
+  "fingerprint": "sha256 of complete canonical JSON envelope",
+  "preservation": "complete logical model including metadata, absence, array order, and exact string code points"
+}

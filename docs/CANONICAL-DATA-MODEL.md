@@ -19,9 +19,10 @@ execute or that a research claim is true. Declaration completeness is relative t
 this model: determining whether a verb actually performs undeclared effects requires
 its later frozen operational contract and is not proved by this validator.
 
-JSON files are inspectable validation fixtures for this logical model. PR #4 owns
-canonical bytes, key ordering, escaping, hashes, JSONL/XML transport, and lossless
-round trips. No semantic content hash or serialization API is defined here. Human
+JSON files are inspectable validation fixtures for this logical model. The separately frozen [PR #4 serialization profile](CANONICAL-SERIALIZATION.md) owns
+canonical bytes, key ordering, escaping, content fingerprints, JSONL/XML transport,
+and lossless round trips. No serialization API or executable semantic-equivalence
+hash is defined by this logical-model document. Human
 `.qsl` grammar and source parsing remain deferred. Existing illustrative syntax and
 candidate operational documents are not promoted wholesale into normative contracts.
 
