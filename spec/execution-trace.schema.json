@@ -582,6 +582,14 @@
       },
       "minItems": 1
     },
+    "binding_owner_path": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scope_segment"
+      },
+      "minItems": 0,
+      "description": "Empty only for an actual representation-root binding; contextual resolution must establish root ownership."
+    },
     "scope_ref": {
       "type": "object",
       "properties": {
@@ -648,7 +656,28 @@
         "subject_id",
         "execution_id"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "representation_kind": {
+                "const": "SEMANTIC_IR"
+              }
+            },
+            "required": [
+              "representation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_kind": {
+                "const": "CARD"
+              }
+            }
+          }
+        }
+      ]
     },
     "effect_requirement_ref": {
       "type": "object",
@@ -724,7 +753,7 @@
           "$ref": "#/$defs/identity"
         },
         "owner_scope_path": {
-          "$ref": "#/$defs/scope_path"
+          "$ref": "#/$defs/binding_owner_path"
         },
         "binding_id": {
           "$ref": "#/$defs/identity"
@@ -785,7 +814,7 @@
       "type": "object",
       "properties": {
         "owner_scope_path": {
-          "$ref": "#/$defs/scope_path"
+          "$ref": "#/$defs/binding_owner_path"
         },
         "binding_id": {
           "$ref": "#/$defs/identity"
@@ -804,7 +833,7 @@
       "type": "object",
       "properties": {
         "owner_scope_path": {
-          "$ref": "#/$defs/scope_path"
+          "$ref": "#/$defs/binding_owner_path"
         },
         "binding_id": {
           "$ref": "#/$defs/identity"
@@ -1250,7 +1279,35 @@
         "effect_kind",
         "required_capabilities"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "representation_kind": {
+                "const": "SEMANTIC_IR"
+              }
+            },
+            "required": [
+              "representation_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "card_id"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "operation_id"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
     },
     "machinery_requirement": {
       "type": "object",
@@ -1421,7 +1478,12 @@
         "requested_failure_behavior_id",
         "effective_failure_behavior_id"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "transition_evidence_id": [
+          "mapping_or_transition_rule_id"
+        ]
+      }
     },
     "extension_component": {
       "type": "object",
@@ -1967,7 +2029,21 @@
         "source_card_ids",
         "mapping_rule_id"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "transition_decision_id": [
+          "transition_authorized_by",
+          "transition_evidence_id"
+        ],
+        "transition_authorized_by": [
+          "transition_decision_id",
+          "transition_evidence_id"
+        ],
+        "transition_evidence_id": [
+          "transition_authorized_by",
+          "transition_decision_id"
+        ]
+      }
     },
     "first_numeric_mapping": {
       "type": "object",
@@ -2016,7 +2092,21 @@
         "source_card_ids",
         "mapping_rule_id"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "transition_decision_id": [
+          "transition_authorized_by",
+          "transition_evidence_id"
+        ],
+        "transition_authorized_by": [
+          "transition_decision_id",
+          "transition_evidence_id"
+        ],
+        "transition_evidence_id": [
+          "transition_authorized_by",
+          "transition_decision_id"
+        ]
+      }
     },
     "first_extension_mapping": {
       "type": "object",
@@ -2187,7 +2277,21 @@
         "source_card_ids",
         "mapping_rule_id"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "transition_decision_id": [
+          "transition_authorized_by",
+          "transition_evidence_id"
+        ],
+        "transition_authorized_by": [
+          "transition_decision_id",
+          "transition_evidence_id"
+        ],
+        "transition_evidence_id": [
+          "transition_authorized_by",
+          "transition_decision_id"
+        ]
+      }
     },
     "second_numeric_mapping": {
       "type": "object",
@@ -2249,7 +2353,21 @@
         "source_card_ids",
         "mapping_rule_id"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "transition_decision_id": [
+          "transition_authorized_by",
+          "transition_evidence_id"
+        ],
+        "transition_authorized_by": [
+          "transition_decision_id",
+          "transition_evidence_id"
+        ],
+        "transition_evidence_id": [
+          "transition_authorized_by",
+          "transition_decision_id"
+        ]
+      }
     },
     "second_extension_mapping": {
       "type": "object",
@@ -2731,7 +2849,21 @@
         "selected_backend",
         "decision_status"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "predecessor_selection_decision_id": [
+          "fallback_evidence_id",
+          "fallback_rule_id"
+        ],
+        "fallback_rule_id": [
+          "fallback_evidence_id",
+          "predecessor_selection_decision_id"
+        ],
+        "fallback_evidence_id": [
+          "fallback_rule_id",
+          "predecessor_selection_decision_id"
+        ]
+      }
     },
     "machinery_authorization_record": {
       "type": "object",
@@ -2810,7 +2942,28 @@
         "capability_policy_version",
         "authorization_status"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "authorization_status": {
+                "const": "GRANTED"
+              }
+            },
+            "required": [
+              "authorization_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "denied_capabilities": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
     },
     "machinery_use_record": {
       "type": "object",
@@ -2909,6 +3062,52 @@
             "required": [
               "initiating_scope_ref"
             ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "initiating_scope_ref"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "execution_subject_refs": {
+                "contains": {
+                  "properties": {
+                    "representation_kind": {
+                      "const": "SEMANTIC_IR"
+                    },
+                    "subject_kind": {
+                      "const": "CARD"
+                    }
+                  },
+                  "required": [
+                    "representation_kind",
+                    "subject_kind"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "execution_subject_refs"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_card_ids",
+              "card_execution_ids"
+            ],
+            "properties": {
+              "source_card_ids": {
+                "minItems": 1
+              },
+              "card_execution_ids": {
+                "minItems": 1
+              }
+            }
           }
         }
       ]
@@ -2978,7 +3177,26 @@
         "direct_producer_toolchain_invocation_id",
         "toolchain_invocation_chain_ids"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "optimized_ir_hash"
+            ]
+          },
+          "then": {
+            "required": [
+              "optimization_record_ids"
+            ],
+            "properties": {
+              "optimization_record_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "argument": {
       "type": "object",
@@ -3315,7 +3533,8 @@
           "items": {
             "$ref": "#/$defs/argument"
           },
-          "minItems": 0
+          "minItems": 0,
+          "description": "Exact ordered occurrences: argument_index must equal the zero-based array position. Unbounded cross-value equality is enforced by tools.check_trace.validate_structure, not raw JSON Schema. Structural success does not establish execution acceptance."
         },
         "environment_config_hash": {
           "$ref": "#/$defs/identity"
@@ -3684,6 +3903,54 @@
         "evidence_hash"
       ],
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "FAIL"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "application_sequence_index"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "UNAVAILABLE"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "application_sequence_index"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
       "anyOf": [
         {
           "required": [
@@ -3737,7 +4004,15 @@
         "requested_result_determinism",
         "effective_result_determinism"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "transition_authorized_by": [
+          "transition_evidence_id"
+        ],
+        "transition_evidence_id": [
+          "transition_authorized_by"
+        ]
+      }
     },
     "numeric_execution_scope": {
       "type": "object",
@@ -3916,7 +4191,15 @@
             }
           }
         }
-      ]
+      ],
+      "dependentRequired": {
+        "transition_authorized_by": [
+          "transition_evidence_id"
+        ],
+        "transition_evidence_id": [
+          "transition_authorized_by"
+        ]
+      }
     },
     "deck_execution": {
       "type": "object",
@@ -3954,7 +4237,43 @@
         "deck_status",
         "card_execution_ids"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "deck_status": {
+                "const": "FAILED"
+              }
+            },
+            "required": [
+              "deck_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "deck_status": {
+                "const": "FAIL_STOP_BLOCKED"
+              }
+            },
+            "required": [
+              "deck_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        }
+      ]
     },
     "card_execution": {
       "type": "object",
@@ -4013,7 +4332,104 @@
         "card_status",
         "input_ids"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "FAILED"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "EXPLICIT_SKIP"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_skip_rule_id",
+              "skip_verification_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "EXPLICIT_SKIP"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_skip_rule_id",
+              "skip_verification_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "UNTAKEN_BRANCH"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_control_decision_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "FAIL_STOP_BLOCKED"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        }
+      ],
+      "dependentRequired": {
+        "governing_skip_rule_id": [
+          "skip_verification_evidence_id"
+        ],
+        "skip_verification_evidence_id": [
+          "governing_skip_rule_id"
+        ]
+      }
     },
     "operation_execution": {
       "type": "object",
@@ -4088,7 +4504,104 @@
         "operation_status",
         "input_ids"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "FAILED"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "EXPLICIT_SKIP"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_skip_rule_id",
+              "skip_verification_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "EXPLICIT_SKIP"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_skip_rule_id",
+              "skip_verification_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "UNTAKEN_BRANCH"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_control_decision_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "FAIL_STOP_BLOCKED"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        }
+      ],
+      "dependentRequired": {
+        "governing_skip_rule_id": [
+          "skip_verification_evidence_id"
+        ],
+        "skip_verification_evidence_id": [
+          "governing_skip_rule_id"
+        ]
+      }
     },
     "control_decision": {
       "type": "object",
@@ -4210,7 +4723,44 @@
         "failure_class",
         "failure_stage"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "failing_scope_kind": {
+                "const": "CARD_EXECUTION"
+              }
+            },
+            "required": [
+              "failing_scope_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "failure_card_id",
+              "failure_card_execution_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "failing_scope_kind": {
+                "const": "CORE_OPERATION_EXECUTION"
+              }
+            },
+            "required": [
+              "failing_scope_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "operation_execution_id"
+            ]
+          }
+        }
+      ]
     },
     "input": {
       "type": "object",
@@ -4372,7 +4922,57 @@
         "capability_policy_version",
         "authorization_status"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "authorization_status": {
+                "const": "GRANTED"
+              }
+            },
+            "required": [
+              "authorization_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "denied_capabilities": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "execution_subject_ref": {
+                "properties": {
+                  "representation_kind": {
+                    "const": "SEMANTIC_IR"
+                  },
+                  "subject_kind": {
+                    "const": "CARD"
+                  }
+                },
+                "required": [
+                  "representation_kind",
+                  "subject_kind"
+                ]
+              }
+            },
+            "required": [
+              "execution_subject_ref"
+            ]
+          },
+          "then": {
+            "required": [
+              "card_id",
+              "card_execution_id"
+            ]
+          }
+        }
+      ]
     },
     "effect_attempt": {
       "type": "object",
@@ -4652,6 +5252,54 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "completion_state": {
+                "const": "ABORTED_CLEAN"
+              }
+            },
+            "required": [
+              "completion_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observable_output_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "execution_subject_ref": {
+                "properties": {
+                  "representation_kind": {
+                    "const": "SEMANTIC_IR"
+                  },
+                  "subject_kind": {
+                    "const": "CARD"
+                  }
+                },
+                "required": [
+                  "representation_kind",
+                  "subject_kind"
+                ]
+              }
+            },
+            "required": [
+              "execution_subject_ref"
+            ]
+          },
+          "then": {
+            "required": [
+              "card_id",
+              "card_execution_id"
+            ]
+          }
         }
       ]
     },
@@ -4702,7 +5350,98 @@
         "effect_kind",
         "non_attempt_reason"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "governing_skip_rule_id": [
+          "skip_verification_evidence_id"
+        ],
+        "skip_verification_evidence_id": [
+          "governing_skip_rule_id"
+        ]
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "EXPLICIT_SKIP"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_skip_rule_id",
+              "skip_verification_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "UNTAKEN_BRANCH"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_control_decision_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "PRIOR_FAIL_STOP"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "execution_subject_ref": {
+                "properties": {
+                  "representation_kind": {
+                    "const": "SEMANTIC_IR"
+                  },
+                  "subject_kind": {
+                    "const": "CARD"
+                  }
+                },
+                "required": [
+                  "representation_kind",
+                  "subject_kind"
+                ]
+              }
+            },
+            "required": [
+              "execution_subject_ref"
+            ]
+          },
+          "then": {
+            "required": [
+              "card_id",
+              "card_execution_id"
+            ]
+          }
+        }
+      ]
     },
     "effect_accounting_failure_record": {
       "type": "object",
@@ -4820,6 +5559,34 @@
               "material_identity_value"
             ]
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "material_identity_status": {
+                "const": "UNAVAILABLE"
+              }
+            },
+            "required": [
+              "material_identity_status"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "material_identity_kind"
+                  ]
+                },
+                {
+                  "required": [
+                    "material_identity_value"
+                  ]
+                }
+              ]
+            }
+          }
         }
       ],
       "anyOf": [
@@ -4857,7 +5624,7 @@
           "items": {
             "$ref": "#/$defs/execution_subject_ref"
           },
-          "minItems": 0,
+          "minItems": 1,
           "uniqueItems": true
         },
         "source_card_ids": {
@@ -5225,6 +5992,91 @@
                     "const": "PROOF"
                   }
                 }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "semantic_class": {
+                "not": {
+                  "enum": [
+                    "TEST",
+                    "VALIDATION",
+                    "PROOF"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "semantic_class"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "evidence_status"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "producer_execution_refs": {
+                "contains": {
+                  "properties": {
+                    "representation_kind": {
+                      "const": "SEMANTIC_IR"
+                    },
+                    "subject_kind": {
+                      "const": "CARD"
+                    }
+                  },
+                  "required": [
+                    "representation_kind",
+                    "subject_kind"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "producer_execution_refs"
+            ]
+          },
+          "then": {
+            "required": [
+              "producer_card_ids",
+              "producer_card_execution_ids"
+            ],
+            "properties": {
+              "producer_card_ids": {
+                "minItems": 1
+              },
+              "producer_card_execution_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "semantic_class": {
+                "not": {
+                  "const": "UNCLASSIFIED"
+                }
+              }
+            },
+            "required": [
+              "semantic_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "epistemic_class_binding_ids": {
+                "minItems": 1
               }
             }
           }

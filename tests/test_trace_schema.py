@@ -3,7 +3,7 @@ import copy
 import unittest
 
 from jsonschema import Draft202012Validator
-from trace_receipts import protected
+from trace_receipts import protected, build, trace
 from trace_schema import build_schema
 
 
@@ -63,3 +63,30 @@ class TraceSchemaTests(unittest.TestCase):
             for known in (False, True):
                 with self.subTest(state=state, known=known):
                     self.assertFalse(self.valid('effect_attempt', dict(attempt, termination_known=known)))
+
+
+class TracePositionalStructureTests(unittest.TestCase):
+    def receipt(self, indices):
+        receipt = build()
+        receipt['toolchain_invocations'] = [dict(
+            toolchain_invocation_id='tool', invocation_sequence_index=0,
+            invocation_kind='COMPILE', tool_name='synthetic-tool', material_tool_identity='hash',
+            flags=[], argument_vector=[dict(argument_index=i, argument_kind='LITERAL', argument_text='x')
+                                      for i in indices],
+            input_ir_hashes=[], input_ids=[], output_generated_artifact_ids=[])]
+        return receipt
+
+    def test_argument_indices_match_unbounded_vector_positions(self):
+        for indices in ([], [0], [0, 1], list(range(1000))):
+            result = trace.validate_structure(self.receipt(indices))
+            self.assertEqual(result['validation_kind'], 'TRACE_STRUCTURE_ONLY')
+            self.assertFalse(result['execution_conformance'])
+            self.assertFalse(result['synthetic_consistency'])
+        for indices in ([1], [1, 0], [0, 0], [0, 2]):
+            with self.subTest(indices=indices):
+                with self.assertRaisesRegex(trace.Invalid, 'zero-based vector position'):
+                    trace.validate_structure(self.receipt(indices))
+
+    def test_structure_does_not_enable_toolchain_acceptance(self):
+        with self.assertRaises(trace.Unsupported):
+            trace.validate(self.receipt([0]))

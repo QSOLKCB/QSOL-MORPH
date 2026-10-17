@@ -822,11 +822,12 @@ def json_tree(value):
             require(node is None or type(node) in (str, int, bool), 'non-JSON payload type')
 
 
-def validate(trace):
-    """Validate supported synthetic consistency only; never grant execution authority.
+def validate_structure(trace):
+    """Check envelope shape and positional invariants, never receipt conformance.
 
-    This public entry has no caller-controlled adapter, verifier, network resolver,
-    bypass flag, or production execution acceptance path.
+    JSON Schema cannot compare an unbounded array item's index to its position.
+    Keep that structural cross-value check here. Passing this function grants no
+    source consistency, evidence validity, or execution acceptance.
     """
     json_tree(trace)
     schema = strict_load(SCHEMA)
@@ -835,6 +836,21 @@ def validate(trace):
     if error is not None:
         location = '/'.join(map(str, error.absolute_path)) or '<receipt>'
         raise Invalid(f'{location}: {error.message}')
+    for invocation in trace.get('toolchain_invocations', []):
+        for position, argument in enumerate(invocation['argument_vector']):
+            require(argument['argument_index'] == position,
+                    'toolchain argument_index must equal zero-based vector position')
+    return {'validation_kind': 'TRACE_STRUCTURE_ONLY', 'execution_conformance': False,
+            'synthetic_consistency': False}
+
+
+def validate(trace):
+    """Validate supported synthetic consistency only; never grant execution authority.
+
+    This public entry has no caller-controlled adapter, verifier, network resolver,
+    bypass flag, or production execution acceptance path.
+    """
+    validate_structure(trace)
     if trace['receipt_kind'] != 'SYNTHETIC_CONFORMANCE_RECEIPT':
         raise Unsupported('EXECUTION_TRACE requires a frozen operational contract; gate remains closed')
     if trace['input_representation'] != 'SEMANTIC_IR':

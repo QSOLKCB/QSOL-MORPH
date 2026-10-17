@@ -240,7 +240,19 @@ The schema retains deliberately generic closed shapes for deferred first/second
 lowering mappings; their kinds and diagnostics are not a new Core instruction or
 compiler contract. Ordered paths, qualifier key paths, pass sequences, and argv
 preserve multiplicity; reference inventories are duplicate-free. The structural
-schema alone cannot enforce identity resolution, cardinality, or semantic legality.
+schema alone cannot enforce identity resolution, cross-record cardinality, or semantic
+legality. It also cannot compare unbounded argv indices to array positions.
+`tools.check_trace.validate_structure(trace)` adds that positional check after the
+schema: indices must be contiguous from zero and equal their vector positions.
+It returns `TRACE_STRUCTURE_ONLY`, with both `execution_conformance` and
+`synthetic_consistency` false. This is a shape check, not an acceptance gate;
+`validate(trace)` always invokes it and still rejects deferred toolchain records.
+Consumers must not treat raw JSON Schema success as complete structural or
+execution conformance. In particular, structural checks do not establish source/target
+field equality, actual representation-root ownership, capability-set equality, scope
+resolution, or transition applicability. Binding references retain the documented
+empty owner-path spelling only for actual representation-root bindings; ordinary
+scope and sequencing-endpoint paths remain nonempty.
 
 ## Validation and review
 
