@@ -298,10 +298,12 @@ class Receipt:
             kind, identity = f['failing_scope_kind'], f['failing_scope_id']
             if kind == 'JOB':
                 require(identity == self.job['id'], 'wrong failing JOB')
+                require(f['failure_stage'] == 'JOB_PREFLIGHT', 'JOB failure must have JOB_PREFLIGHT stage')
                 p = path_key(self.jobpath)
                 require(not any(k in f for k in ('failure_card_id', 'failure_card_execution_id',
                                                  'operation_execution_id', 'deck_execution_id')), 'fabricated failure lineage')
             elif kind == 'CARD_EXECUTION':
+                require(f['failure_stage'] == 'CARD', 'CARD failure must have CARD stage')
                 c = self.lookup('card_executions', identity)
                 p = self.card_paths[identity]
                 require(f.get('failure_card_execution_id') == identity and f.get('failure_card_id') == c['card_id'] and
@@ -699,11 +701,14 @@ class Receipt:
             # A deliberately conservative synthetic materiality profile: all recorded
             # direct inputs contribute. Actual verb-specific pruning is not inferred.
             same_set(o['input_ids'], c['input_ids'], 'output material-input synthetic profile')
-            for iid in o['input_ids']:
-                self.lookup('inputs', iid)
             require(not o.get('generated_artifact_ids'), 'generated output provenance deferred')
             pub = self.event(o, 'publication_sequence_index', ('publication', oid))
             self.within_card(c, pub)
+            for iid in o['input_ids']:
+                for aid in self.lookup('inputs', iid)['effect_attempt_ids']:
+                    acquisition = self.lookup('effect_attempts', aid)
+                    require(acquisition['effect_end_sequence_index'] < pub,
+                            'output published before material input acquisition completed')
             if c['card_status'] == 'FAILED':
                 require(o['status'] == 'PARTIAL' and o.get('effect_attempt_ids'),
                         'failed pure CARD cannot commit output; retained effect artifact must be PARTIAL')

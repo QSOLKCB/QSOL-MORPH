@@ -156,7 +156,7 @@ class TraceTests(unittest.TestCase):
     def test_job_preflight_failure_has_no_fabricated_card_culprit(self):
         t = fail(build(model(repeated=True)))
         failure = t['failure_records'][0]
-        failure.update(failing_scope_kind='JOB', failing_scope_id=t['job_id'])
+        failure.update(failing_scope_kind='JOB', failing_scope_id=t['job_id'], failure_stage='JOB_PREFLIGHT')
         for field in ('failure_card_id', 'failure_card_execution_id', 'deck_execution_id'):
             failure.pop(field, None)
         for card in t['card_executions']:
@@ -171,8 +171,31 @@ class TraceTests(unittest.TestCase):
         t['backend_selection_scopes'] = []
         t['backend_selection_decisions'] = []
         trace.validate(t)
+        failure['failure_stage'] = 'CARD'
+        with self.assertRaisesRegex(trace.Invalid, 'JOB_PREFLIGHT stage'):
+            trace.validate(t)
+        failure['failure_stage'] = 'JOB_PREFLIGHT'
         failure['failure_card_id'] = t['card_executions'][0]['card_id']
         with self.assertRaises(trace.Invalid):
+            trace.validate(t)
+
+    def test_material_input_acquisition_precedes_publication(self):
+        for begin, end in ((94, 95), (24, 95), (24, 90)):
+            with self.subTest(begin=begin, end=end):
+                t = attributed()
+                t['effect_attempts'][0].update(effect_begin_sequence_index=begin,
+                                               effect_end_sequence_index=end)
+                expected = 'output published before material input acquisition completed' if end > 90 else '.*'
+                with self.assertRaisesRegex(trace.Invalid, expected):
+                    trace.validate(t)
+        t = attributed()
+        t['effect_attempts'][0].update(effect_end_sequence_index=89)
+        trace.validate(t)
+
+    def test_card_failure_cannot_claim_job_preflight_stage(self):
+        t = fail(build())
+        t['failure_records'][0]['failure_stage'] = 'JOB_PREFLIGHT'
+        with self.assertRaisesRegex(trace.Invalid, 'CARD stage'):
             trace.validate(t)
 
     def test_unknown_with_known_termination(self):

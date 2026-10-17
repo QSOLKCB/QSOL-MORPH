@@ -127,6 +127,8 @@ The initial profile admits at most one failure: a JOB preflight failure or a
 CARD-caused failure. It does not admit independent DECK-setup or lower-operation
 failures. CARD outcomes are `SUCCESS`, `FAILED`, or `BLOCKED`; a JOB preflight
 failure blocks all selected CARDs and DECKs without fabricated CARD attribution.
+This bounded profile requires `failure_stage: JOB_PREFLIGHT` for JOB failures and
+`failure_stage: CARD` for CARD-caused failures; other stages remain unsupported.
 An unhandled CARD failure fails its DECK and JOB; later CARDs and DECKs remain
 present with the applicable blocking failure. A blocked subject references the
 failure that prevented it, rather than claiming it caused a new failure. Typed
@@ -172,7 +174,9 @@ with concrete consumer joins. Effect-acquired inputs join reciprocally to their
 attempts. Inputs must have concrete runtime consumers; setup/build-only consumers
 and opaque artifact-version resolvers are deferred. This synthetic profile requires
 completed acquisition attempts and records all direct producer inputs on each
-output. It does not interpret operand consumption or establish hidden materiality.
+output. Material input acquisition must complete strictly before every contributing
+output publication, including acquisition within the same CARD. This does not
+interpret operand consumption or establish hidden materiality.
 Outputs have one producer; multi-producer composition requires a later frozen rule.
 Output records identify concrete producer executions, represented material
 input references, applicable scope sets, and named result-binding identity whenever
