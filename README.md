@@ -12,9 +12,9 @@ The project aims to let humans and AI reason about one stable semantic program w
 
 **Experimental / pre-alpha.**
 
-The repository is specification-first and documentation-first. The language grammar, Semantic IR, QSOL-CORE instruction set, lowering contracts, extension profiles, and backend contracts remain provisional until later normative phases freeze them.
+The repository is specification-first and documentation-first. The language grammar, operational Semantic IR meaning, QSOL-CORE instruction set, lowering contracts, extension profiles, and backend contracts remain provisional until later normative phases freeze them.
 
-PR #1 established the immutable v1.0.0 documentation foundation. PR #2 adds the [core invariant registry](docs/CORE-INVARIANTS.md), its controlled documentation checks, and tests. No compiler, runtime, parser, or backend is implemented. Only the explicitly identified core-invariant contract is frozen; detailed schemas and operational contracts remain deferred.
+PR #1 established the immutable v1.0.0 documentation foundation. PR #2 adds the [core invariant registry](docs/CORE-INVARIANTS.md), its controlled documentation checks, and tests. No compiler, runtime, parser, or backend is implemented. PR #3 adds the bounded [Canonical Data Model 1.0.0](docs/CANONICAL-DATA-MODEL.md), its closed schema, reference validator, and fixtures. The two explicitly identified contracts are frozen; serialization and operational schemas/contracts remain deferred.
 
 ## Core architecture
 

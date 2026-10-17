@@ -1,0 +1,82 @@
+[
+  {
+    "file": "missing-numeric-contract.json",
+    "expected_error": "NUMERIC requires"
+  },
+  {
+    "file": "weaken-determinism.json",
+    "expected_error": "unsupported result_determinism refinement"
+  },
+  {
+    "file": "changed-numeric-parameter.json",
+    "expected_error": "unsupported numeric_contract refinement"
+  },
+  {
+    "file": "changed-seed.json",
+    "expected_error": "unsupported randomness_contract refinement"
+  },
+  {
+    "file": "conflicting-extension.json",
+    "expected_error": "conflicting inherited extension"
+  },
+  {
+    "file": "ambiguous-owner.json",
+    "expected_error": "schema:"
+  },
+  {
+    "file": "binding-at-wrong-owner.json",
+    "expected_error": "dependency must precede"
+  },
+  {
+    "file": "unknown-result-binding.json",
+    "expected_error": "unknown result_binding_id"
+  },
+  {
+    "file": "operand-unit-mismatch.json",
+    "expected_error": "operand type/unit differs"
+  },
+  {
+    "file": "missing-binding-dependency.json",
+    "expected_error": "exact value-specific dependency"
+  },
+  {
+    "file": "missing-cross-deck-source-order.json",
+    "expected_error": "missing adjacent SOURCE_ORDER"
+  },
+  {
+    "file": "missing-pure-failure-order.json",
+    "expected_error": "missing adjacent FAILURE_ORDER"
+  },
+  {
+    "file": "missing-effect-order.json",
+    "expected_error": "missing previous EFFECT_ORDER"
+  },
+  {
+    "file": "empty-effect-capabilities.json",
+    "expected_error": "schema:"
+  },
+  {
+    "file": "duplicate-sibling-id.json",
+    "expected_error": "duplicate sibling id"
+  },
+  {
+    "file": "epistemic-promotion.json",
+    "expected_error": "result semantic class"
+  },
+  {
+    "file": "unknown-field.json",
+    "expected_error": "schema:"
+  },
+  {
+    "file": "unfrozen-failure-policy.json",
+    "expected_error": "schema:"
+  },
+  {
+    "file": "unfrozen-sequencing-tag.json",
+    "expected_error": "schema:"
+  },
+  {
+    "file": "noncanonical-decimal.json",
+    "expected_error": "schema:"
+  }
+]

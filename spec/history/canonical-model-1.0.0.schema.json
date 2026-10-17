@@ -1,0 +1,883 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/QSOLKCB/QSOL-MORPH/blob/main/spec/canonical-model.schema.json",
+  "title": "QSOL-MORPH canonical data model 1.0.0",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/job"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "jobs"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.:-]*(?![\\s\\S])",
+      "maxLength": 256
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?![\\s\\S])"
+    },
+    "unit": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/^*-]*(?![\\s\\S])",
+      "maxLength": 256
+    },
+    "scalarType": {
+      "enum": [
+        "BOOLEAN",
+        "INTEGER",
+        "DECIMAL",
+        "TEXT"
+      ]
+    },
+    "semanticClass": {
+      "enum": [
+        "OBSERVATION",
+        "ASSUMPTION",
+        "PARAMETER",
+        "MODEL",
+        "SIMULATION",
+        "DERIVATION",
+        "TEST",
+        "VALIDATION",
+        "PROOF",
+        "RESULT",
+        "UNCLASSIFIED"
+      ]
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "BOOLEAN"
+            },
+            "unit": {
+              "$ref": "#/$defs/unit"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "INTEGER"
+            },
+            "unit": {
+              "$ref": "#/$defs/unit"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^(0|-?[1-9][0-9]*)(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "DECIMAL"
+            },
+            "unit": {
+              "$ref": "#/$defs/unit"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "TEXT"
+            },
+            "unit": {
+              "$ref": "#/$defs/unit"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "sourceLocation": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      },
+      "required": [
+        "source_id",
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "line",
+        "column"
+      ],
+      "additionalProperties": false
+    },
+    "scopeSegment": {
+      "type": "object",
+      "properties": {
+        "scope_kind": {
+          "enum": [
+            "JOB",
+            "DECK",
+            "CARD"
+          ]
+        },
+        "scope_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "scope_kind",
+        "scope_id"
+      ],
+      "additionalProperties": false
+    },
+    "cardPath": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scopeSegment"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "scope_kind": {
+              "const": "JOB"
+            },
+            "scope_id": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "scope_kind",
+            "scope_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scope_kind": {
+              "const": "DECK"
+            },
+            "scope_id": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "scope_kind",
+            "scope_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scope_kind": {
+              "const": "CARD"
+            },
+            "scope_id": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "scope_kind",
+            "scope_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "cardRef": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/cardPath"
+        },
+        "producer_card_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "producer_card_id"
+      ],
+      "additionalProperties": false
+    },
+    "producerRef": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/cardPath"
+        },
+        "producer_card_id": {
+          "$ref": "#/$defs/id"
+        },
+        "result_binding_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "producer_card_id"
+      ],
+      "additionalProperties": false
+    },
+    "bindingRef": {
+      "type": "object",
+      "properties": {
+        "owner_scope_path": {
+          "$ref": "#/$defs/cardPath"
+        },
+        "producer_card_id": {
+          "$ref": "#/$defs/id"
+        },
+        "result_binding_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "owner_scope_path",
+        "producer_card_id",
+        "result_binding_id"
+      ],
+      "additionalProperties": false
+    },
+    "operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operand_id": {
+              "$ref": "#/$defs/id"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": [
+            "operand_id",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operand_id": {
+              "$ref": "#/$defs/id"
+            },
+            "type": {
+              "$ref": "#/$defs/scalarType"
+            },
+            "unit": {
+              "$ref": "#/$defs/unit"
+            },
+            "producer_ref": {
+              "$ref": "#/$defs/bindingRef"
+            }
+          },
+          "required": [
+            "operand_id",
+            "type",
+            "unit",
+            "producer_ref"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "binding": {
+      "type": "object",
+      "properties": {
+        "result_binding_id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "$ref": "#/$defs/scalarType"
+        },
+        "unit": {
+          "$ref": "#/$defs/unit"
+        },
+        "semantic_class": {
+          "$ref": "#/$defs/semanticClass"
+        }
+      },
+      "required": [
+        "result_binding_id",
+        "type",
+        "unit",
+        "semantic_class"
+      ],
+      "additionalProperties": false
+    },
+    "dependency": {
+      "type": "object",
+      "properties": {
+        "dependency_id": {
+          "$ref": "#/$defs/id"
+        },
+        "producer_ref": {
+          "$ref": "#/$defs/producerRef"
+        }
+      },
+      "required": [
+        "dependency_id",
+        "producer_ref"
+      ],
+      "additionalProperties": false
+    },
+    "sequencing": {
+      "type": "object",
+      "properties": {
+        "constraint_id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "SOURCE_ORDER",
+            "EFFECT_ORDER",
+            "FAILURE_ORDER"
+          ]
+        },
+        "predecessor_ref": {
+          "$ref": "#/$defs/cardRef"
+        }
+      },
+      "required": [
+        "constraint_id",
+        "kind",
+        "predecessor_ref"
+      ],
+      "additionalProperties": false
+    },
+    "qualifier": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/id"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "parameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/id"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "numericContract": {
+      "type": "object",
+      "properties": {
+        "contract_id": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "definition_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "contract_id",
+        "version",
+        "definition_hash",
+        "parameters"
+      ],
+      "additionalProperties": false
+    },
+    "randomness": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": [
+                "NONE",
+                "EXTERNAL-ENTROPY",
+                "DECLARED-NONDETERMINISTIC"
+              ]
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "SEEDED"
+            },
+            "rng_algorithm": {
+              "$ref": "#/$defs/id"
+            },
+            "rng_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "seed": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])"
+            },
+            "stream_id": {
+              "$ref": "#/$defs/id"
+            },
+            "parallel_partitioning": {
+              "type": "object",
+              "properties": {
+                "contract_id": {
+                  "$ref": "#/$defs/id"
+                },
+                "version": {
+                  "$ref": "#/$defs/version"
+                },
+                "definition_hash": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+                }
+              },
+              "required": [
+                "contract_id",
+                "version",
+                "definition_hash"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "mode",
+            "rng_algorithm",
+            "rng_version",
+            "seed",
+            "stream_id",
+            "parallel_partitioning"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "effect": {
+      "type": "object",
+      "properties": {
+        "effect_id": {
+          "$ref": "#/$defs/id"
+        },
+        "effect_kind": {
+          "$ref": "#/$defs/id"
+        },
+        "required_capabilities": {
+          "$ref": "#/$defs/capabilities"
+        }
+      },
+      "required": [
+        "effect_id",
+        "effect_kind",
+        "required_capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "machinery": {
+      "type": "object",
+      "properties": {
+        "machinery_requirement_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_selector_or_class": {
+          "$ref": "#/$defs/id"
+        },
+        "required_capabilities": {
+          "$ref": "#/$defs/capabilities"
+        }
+      },
+      "required": [
+        "machinery_requirement_id",
+        "target_selector_or_class",
+        "required_capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "extension": {
+      "type": "object",
+      "properties": {
+        "profile_name": {
+          "$ref": "#/$defs/id"
+        },
+        "required_version": {
+          "$ref": "#/$defs/version"
+        },
+        "contract_id": {
+          "$ref": "#/$defs/id"
+        },
+        "definition_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "profile_name",
+        "required_version",
+        "contract_id",
+        "definition_hash"
+      ],
+      "additionalProperties": false
+    },
+    "card": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "result_determinism": {
+          "enum": [
+            "STRICT",
+            "NUMERIC",
+            "DECLARED-NONDETERMINISTIC"
+          ]
+        },
+        "numeric_contract": {
+          "$ref": "#/$defs/numericContract"
+        },
+        "randomness_contract": {
+          "$ref": "#/$defs/randomness"
+        },
+        "failure_behavior": {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "const": "FAIL_STOP"
+            }
+          },
+          "required": [
+            "policy"
+          ],
+          "additionalProperties": false
+        },
+        "machinery_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/machinery"
+          },
+          "minItems": 0
+        },
+        "extension_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension"
+          },
+          "minItems": 0
+        },
+        "verb": {
+          "$ref": "#/$defs/id"
+        },
+        "noun": {
+          "$ref": "#/$defs/id"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        },
+        "operands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/operand"
+          },
+          "minItems": 0
+        },
+        "result_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/binding"
+          },
+          "minItems": 0
+        },
+        "qualifiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/qualifier"
+          },
+          "minItems": 0
+        },
+        "semantic_class": {
+          "$ref": "#/$defs/semanticClass"
+        },
+        "effect_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effect"
+          },
+          "minItems": 0
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          },
+          "minItems": 0
+        },
+        "sequencing_constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sequencing"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "machinery_requirements",
+        "extension_requirements",
+        "verb",
+        "noun",
+        "operands",
+        "result_bindings",
+        "qualifiers",
+        "semantic_class",
+        "effect_requirements",
+        "dependencies",
+        "sequencing_constraints"
+      ],
+      "additionalProperties": false
+    },
+    "deck": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "result_determinism": {
+          "enum": [
+            "STRICT",
+            "NUMERIC",
+            "DECLARED-NONDETERMINISTIC"
+          ]
+        },
+        "numeric_contract": {
+          "$ref": "#/$defs/numericContract"
+        },
+        "randomness_contract": {
+          "$ref": "#/$defs/randomness"
+        },
+        "failure_behavior": {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "const": "FAIL_STOP"
+            }
+          },
+          "required": [
+            "policy"
+          ],
+          "additionalProperties": false
+        },
+        "machinery_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/machinery"
+          },
+          "minItems": 0
+        },
+        "extension_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension"
+          },
+          "minItems": 0
+        },
+        "cards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/card"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "machinery_requirements",
+        "extension_requirements",
+        "cards"
+      ],
+      "additionalProperties": false
+    },
+    "job": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "result_determinism": {
+          "enum": [
+            "STRICT",
+            "NUMERIC",
+            "DECLARED-NONDETERMINISTIC"
+          ]
+        },
+        "numeric_contract": {
+          "$ref": "#/$defs/numericContract"
+        },
+        "randomness_contract": {
+          "$ref": "#/$defs/randomness"
+        },
+        "failure_behavior": {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "const": "FAIL_STOP"
+            }
+          },
+          "required": [
+            "policy"
+          ],
+          "additionalProperties": false
+        },
+        "machinery_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/machinery"
+          },
+          "minItems": 0
+        },
+        "extension_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension"
+          },
+          "minItems": 0
+        },
+        "decks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deck"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "machinery_requirements",
+        "extension_requirements",
+        "decks",
+        "result_determinism",
+        "randomness_contract"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

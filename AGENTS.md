@@ -20,7 +20,7 @@ The repository is specification-first and pre-alpha.
 
 Do not implement compiler/runtime/backend code unless the active task explicitly belongs to an implementation phase in `ROADMAP.md`.
 
-PR #1 established the documentation foundation. PR #2 freezes the bounded contract in `spec/core-invariants.json` and `docs/CORE-INVARIANTS.md`. Read that contract and run `python tools/check_invariants.py` plus `python -m unittest discover -s tests -v` for changes. Other candidate schemas and operational specifications remain deferred.
+PR #1 established the documentation foundation. PR #2 freezes the bounded contract in `spec/core-invariants.json` and `docs/CORE-INVARIANTS.md`. Read that contract and run `python tools/check_invariants.py` plus `python -m unittest discover -s tests -v` for changes. PR #3 adds `docs/CANONICAL-DATA-MODEL.md`, its closed schema, reference validator, and fixtures. Install `requirements-model.txt`, run `python tools/check_model.py tests/fixtures/model/positive/*.json`, and run the complete unit suite for changes. Preserve `spec/history/canonical-model-1.0.0.schema.json`; unsupported model changes require an explicit version/migration. Other candidate schemas and operational specifications remain deferred.
 
 QSOL-CORE implementation must not precede its normative operational specification, including frozen result-determinism and randomness/RNG semantics.
 

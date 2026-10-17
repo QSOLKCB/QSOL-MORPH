@@ -36,7 +36,7 @@ Deliverables:
 
 ## PR #2 — Lock in Core Invariants
 
-**Status:** implemented in this change: bounded registry, controlled documentation checks, and negative tests. Later phases remain unimplemented.
+**Status:** completed: bounded registry, controlled documentation checks, and negative tests.
 
 Freeze the first normative QSOL-MORPH constitution.
 
@@ -61,6 +61,8 @@ Planned work:
 No compiler or backend implementation is required for this PR. See [Core Invariants](docs/CORE-INVARIANTS.md) for the exact normative boundary, compatibility rules, validation coverage, and commands. The registry does not promote all later candidate schemas to normative specifications.
 
 ## PR #3 — Canonical Data Model
+
+**Status:** implemented as bounded [model 1.0.0](docs/CANONICAL-DATA-MODEL.md): closed schema, owner-qualified references, conservative scoped composition and sequencing, reference validator, and fixtures. Serialization and later phases remain unimplemented. Exact contract redeclarations, scalar types, exact extension versions, and fail-stop are the initial supported profile; unsupported refinements/ranges/recovery fail closed.
 
 Define and implement the first machine-readable representation of:
 

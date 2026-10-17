@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0.0",
+  "jobs": [
+    {
+      "id": "study",
+      "machinery_requirements": [],
+      "extension_requirements": [],
+      "result_determinism": "STRICT",
+      "randomness_contract": {
+        "mode": "NONE"
+      },
+      "decks": [
+        {
+          "id": "baseline",
+          "machinery_requirements": [],
+          "extension_requirements": [],
+          "cards": [
+            {
+              "id": "value",
+              "machinery_requirements": [],
+              "extension_requirements": [],
+              "verb": "DECLARE",
+              "noun": "VALUE",
+              "operands": [],
+              "result_bindings": [
+                {
+                  "result_binding_id": "mass",
+                  "type": "DECIMAL",
+                  "unit": "kg",
+                  "semantic_class": "PARAMETER"
+                }
+              ],
+              "qualifiers": [],
+              "semantic_class": "PARAMETER",
+              "effect_requirements": [],
+              "dependencies": [],
+              "sequencing_constraints": [],
+              "value": {
+                "type": "DECIMAL",
+                "unit": "kg",
+                "value": "4.2"
+              },
+              "source_location": {
+                "source_id": "example-source-v1",
+                "start": {
+                  "line": 1,
+                  "column": 1
+                },
+                "end": {
+                  "line": 1,
+                  "column": 22
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "second",
+      "machinery_requirements": [],
+      "extension_requirements": [],
+      "result_determinism": "STRICT",
+      "randomness_contract": {
+        "mode": "NONE"
+      },
+      "decks": [
+        {
+          "id": "baseline",
+          "machinery_requirements": [],
+          "extension_requirements": [],
+          "cards": [
+            {
+              "id": "value",
+              "machinery_requirements": [],
+              "extension_requirements": [],
+              "verb": "DECLARE",
+              "noun": "VALUE",
+              "operands": [],
+              "result_bindings": [],
+              "qualifiers": [],
+              "semantic_class": "PARAMETER",
+              "effect_requirements": [],
+              "dependencies": [],
+              "sequencing_constraints": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
