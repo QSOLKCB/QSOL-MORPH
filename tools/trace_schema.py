@@ -156,7 +156,7 @@ def build_schema():
     authorization = 'required_capabilities[] granted_capabilities[] denied_capabilities[] capability_policy_id capability_policy_version authorization_status authorization_sequence_index?'
     record('machinery_authorization_record','machinery_authorization_record_id backend_selection_scope_id backend_selection_decision_id source_card_ids[]? machinery_requirement_refs[] '+authorization,{'machinery_requirement_refs':array(ref('machinery_requirement_ref'),1),'authorization_status':ref('authorization_status')})
     record('machinery_use_record','machinery_use_record_id backend_selection_scope_id backend_selection_decision_id backend_unit_id? generated_artifact_ids[] execution_subject_refs[] source_card_ids[]? card_execution_ids[]? initiating_scope_ref? machinery_authorization_record_ids[] output_ids[] protected_use_start_sequence_index protected_use_stop_sequence_index?',{'execution_subject_refs':array(ref('execution_subject_ref')),'initiating_scope_ref':ref('initiating_scope_ref')})
-    conditions('machinery_use_record',{'if':{'properties':{'execution_subject_refs':{'maxItems':0}}},'then':{'required':['initiating_scope_ref']},'else':{'not':{'required':['initiating_scope_ref']}}})
+    conditions('machinery_use_record',{'if':{'properties':{'execution_subject_refs':{'maxItems':0}}},'then':{'required':['initiating_scope_ref'], 'not': {'anyOf': [{'required': ['source_card_ids']}, {'required': ['card_execution_ids']}]}},'else':{'not':{'required':['initiating_scope_ref']}}})
     record('generated_artifact','generated_artifact_id artifact_kind artifact_hash backend_unit_id backend_selection_scope_id backend_selection_decision_id source_card_ids[]? optimized_ir_hash? optimization_record_ids[]? direct_producer_toolchain_invocation_id toolchain_invocation_chain_ids[] artifact_location?',{'toolchain_invocation_chain_ids':array(minimum=1)})
     conditions('generated_artifact', {'if': {'required': ['optimized_ir_hash']},
         'then': {'required': ['optimization_record_ids'], 'properties': {'optimization_record_ids': {'minItems': 1}}}})
@@ -238,7 +238,8 @@ def build_schema():
         if name != 'effect_non_attempt_record':
             conditions(name, when(status, 'FAIL_STOP_BLOCKED', ('governing_failure_record_id',)))
     conditions('effect_non_attempt_record', when('non_attempt_reason', 'PRIOR_FAIL_STOP', ('governing_failure_record_id',)))
-    conditions('deck_execution', when('deck_status', 'FAIL_STOP_BLOCKED', ('governing_failure_record_id',)))
+    conditions('deck_execution', when('deck_status', 'FAIL_STOP_BLOCKED', ('governing_failure_record_id',)),
+               when('deck_status', 'BLOCKED', ('governing_failure_record_id',)))
     conditions('failure_record', when('failing_scope_kind', 'CARD_EXECUTION', ('failure_card_id', 'failure_card_execution_id')),
                when('failing_scope_kind', 'CORE_OPERATION_EXECUTION', ('operation_execution_id',)))
     # No frozen composition rule is admitted for multiple non-reach causes.
@@ -248,12 +249,17 @@ def build_schema():
         {'required': ['governing_skip_rule_id', 'skip_verification_evidence_id']}]}
     for name, status in (('card_execution', 'card_status'), ('operation_execution', 'operation_status'), ('effect_non_attempt_record', 'non_attempt_reason')):
         defs[name]['description'] = ('This bounded structural profile admits one typed non-reach cause only. Multiple-cause composition requires a future frozen composition contract and is not represented here; contextual resolution must still verify the cause.')
+        conditions(name, when(status, 'UNTAKEN', ('governing_control_decision_id',)),
+                   when(status, 'BLOCKED', ('governing_failure_record_id',)),
+                   when(status, 'FAIL_STOP_BLOCKED', ('governing_failure_record_id',)),
+                   when(status, 'PRIOR_FAIL_STOP', ('governing_failure_record_id',)),
+                   when(status, 'SKIPPED', ('governing_skip_rule_id', 'skip_verification_evidence_id')))
+        for value in ('UNTAKEN', 'SKIPPED', 'BLOCKED'):
+            conditions(name, {'if': {'properties': {status: {'const': value}}, 'required': [status]}, 'then': exactly_one_cause})
         for value in ('NOT_REACHED', 'SUBJECT_NOT_REACHED', 'CARD_NOT_REACHED', 'OPERATION_NOT_REACHED', 'UNTAKEN_BRANCH', 'FAIL_STOP_BLOCKED', 'EXPLICIT_SKIP', 'PRIOR_FAIL_STOP'):
             conditions(name, {'if': {'properties': {status: {'const': value}}, 'required': [status]}, 'then': exactly_one_cause})
         if name != 'effect_non_attempt_record':
-            for value in ('UNTAKEN', 'SKIPPED', 'BLOCKED'):
-                conditions(name, {'if': {'properties': {status: {'const': value}}, 'required': [status]}, 'then': exactly_one_cause})
-            for value in ('NOT_REACHED', 'SUBJECT_NOT_REACHED', 'CARD_NOT_REACHED', 'OPERATION_NOT_REACHED', 'UNTAKEN_BRANCH', 'UNTAKEN', 'FAIL_STOP_BLOCKED', 'BLOCKED', 'EXPLICIT_SKIP', 'SKIPPED', 'NOT_STARTED'):
+            for value in ('NOT_REACHED', 'SUBJECT_NOT_REACHED', 'CARD_NOT_REACHED', 'OPERATION_NOT_REACHED', 'UNTAKEN_BRANCH', 'UNTAKEN', 'FAIL_STOP_BLOCKED', 'PRIOR_FAIL_STOP', 'BLOCKED', 'EXPLICIT_SKIP', 'SKIPPED', 'NOT_STARTED'):
                 conditions(name, when(status, value, forbidden=('failure_record_id',)))
     co_present('failure_record', ('failure_card_id', 'failure_card_execution_id'))
     for kind in ('JOB', 'RUN', 'BACKEND_SELECTION_SCOPE', 'LOWERING'):
@@ -265,10 +271,9 @@ def build_schema():
                          ('machinery_use_record', ('source_card_ids', 'card_execution_ids')),
                          ('cache_reuse_record', ('source_card_ids', 'card_execution_ids'))):
         co_present(name, fields)
-        # Output and machinery-use projections explicitly forbid empty lineage placeholders.
-        if name in ('output', 'machinery_use_record'):
-            for field in fields:
-                defs[name]['properties'][field]['minItems'] = 1
+        # Retained lineage inventories cannot be empty placeholders.
+        for field in fields:
+            defs[name]['properties'][field]['minItems'] = 1
     for name, rule in (('qualifier_lowering_decision', 'lowering_rule_id'), ('type_unit_lowering_decision', 'lowering_rule_id'), ('sequencing_mapping', 'mapping_rule_id')):
         defs[name].setdefault('dependentRequired', {})['validation_evidence_id'] = [rule]
     semantic_card_subject = {'properties': {'representation_kind': {'const': 'SEMANTIC_IR'}, 'subject_kind': {'const': 'CARD'}},

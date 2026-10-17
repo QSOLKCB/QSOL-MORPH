@@ -31,6 +31,7 @@ class TraceSchemaContractTests(unittest.TestCase):
         setup = {'scope_kind': 'RUN', 'scope_id': 'run'}
         self.assertFalse(self.valid('machinery_use_record', dict(use, initiating_scope_ref=setup)))
         empty = dict(use, execution_subject_refs=[])
+        empty.pop('source_card_ids'); empty.pop('card_execution_ids')
         self.assertFalse(self.valid('machinery_use_record', empty))
         self.assertTrue(self.valid('machinery_use_record', dict(empty, initiating_scope_ref=setup)))
 
@@ -362,7 +363,7 @@ class TraceSchemaContractTests(unittest.TestCase):
         cause_sets = ({'governing_control_decision_id': 'control'},
                       {'governing_failure_record_id': 'failure'},
                       {'governing_skip_rule_id': 'rule', 'skip_verification_evidence_id': 'evidence'})
-        for status in ('NOT_REACHED', 'SUBJECT_NOT_REACHED', 'OPERATION_NOT_REACHED', 'UNTAKEN', 'SKIPPED', 'BLOCKED'):
+        for status in ('NOT_REACHED', 'SUBJECT_NOT_REACHED', 'OPERATION_NOT_REACHED'):
             not_reached = dict(base, operation_status=status)
             for count in range(4):
                 for selected in itertools.combinations(cause_sets, count):
@@ -492,6 +493,68 @@ class TraceSchemaContractTests(unittest.TestCase):
             subject.update(representation_kind='QSOL_CORE', subject_kind='CORE_OPERATION')
         material_input['consumer_card_execution_ids'] = []
         self.assertTrue(self.valid('input', material_input))
+
+
+    def test_status_aliases_choose_exact_cause_namespace(self):
+        cause_sets = {'UNTAKEN': {'governing_control_decision_id': 'control'},
+                      'BLOCKED': {'governing_failure_record_id': 'failure'},
+                      'SKIPPED': {'governing_skip_rule_id': 'rule', 'skip_verification_evidence_id': 'evidence'}}
+        for name, status_field in (('card_execution', 'card_status'), ('operation_execution', 'operation_status'), ('effect_non_attempt_record', 'non_attempt_reason')):
+            base = self.minimal_record(name)
+            if name == 'effect_non_attempt_record':
+                base.update(card_id='card', card_execution_id='card-execution')
+            for status, correct in cause_sets.items():
+                for cause_status, cause in cause_sets.items():
+                    with self.subTest(record=name, status=status, cause=cause_status):
+                        candidate = dict(base, **{status_field: status}, **cause)
+                        self.assertEqual(self.valid(name, candidate), status == cause_status)
+                self.assertFalse(self.valid(name, dict(base, **{status_field: status})))
+                for extra_status, extra in cause_sets.items():
+                    if extra_status != status:
+                        mixed = dict(base, **{status_field: status}, **correct, **extra)
+                        self.assertFalse(self.valid(name, mixed))
+        deck = self.minimal_record('deck_execution')
+        deck['deck_status'] = 'BLOCKED'
+        self.assertFalse(self.valid('deck_execution', deck))
+        self.assertTrue(self.valid('deck_execution', dict(deck, governing_failure_record_id='failure')))
+
+    def test_lower_cache_projection_pair_is_absent_or_nonempty(self):
+        cache = copy.deepcopy(attributed()['cache_reuse_records'][0])
+        for subject in cache['execution_subject_refs']:
+            subject.update(representation_kind='QSOL_CORE', subject_kind='CORE_OPERATION')
+        self.assertTrue(self.valid('cache_reuse_record', cache))
+        fields = ('source_card_ids', 'card_execution_ids')
+        for selected in ((fields[0],), (fields[1],), fields):
+            with self.subTest(empty=selected):
+                self.assertFalse(self.valid('cache_reuse_record', dict(cache, **{field: [] for field in selected})))
+        for field in fields: cache.pop(field)
+        self.assertTrue(self.valid('cache_reuse_record', cache))
+
+    def test_setup_machinery_forbids_card_projection_fields_even_nonempty(self):
+        setup = copy.deepcopy(protected()['machinery_use_records'][0])
+        setup.update(execution_subject_refs=[], initiating_scope_ref={'scope_kind': 'RUN', 'scope_id': 'run'}, output_ids=[])
+        fields = ('source_card_ids', 'card_execution_ids')
+        for field in fields: setup.pop(field)
+        for kind in ('RUN', 'DECK_EXECUTION'):
+            setup['initiating_scope_ref']['scope_kind'] = kind
+            self.assertTrue(self.valid('machinery_use_record', setup))
+            for selected in ((fields[0],), (fields[1],), fields):
+                for projection in ([], ['card']):
+                    with self.subTest(kind=kind, fields=selected, projection=projection):
+                        self.assertFalse(self.valid('machinery_use_record', dict(setup, **{field: projection for field in selected})))
+
+
+    def test_failure_alias_counterparts_in_open_status_records(self):
+        for name, status_field in (('operation_execution', 'operation_status'), ('effect_non_attempt_record', 'non_attempt_reason')):
+            base = self.minimal_record(name)
+            if name == 'effect_non_attempt_record': base.update(card_id='card', card_execution_id='card-execution')
+            for status in ('FAIL_STOP_BLOCKED', 'PRIOR_FAIL_STOP'):
+                candidate = dict(base, **{status_field: status})
+                self.assertFalse(self.valid(name, candidate))
+                self.assertFalse(self.valid(name, dict(candidate, governing_control_decision_id='control')))
+                self.assertTrue(self.valid(name, dict(candidate, governing_failure_record_id='failure')))
+                if name == 'operation_execution':
+                    self.assertFalse(self.valid(name, dict(candidate, governing_failure_record_id='failure', failure_record_id='own')))
 
 
 if __name__ == '__main__':

@@ -3186,7 +3186,21 @@
           "then": {
             "required": [
               "initiating_scope_ref"
-            ]
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "source_card_ids"
+                  ]
+                },
+                {
+                  "required": [
+                    "card_execution_ids"
+                  ]
+                }
+              ]
+            }
           },
           "else": {
             "not": {
@@ -4677,6 +4691,23 @@
               "governing_failure_record_id"
             ]
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "deck_status": {
+                "const": "BLOCKED"
+              }
+            },
+            "required": [
+              "deck_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
         }
       ]
     },
@@ -4823,6 +4854,188 @@
           "then": {
             "required": [
               "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "UNTAKEN"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_control_decision_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "BLOCKED"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "FAIL_STOP_BLOCKED"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "PRIOR_FAIL_STOP"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "SKIPPED"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_skip_rule_id",
+              "skip_verification_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "UNTAKEN"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "SKIPPED"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "BLOCKED"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
             ]
           }
         },
@@ -5086,102 +5299,6 @@
           "if": {
             "properties": {
               "card_status": {
-                "const": "UNTAKEN"
-              }
-            },
-            "required": [
-              "card_status"
-            ]
-          },
-          "then": {
-            "oneOf": [
-              {
-                "required": [
-                  "governing_control_decision_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_failure_record_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_skip_rule_id",
-                  "skip_verification_evidence_id"
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "card_status": {
-                "const": "SKIPPED"
-              }
-            },
-            "required": [
-              "card_status"
-            ]
-          },
-          "then": {
-            "oneOf": [
-              {
-                "required": [
-                  "governing_control_decision_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_failure_record_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_skip_rule_id",
-                  "skip_verification_evidence_id"
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "card_status": {
-                "const": "BLOCKED"
-              }
-            },
-            "required": [
-              "card_status"
-            ]
-          },
-          "then": {
-            "oneOf": [
-              {
-                "required": [
-                  "governing_control_decision_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_failure_record_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_skip_rule_id",
-                  "skip_verification_evidence_id"
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "card_status": {
                 "const": "NOT_REACHED"
               }
             },
@@ -5321,6 +5438,29 @@
             "properties": {
               "card_status": {
                 "const": "FAIL_STOP_BLOCKED"
+              }
+            },
+            "required": [
+              "card_status"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "failure_record_id"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "card_status": {
+                "const": "PRIOR_FAIL_STOP"
               }
             },
             "required": [
@@ -5608,6 +5748,188 @@
           "if": {
             "properties": {
               "operation_status": {
+                "const": "UNTAKEN"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_control_decision_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "BLOCKED"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "FAIL_STOP_BLOCKED"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "PRIOR_FAIL_STOP"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "SKIPPED"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_skip_rule_id",
+              "skip_verification_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "UNTAKEN"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "SKIPPED"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "BLOCKED"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
                 "const": "NOT_REACHED"
               }
             },
@@ -5864,102 +6186,6 @@
           "if": {
             "properties": {
               "operation_status": {
-                "const": "UNTAKEN"
-              }
-            },
-            "required": [
-              "operation_status"
-            ]
-          },
-          "then": {
-            "oneOf": [
-              {
-                "required": [
-                  "governing_control_decision_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_failure_record_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_skip_rule_id",
-                  "skip_verification_evidence_id"
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "operation_status": {
-                "const": "SKIPPED"
-              }
-            },
-            "required": [
-              "operation_status"
-            ]
-          },
-          "then": {
-            "oneOf": [
-              {
-                "required": [
-                  "governing_control_decision_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_failure_record_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_skip_rule_id",
-                  "skip_verification_evidence_id"
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "operation_status": {
-                "const": "BLOCKED"
-              }
-            },
-            "required": [
-              "operation_status"
-            ]
-          },
-          "then": {
-            "oneOf": [
-              {
-                "required": [
-                  "governing_control_decision_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_failure_record_id"
-                ]
-              },
-              {
-                "required": [
-                  "governing_skip_rule_id",
-                  "skip_verification_evidence_id"
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "operation_status": {
                 "const": "NOT_REACHED"
               }
             },
@@ -6099,6 +6325,29 @@
             "properties": {
               "operation_status": {
                 "const": "FAIL_STOP_BLOCKED"
+              }
+            },
+            "required": [
+              "operation_status"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "failure_record_id"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation_status": {
+                "const": "PRIOR_FAIL_STOP"
               }
             },
             "required": [
@@ -7176,6 +7425,188 @@
           "if": {
             "properties": {
               "non_attempt_reason": {
+                "const": "UNTAKEN"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_control_decision_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "BLOCKED"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "FAIL_STOP_BLOCKED"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "PRIOR_FAIL_STOP"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_failure_record_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "SKIPPED"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "governing_skip_rule_id",
+              "skip_verification_evidence_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "UNTAKEN"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "SKIPPED"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
+                "const": "BLOCKED"
+              }
+            },
+            "required": [
+              "non_attempt_reason"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "governing_control_decision_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_failure_record_id"
+                ]
+              },
+              {
+                "required": [
+                  "governing_skip_rule_id",
+                  "skip_verification_evidence_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "non_attempt_reason": {
                 "const": "NOT_REACHED"
               }
             },
@@ -7649,7 +8080,7 @@
           "items": {
             "$ref": "#/$defs/identity"
           },
-          "minItems": 0,
+          "minItems": 1,
           "uniqueItems": true
         },
         "card_execution_ids": {
@@ -7657,7 +8088,7 @@
           "items": {
             "$ref": "#/$defs/identity"
           },
-          "minItems": 0,
+          "minItems": 1,
           "uniqueItems": true
         },
         "reused_computation_id": {
